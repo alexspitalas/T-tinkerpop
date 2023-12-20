@@ -1148,7 +1148,7 @@ traversalSackMethod
     ;
 
 traversalSelfMethod
-    : traversalSelfMethod_none
+    : traversalSelfMethod_discard
     ;
 
 // Additional special rules that are derived from above
@@ -1282,8 +1282,8 @@ traversalTerminalMethod_toBulkSet
     : 'toBulkSet' LPAREN RPAREN
     ;
 
-traversalSelfMethod_none
-    : 'none' LPAREN RPAREN
+traversalSelfMethod_discard
+    : 'discard' LPAREN RPAREN
     ;
 
 // Gremlin specific lexer rules
