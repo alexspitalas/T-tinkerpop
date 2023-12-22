@@ -692,6 +692,10 @@ class GraphTraversal(Traversal):
         self.bytecode.add_step("min", *args)
         return self
 
+    def none(self, *args):
+        self.bytecode.add_step("none", *args)
+        return self
+
     def not_(self, *args):
         self.bytecode.add_step("not", *args)
         return self
@@ -1455,6 +1459,10 @@ class __(object, metaclass=MagicType):
     @classmethod
     def min_(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).min_(*args)
+
+    @classmethod
+    def none(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).none(*args)
 
     @classmethod
     def not_(cls, *args):
