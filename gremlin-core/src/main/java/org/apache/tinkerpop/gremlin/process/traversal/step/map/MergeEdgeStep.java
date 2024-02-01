@@ -389,7 +389,7 @@ public class MergeEdgeStep<S> extends MergeStep<S, Edge, Object> {
             return tryAttachVertex(v);
         }
         throw new IllegalArgumentException(
-                String.format("Vertex could not be resolved from mergeE: %s", o));
+                String.format("Vertex does not exist for mergeE: %s", o));
     }
 
     /*
@@ -404,7 +404,7 @@ public class MergeEdgeStep<S> extends MergeStep<S, Edge, Object> {
         try (CloseableIterator<Vertex> it = CloseableIterator.of(getGraph().vertices(arg))) {
             if (!it.hasNext())
                 throw new IllegalArgumentException(
-                        String.format("Vertex id could not be resolved from mergeE: %s", arg));
+                        String.format("Vertex does not exist for mergeE: %s", arg));
             return it.next();
         }
     }
@@ -419,7 +419,7 @@ public class MergeEdgeStep<S> extends MergeStep<S, Edge, Object> {
                 return ((Attachable<Vertex>) v).attach(Attachable.Method.get(getGraph()));
             } catch (IllegalStateException ise) {
                 throw new IllegalArgumentException(
-                        String.format("Vertex could not be resolved from mergeE: %s", v));
+                        String.format("Vertex does not exist for mergeE: %s", v));
             }
         } else {
             return v;
