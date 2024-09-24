@@ -144,7 +144,7 @@ describe('Traversal', function () {
         assert.ok(list);
         assert.strictEqual(list.length, 6);
         list.forEach(e => assert.ok(e instanceof Edge));
-        // due to the way edge is constructed, edge properties will be {} regardless if it's null or []
+        // due to the way edge is constructed, edge properties will be {} or []
         list.forEach(e => assert.strictEqual(Object.keys(e.properties).length, 0));
       });
     });
