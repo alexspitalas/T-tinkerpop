@@ -30,6 +30,7 @@
 #nullable disable
 
 using System;
+using System.Numerics;
 using System.Collections.Generic;
 using Gremlin.Net.Structure;
 using Gremlin.Net.Process.Traversal;
