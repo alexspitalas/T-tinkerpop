@@ -3232,6 +3232,15 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         }
         return this;
     }
+
+
+    public default GraphTraversal<S, E> lifeTime(final String startTime, final String endTime)
+    {
+        this.asAdmin().getBytecode().addStep(Symbols.lifeTime, startTime, endTime);
+        return this.asAdmin().addStep(new AddHistoricalTimeStep<>(this.asAdmin(), startTime, endTime));
+    }
+
+
     ///////////////////// BRANCH STEPS /////////////////////
 
     /**
@@ -4140,7 +4149,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String sideEffect = "sideEffect";
         public static final String cap = "cap";
         public static final String property = "property";
-
+        public static final String lifeTime = "lifeTime";
         /**
          * @deprecated As of release 3.4.3, replaced by {@link Symbols#aggregate} with a {@link Scope#local}.
          */

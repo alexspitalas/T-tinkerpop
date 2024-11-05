@@ -719,6 +719,7 @@ public interface Graph extends AutoCloseable, Host {
             String FEATURE_CUSTOM_IDS = "CustomIds";
             String FEATURE_ANY_IDS = "AnyIds";
             String FEATURE_ADD_PROPERTY = "AddProperty";
+            String FEATURE_ADD_LIFETIME = "AddLifetime";
             String FEATURE_REMOVE_PROPERTY = "RemoveProperty";
             String FEATURE_NULL_PROPERTY_VALUES = "NullPropertyValues";
 
@@ -738,6 +739,15 @@ public interface Graph extends AutoCloseable, Host {
              */
             @FeatureDescriptor(name = FEATURE_ADD_PROPERTY)
             default boolean supportsAddProperty() {
+                return true;
+            }
+
+            /**
+             * Determines if an {@link Element} allows properties to be added.  This feature is set independently from
+             * supporting "data types" and refers to support of calls to {@link Element#lifetime(String, String)}.
+             */
+            @FeatureDescriptor(name = FEATURE_ADD_LIFETIME)
+            default boolean supportsAddLifetime() {
                 return true;
             }
 

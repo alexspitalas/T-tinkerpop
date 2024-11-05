@@ -22,6 +22,7 @@ import org.apache.tinkerpop.gremlin.AbstractGremlinTest;
 import org.apache.tinkerpop.gremlin.ExceptionCoverage;
 import org.apache.tinkerpop.gremlin.FeatureRequirement;
 import org.apache.tinkerpop.gremlin.FeatureRequirementSet;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.AddTimeStep;
 import org.apache.tinkerpop.gremlin.structure.Graph.Features.VertexFeatures;
 import org.apache.tinkerpop.gremlin.structure.Graph.Features.VertexPropertyFeatures;
 import org.apache.tinkerpop.gremlin.structure.io.util.CustomId;
@@ -43,6 +44,7 @@ import static org.apache.tinkerpop.gremlin.structure.Graph.Features.DataTypeFeat
 import static org.apache.tinkerpop.gremlin.structure.Graph.Features.DataTypeFeatures.FEATURE_INTEGER_VALUES;
 import static org.apache.tinkerpop.gremlin.structure.Graph.Features.DataTypeFeatures.FEATURE_LONG_VALUES;
 import static org.apache.tinkerpop.gremlin.structure.Graph.Features.DataTypeFeatures.FEATURE_STRING_VALUES;
+import static org.apache.tinkerpop.gremlin.structure.Graph.Features.ElementFeatures.FEATURE_USER_SUPPLIED_IDS;
 import static org.apache.tinkerpop.gremlin.structure.Graph.Features.VertexFeatures.FEATURE_USER_SUPPLIED_IDS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -579,5 +581,17 @@ public class VertexTest {
             final Vertex v = graph.addVertex();
             assertEquals(0, IteratorUtils.count(v.properties()));
         }
+
+        @Test
+        public void shouldAddTimePropertiesToVertex() {
+            
+            Vertex v = graph.addV(T.label, "person", "name", "marko").next();
+    
+            v.historicTime("startTime", "2023-01-01T00:00:00Z");
+    
+            assertEquals("2023-01-01T00:00:00Z", v.property("startTime").value());
+            assertEquals("2023-12-31T23:59:59Z", v.property("endTime").value());
+        }
+        
     }
 }
