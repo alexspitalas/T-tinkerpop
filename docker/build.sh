@@ -116,7 +116,7 @@ export GREMLIN_SERVER=$(grep tinkerpop -A2 pom.xml | sed -r -n 's/.*<version>(([
 echo "GREMLIN_SERVER ${GREMLIN_SERVER}"
 
 docker build -t tinkerpop:${BUILD_TAG} .
-docker run -p 80:80 ${TINKERPOP_DOCKER_OPTS} ${REMOVE_CONTAINER} \
+docker run -p 81:80 ${TINKERPOP_DOCKER_OPTS} ${REMOVE_CONTAINER} \
            -e "JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64" \
            -ti \
            --mount type=bind,src=${HOME}/.m2/,dst=/root/.m2/ \
@@ -172,3 +172,4 @@ if [ -n "${INCLUDE_CONSOLE}" ] && [ -n "${RUN_INTEGRATION_TESTS}" ]; then
 fi
 
 exit 0
+

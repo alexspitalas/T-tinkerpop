@@ -582,16 +582,19 @@ public class VertexTest {
             assertEquals(0, IteratorUtils.count(v.properties()));
         }
 
-        @Test
-        public void shouldAddTimePropertiesToVertex() {
+        // @Test
+        // @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+        // @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+        // @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_LIFETIME)
+        // public void shouldAddTimePropertiesToVertex() {
             
-            Vertex v = graph.addV(T.label, "person", "name", "marko").next();
+        //     Vertex v = graph.addV(T.label, "person", "name", "marko").next();
     
-            v.historicTime("startTime", "2023-01-01T00:00:00Z");
+        //     v.lifetime("1", "3");
     
-            assertEquals("2023-01-01T00:00:00Z", v.property("startTime").value());
-            assertEquals("2023-12-31T23:59:59Z", v.property("endTime").value());
-        }
+        //     assertEquals("1", v.property("startTime").value());
+        //     assertEquals("3", v.property("endTime").value());
+        // }
         
     }
 }

@@ -119,6 +119,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.LambdaFlatMapStep
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LambdaMapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthLocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LoopsStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MatchStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MathStep;
@@ -3236,8 +3237,9 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
     public default GraphTraversal<S, E> lifeTime(final String startTime, final String endTime)
     {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifeTime, startTime, endTime);
-        return this.asAdmin().addStep(new AddHistoricalTimeStep<>(this.asAdmin(), startTime, endTime));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime));
     }
 
 

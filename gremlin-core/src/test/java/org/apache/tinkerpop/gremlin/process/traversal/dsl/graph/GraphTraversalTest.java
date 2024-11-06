@@ -31,6 +31,13 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
+
+
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -236,6 +243,18 @@ public class GraphTraversalTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void shouldAddTimePropertiesToVertex(){
+        
+        Graph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex v = g.addV("1").lifeTime("1","3").next();
+
+        assertEquals("1", v.property("startTime").value());
+        assertEquals("3", v.property("endTime").value());
     }
 
     private static void randomPossibleStep(final Random random, final GraphTraversal t, final Consumer<GraphTraversal>... possible) {

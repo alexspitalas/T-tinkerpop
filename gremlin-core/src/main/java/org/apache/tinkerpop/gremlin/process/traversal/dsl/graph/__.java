@@ -1316,6 +1316,14 @@ public class __ {
         return __.<A>start().property(value);
     }
 
+      /**
+     * @see GraphTraversal#lifeTime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifeTime(final String startTime, final String endTime) {
+        return __.<A>start().lifeTime(startTime, endTime);
+    }
+
+
     ///////////////////// BRANCH STEPS /////////////////////
 
     /**

@@ -17,27 +17,34 @@
  * under the License.
  */
 
-import org.apache.tinkerpop.gremlin.process.traversal.Step;
+ package org.apache.tinkerpop.gremlin.process.traversal.step.map;
+
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
+import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
-public class AddTimeStep extends AbstractStep<Vertex, Vertex> {
+import java.util.NoSuchElementException;
+
+public class LifetimeStep<S> extends AbstractStep<S, S> {
     private final String startTime;
     private final String endTime;
 
-    public AddTimeStep(Traversal.Admin traversal, String startTime, String endTime) {
+    public LifetimeStep(final Traversal.Admin traversal, final String startTime, final String endTime) {
         super(traversal);
         this.startTime = startTime;
         this.endTime = endTime;
     }
 
     @Override
-    protected Traverser.Admin<Vertex> processNextStart() {
-        final Traverser.Admin<Vertex> traverser = this.starts.next();
-        final Vertex vertex = traverser.get();
-        vertex.property("startTime", this.startTime);
-        vertex.property("endTime", this.endTime);
+    protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
+        final Traverser.Admin<S> traverser = this.starts.next();
+        
+        if( traverser.get() instanceof Vertex){
+            final Vertex vertex = (Vertex) traverser.get();
+            vertex.property("startTime", this.startTime);
+            vertex.property("endTime", this.endTime);
+        }
         return traverser;
     }
 }

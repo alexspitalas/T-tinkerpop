@@ -84,6 +84,11 @@ public abstract interface Element {
      */
     public <V> Property<V> property(final String key, final V value);
 
+
+    // public default <V> Property<V> lifetime(final String startTime, final String endTime)
+    // {
+        
+    // }
     /**
      * Get the value of a {@link Property} given it's key.
      * The default implementation calls {@link Element#property} and then returns the associated value.
