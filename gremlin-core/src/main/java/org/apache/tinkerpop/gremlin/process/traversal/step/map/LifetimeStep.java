@@ -20,13 +20,14 @@
  package org.apache.tinkerpop.gremlin.process.traversal.step.map;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
+import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 
 import java.util.NoSuchElementException;
 
-public class LifetimeStep<S> extends AbstractStep<S, S> {
+public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
     private final String startTime;
     private final String endTime;
 
@@ -35,6 +36,9 @@ public class LifetimeStep<S> extends AbstractStep<S, S> {
         this.startTime = startTime;
         this.endTime = endTime;
     }
+
+    @Override
+    public int hashCode() { return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode() ; }
 
     @Override
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
