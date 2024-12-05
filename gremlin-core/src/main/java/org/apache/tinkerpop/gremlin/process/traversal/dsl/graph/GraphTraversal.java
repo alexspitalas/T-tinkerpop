@@ -118,6 +118,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.LambdaFlatMapStep
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LambdaMapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthLocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LoopsStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MatchStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MathStep;
@@ -3218,6 +3219,13 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         }
         return this;
     }
+
+    public default GraphTraversal<S, E> lifetime(final String startTime, final String endTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime));
+    }
     ///////////////////// BRANCH STEPS /////////////////////
 
     /**
@@ -4125,6 +4133,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String sideEffect = "sideEffect";
         public static final String cap = "cap";
         public static final String property = "property";
+        public static final String lifetime = "lifetime";
 
         /**
          * @deprecated As of release 3.4.3, replaced by {@link Symbols#aggregate} with a {@link Scope#local}.

@@ -95,6 +95,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("animal", vertex.label());
         assertEquals(29, vertex.<Integer>value("age").intValue());
         assertEquals("puppy", vertex.<String>value("name"));
+        assertEquals("1", vertex.<String>value("startTime"));
+        assertEquals("2", vertex.<String>value("endTime"));
         assertFalse(traversal.hasNext());
         assertEquals(7, IteratorUtils.count(g.V()));
     }
@@ -332,7 +334,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
 
         @Override
         public Traversal<Vertex, Vertex> get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX(final Object v1Id) {
-            return g.V(v1Id).as("a").addV("animal").property("age", select("a").by("age")).property("name", "puppy");
+            return g.V(v1Id).as("a").addV("animal").property("age", select("a").by("age")).property("name", "puppy").lifetime("1", "2");
         }
 
         @Override
