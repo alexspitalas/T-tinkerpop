@@ -3226,6 +3226,13 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime));
     }
+
+    public default GraphTraversal<S, E> lifetime(final String startTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null));
+    }
     ///////////////////// BRANCH STEPS /////////////////////
 
     /**

@@ -42,10 +42,7 @@ import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.V;
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.select;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.junit.Assume.assumeThat;
 
 /**
@@ -54,11 +51,15 @@ import static org.junit.Assume.assumeThat;
 @RunWith(GremlinProcessRunner.class)
 public abstract class AddVertexTest extends AbstractGremlinTest {
 
-    public abstract Traversal<Vertex, Vertex> get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX(final Object v1Id);
+    public abstract Traversal<Vertex, Vertex> get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX_lifetimeXstartTime_1XendTime2X(final Object v1Id);
 
     public abstract Traversal<Vertex, Vertex> get_g_V_addVXanimalX_propertyXage_0X();
 
     public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_propertyXname_stephenX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDateXendTime_deathDateX_propertyXname_chrisX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX();
 
     public abstract Traversal<Vertex, Vertex> get_g_V_hasLabelXpersonX_propertyXname_nullX();
 
@@ -88,8 +89,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
     @LoadGraphWith(MODERN)
     @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
     @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
-    public void g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX() {
-        final Traversal<Vertex, Vertex> traversal = get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX(convertToVertexId(graph, "marko"));
+    public void g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX_lifetimeXstartTime_1XendTime2X() {
+        final Traversal<Vertex, Vertex> traversal = get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX_lifetimeXstartTime_1XendTime2X(convertToVertexId(graph, "marko"));
         printTraversalForm(traversal);
         final Vertex vertex = traversal.next();
         assertEquals("animal", vertex.label());
@@ -143,6 +144,40 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", stephen.label());
         assertEquals("stephen", stephen.value("name"));
         assertEquals(1, IteratorUtils.count(stephen.properties()));
+        assertEquals(7, IteratorUtils.count(g.V()));
+    }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_V_addVpersonX_lifetimeXstartTime_birthDateXendTime_deathDateX_propertyXname_chrisX() {
+        final Traversal<Vertex, Vertex> traversal = get_g_V_addVpersonX_lifetimeXstartTime_birthDateXendTime_deathDateX_propertyXname_chrisX();
+        printTraversalForm(traversal);
+        final Vertex chris = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", chris.label());
+        assertEquals("24-08-2004", chris.value("startTime"));
+        assertEquals("24-08-2104", chris.value("endTime"));
+        assertEquals("chris", chris.value("name"));
+        assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
+        assertEquals(7, IteratorUtils.count(g.V()));
+    }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX() {
+        final Traversal<Vertex, Vertex> traversal = get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX();
+        printTraversalForm(traversal);
+        final Vertex chris = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", chris.label());
+        assertEquals("24-08-2004", chris.value("startTime"));
+        assertEquals("1e10", chris.value("endTime"));
+        assertEquals("chris", chris.value("name"));
+        assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
         assertEquals(7, IteratorUtils.count(g.V()));
     }
 
@@ -333,7 +368,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
     public static class Traversals extends AddVertexTest {
 
         @Override
-        public Traversal<Vertex, Vertex> get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX(final Object v1Id) {
+        public Traversal<Vertex, Vertex> get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX_lifetimeXstartTime_1XendTime2X(final Object v1Id) {
             return g.V(v1Id).as("a").addV("animal").property("age", select("a").by("age")).property("name", "puppy").lifetime("1", "2");
         }
 
@@ -345,6 +380,16 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         @Override
         public Traversal<Vertex, Vertex> get_g_addVXpersonX_propertyXname_stephenX() {
             return g.addV("person").property("name", "stephen");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDateXendTime_deathDateX_propertyXname_chrisX() {
+            return g.addV("person").lifetime("24-08-2004", "24-08-2104").property("name", "chris");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX() {
+            return g.addV("person").lifetime("24-08-2004").property("name", "chris");
         }
 
         @Override

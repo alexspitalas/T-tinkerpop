@@ -24,21 +24,23 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.Edge;
 
 import java.util.NoSuchElementException;
 
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
     private final String startTime;
     private final String endTime;
+    public static final String DEFAULT_ENDTIME = "1e10";
 
     public LifetimeStep(final Traversal.Admin traversal, final String startTime, final String endTime) {
         super(traversal);
         this.startTime = startTime;
-        this.endTime = endTime;
+        this.endTime = (endTime == null) ? DEFAULT_ENDTIME : endTime;
     }
 
     @Override
-    public int hashCode() { return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode() ; }
+    public int hashCode() {return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode();}
 
     @Override
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
@@ -48,6 +50,11 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             final Vertex vertex = (Vertex) traverser.get();
             vertex.property("startTime", this.startTime);
             vertex.property("endTime", this.endTime);
+
+        }else if ( traverser.get() instanceof  Edge){
+            final Edge edge = (Edge) traverser.get();
+            edge.property("startTime", this.startTime);
+            edge.property("endTime", this.endTime);
         }
         return traverser;
     }
