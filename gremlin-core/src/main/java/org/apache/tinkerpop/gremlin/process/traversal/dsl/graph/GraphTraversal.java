@@ -3220,18 +3220,25 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this;
     }
 
+    public default GraphTraversal<S, E> lifetime(final String propertyKey, final String propertyValue, final String startTime, final String endTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, propertyKey, propertyValue, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+    }
+
     public default GraphTraversal<S, E> lifetime(final String startTime, final String endTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
 
     public default GraphTraversal<S, E> lifetime(final String startTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
     }
     ///////////////////// BRANCH STEPS /////////////////////
 

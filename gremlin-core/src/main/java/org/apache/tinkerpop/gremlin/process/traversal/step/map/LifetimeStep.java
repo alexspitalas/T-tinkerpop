@@ -31,16 +31,25 @@ import java.util.NoSuchElementException;
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
     private final String startTime;
     private final String endTime;
+    private final String propertyKey;
+    private final String propertyValue;
     public static final String DEFAULT_ENDTIME = "1e10";
 
-    public LifetimeStep(final Traversal.Admin traversal, final String startTime, final String endTime) {
+    public LifetimeStep(final Traversal.Admin traversal, final String startTime, final String endTime, final String propertyKey, final String propertyValue) {
         super(traversal);
         this.startTime = startTime;
         this.endTime = (endTime == null) ? DEFAULT_ENDTIME : endTime;
+        this.propertyKey = propertyKey;
+        this.propertyValue = propertyValue;
     }
 
     @Override
-    public int hashCode() {return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode();}
+    public int hashCode() {
+        if (this.propertyKey == null) {
+            return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode();
+        }
+        return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode() ^ this.propertyKey.hashCode();
+    }
 
     @Override
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
@@ -48,9 +57,13 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
         if( traverser.get() instanceof Vertex){
             final Vertex vertex = (Vertex) traverser.get();
-            vertex.property("startTime", this.startTime);
-            vertex.property("endTime", this.endTime);
 
+            if (this.propertyKey != null){
+                vertex.property(this.propertyKey, this.propertyValue, "startTime", this.startTime , "endTime", this.endTime);
+            } else {
+                vertex.property("startTime", this.startTime);
+                vertex.property("endTime", this.endTime);
+            }
         }else if ( traverser.get() instanceof  Edge){
             final Edge edge = (Edge) traverser.get();
             edge.property("startTime", this.startTime);

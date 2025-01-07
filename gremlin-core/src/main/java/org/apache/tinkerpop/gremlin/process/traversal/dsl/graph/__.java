@@ -1312,6 +1312,13 @@ public class __ {
         return __.<A>start().property(value);
     }
 
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetime( final String propertyKey, final String propertyValue, final String startTime, final String endTime) {
+        return __.<A>start().lifetime(propertyKey, propertyValue ,startTime, endTime);
+    }
+
 
     /**
      * @see GraphTraversal#lifetime(Map)

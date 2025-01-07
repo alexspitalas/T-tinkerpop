@@ -29,6 +29,7 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,7 +43,10 @@ import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.V;
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.select;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeThat;
 
 /**
@@ -60,6 +64,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
     public abstract Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDateXendTime_deathDateX_propertyXname_chrisX();
 
     public abstract Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime();
 
     public abstract Traversal<Vertex, Vertex> get_g_V_hasLabelXpersonX_propertyXname_nullX();
 
@@ -180,6 +186,36 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
         assertEquals(7, IteratorUtils.count(g.V()));
     }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
+    public void g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime() {
+        final Traversal<Vertex, Vertex> traversal = get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime();
+        printTraversalForm(traversal);
+        final Vertex chris = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("chris", chris.value("name"));
+
+        VertexProperty<Object> nameProperty = chris.property("name");
+        if (nameProperty.isPresent()) {
+            Property<Object> startTimeMetaProperty = nameProperty.property("startTime");
+            if (startTimeMetaProperty.isPresent()) {
+                Object startTime = startTimeMetaProperty.value();
+                System.out.println("Meta-property 'startTime' of 'name': " + startTime);
+                assertEquals("4-04-2006", startTime);
+            } else {
+                System.out.println("Meta-property 'startTime' not found.");
+            }
+        } else {
+            System.out.println("Property 'name' not found.");
+        }
+
+        assertEquals(0, 1);
+    }
+
 
     @Test
     @LoadGraphWith(MODERN)
@@ -390,6 +426,11 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         @Override
         public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX() {
             return g.addV("person").lifetime("24-08-2004").property("name", "chris");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime() {
+            return g.addV("person").property(VertexProperty.Cardinality.single,"name", "chris", "startTime", "4-04-2006");
         }
 
         @Override
