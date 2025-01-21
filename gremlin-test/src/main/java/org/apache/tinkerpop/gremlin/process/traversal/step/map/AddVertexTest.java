@@ -198,22 +198,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("chris", chris.value("name"));
+        assertEquals("4-04-2006", chris.property("name").property("startTime").value()); //4-04-2006"
 
-        VertexProperty<Object> nameProperty = chris.property("name");
-        if (nameProperty.isPresent()) {
-            Property<Object> startTimeMetaProperty = nameProperty.property("startTime");
-            if (startTimeMetaProperty.isPresent()) {
-                Object startTime = startTimeMetaProperty.value();
-                System.out.println("Meta-property 'startTime' of 'name': " + startTime);
-                assertEquals("4-04-2006", startTime);
-            } else {
-                System.out.println("Meta-property 'startTime' not found.");
-            }
-        } else {
-            System.out.println("Property 'name' not found.");
-        }
-
-        assertEquals(0, 1);
     }
 
 
