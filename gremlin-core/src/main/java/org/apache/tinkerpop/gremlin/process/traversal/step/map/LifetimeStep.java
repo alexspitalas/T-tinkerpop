@@ -24,7 +24,12 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;        
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import java.util.NoSuchElementException;
 
@@ -53,22 +58,43 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
     @Override
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
-        final Traverser.Admin<S> traverser = this.starts.next();
+      final Traverser.Admin<S> traverser = this.starts.next();
+        
+      if( traverser.get() instanceof Vertex){
+        final Vertex vertex = (Vertex) traverser.get();
 
-        if( traverser.get() instanceof Vertex){
-            final Vertex vertex = (Vertex) traverser.get();
+        if (this.propertyKey != null && this.propertyValue != null){
+            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", this.startTime , "endTime", this.endTime);
+        }else if (this.propertyKey != null){
+            
+          // Step 1: Store Previous metaProperties 
+          VertexProperty<Object> vp = vertex.property(propertyKey); 
+          String propertyValue = (String) vp.value(); 
+          Map<String, Object> metaProperties = new HashMap<>();
+          vp.properties().forEachRemaining(metaProp -> metaProperties.put(metaProp.key(), metaProp.value()));
 
-            if (this.propertyKey != null){
-                vertex.property(this.propertyKey, this.propertyValue, "startTime", this.startTime , "endTime", this.endTime);
-            } else {
-                vertex.property("startTime", this.startTime);
-                vertex.property("endTime", this.endTime);
-            }
-        }else if ( traverser.get() instanceof  Edge){
+          // Step 2: Delete the property
+          vertex.property(this.propertyKey).remove();
+
+          // Step 3: Recreate with extra meta-property
+          metaProperties.put("startTime", this.startTime);
+          metaProperties.put("endTime", this.endTime); // Add new meta-property
+          List<Object> args = new ArrayList<>();
+          metaProperties.forEach((key, value) -> {
+              args.add(key);
+              args.add(value);
+          });
+          vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue, args.toArray(new Object[0]));
+          }else{
+            vertex.property("startTime", this.startTime);
+            vertex.property("endTime", this.endTime);
+          }
+      }else if ( traverser.get() instanceof  Edge){
             final Edge edge = (Edge) traverser.get();
             edge.property("startTime", this.startTime);
             edge.property("endTime", this.endTime);
-        }
-        return traverser;
+      }
+
+      return traverser;
     }
 } 

@@ -3220,11 +3220,18 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this;
     }
 
-    public default GraphTraversal<S, E> lifetime(final String propertyKey, final String propertyValue, final String startTime, final String endTime)
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final String startTime, final String endTime)
     {
-        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
-        this.asAdmin().getBytecode().addStep(Symbols.lifetime, propertyKey, propertyValue, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+    }
+    
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String startTime, final String endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
     }
 
     public default GraphTraversal<S, E> lifetime(final String startTime, final String endTime)
@@ -4148,6 +4155,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String cap = "cap";
         public static final String property = "property";
         public static final String lifetime = "lifetime";
+        public static final String lifetimeProperty = "lifetimeProperty";
 
         /**
          * @deprecated As of release 3.4.3, replaced by {@link Symbols#aggregate} with a {@link Scope#local}.
