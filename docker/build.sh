@@ -112,12 +112,14 @@ function check_status {
 }
 
 # GREMLIN_SERVER is the project version e.g. 3.5.5-SNAPSHOT
-export GREMLIN_SERVER=$(grep tinkerpop -A2 pom.xml | sed -r -n 's/.*<version>(([0-9]+\.?){3})(-SNAPSHOT)?<\/version>/\1\3/p')
+export GREMLIN_SERVER=$(grep tinkerpop -A2 pom.xml | sed -r -n 's/.*<version>(([0-9]+\.?){3})(-SNAPSHOT|-T)?<\/version>/\1\3/p')
 echo "GREMLIN_SERVER ${GREMLIN_SERVER}"
-
+echo "${BUILD_TAG}"
+docker tag tinkerpop:${BUILD_TAG} tinkerpop/gremlin-server
 docker build -t tinkerpop:${BUILD_TAG} .
 docker run -p 81:80 ${TINKERPOP_DOCKER_OPTS} ${REMOVE_CONTAINER} \
            -e "JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64" \
+           -e "MAVEN_OPTS=-Drat.skip=true" \
            -ti \
            --mount type=bind,src=${HOME}/.m2/,dst=/root/.m2/ \
            --mount type=bind,src=$(pwd)/gremlin-server/,dst=/usr/src/tinkerpop/gremlin-server/ \
@@ -126,7 +128,6 @@ docker run -p 81:80 ${TINKERPOP_DOCKER_OPTS} ${REMOVE_CONTAINER} \
            --mount type=bind,src=$(pwd)/neo4j-gremlin/,dst=/usr/src/tinkerpop/neo4j-gremlin/ \
            tinkerpop:${BUILD_TAG}
 check_status
-
 if [ -n "${RUN_TESTS}" ]; then
   # If testing, then build base server which is required by the following docker compose.
   pushd ${ABS_PROJECT_HOME}/gremlin-server > /dev/null
