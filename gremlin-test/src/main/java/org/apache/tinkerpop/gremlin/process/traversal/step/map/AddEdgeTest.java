@@ -284,16 +284,16 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     @LoadGraphWith(MODERN)
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
     public void g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X() {
-        final Vertex a = g.V().has("name", "chris").next();
-        final Vertex b = g.V().has("name", "alex").next();
+        final Vertex a = g.V().has("name", "marko").next();
+        final Vertex b = g.V().has("name", "peter").next();
 
         final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X(a, b);
         printTraversalForm(traversal);
         final Edge edge = traversal.next();
-        assertEquals(edge.outVertex(), convertToVertex(graph, "chris"));
-        assertEquals(edge.inVertex(), convertToVertex(graph, "alex"));
+        assertEquals(edge.outVertex(), convertToVertex(graph, "marko"));
+        assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
-        assertEquals(1, IteratorUtils.count(edge.properties()));
+        assertEquals(3, IteratorUtils.count(edge.properties()));
         assertEquals("10-05-2022", edge.value("startTime"));
         assertEquals("10-05-2222", edge.value("endTime"));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
@@ -304,16 +304,16 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     @LoadGraphWith(MODERN)
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
     public void g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_20222X_propertyXweight_0_1X() {
-        final Vertex a = g.V().has("name", "chris").next();
-        final Vertex b = g.V().has("name", "alex").next();
+        final Vertex a = g.V().has("name", "marko").next();
+        final Vertex b = g.V().has("name", "peter").next();
 
         final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022X_propertyXweight_0_1X(a, b);
         printTraversalForm(traversal);
         final Edge edge = traversal.next();
         assertEquals(edge.outVertex(), convertToVertex(graph, "chris"));
-        assertEquals(edge.inVertex(), convertToVertex(graph, "alex"));
+        assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
-        assertEquals(1, IteratorUtils.count(edge.properties()));
+        assertEquals(3, IteratorUtils.count(edge.properties()));
         assertEquals("10-05-2022", edge.value("startTime"));
         assertEquals("1e10", edge.value("endTime"));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
