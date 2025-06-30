@@ -76,6 +76,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
 
     public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_propertyXweight_0_1X(final Vertex a, final Vertex b);
 
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X(final Vertex a, final Vertex b);
+
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022X_propertyXweight_0_1X(final Vertex a, final Vertex b);
+
     public abstract Traversal<Vertex, Edge> get_g_V_hasXname_markoX_asXaX_outEXcreatedX_asXbX_inV_addEXselectXbX_labelX_toXaX();
 
     public abstract Traversal<Edge, Edge> get_g_addEXV_outE_label_groupCount_orderXlocalX_byXvalues_descX_selectXkeysX_unfold_limitX1XX_fromXV_hasXname_vadasXX_toXV_hasXname_lopXX();
@@ -279,6 +283,47 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     @Test
     @LoadGraphWith(MODERN)
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    public void g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X() {
+        final Vertex a = g.V().has("name", "chris").next();
+        final Vertex b = g.V().has("name", "alex").next();
+
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X(a, b);
+        printTraversalForm(traversal);
+        final Edge edge = traversal.next();
+        assertEquals(edge.outVertex(), convertToVertex(graph, "chris"));
+        assertEquals(edge.inVertex(), convertToVertex(graph, "alex"));
+        assertEquals("knows", edge.label());
+        assertEquals(1, IteratorUtils.count(edge.properties()));
+        assertEquals("10-05-2022", edge.value("startTime"));
+        assertEquals("10-05-2222", edge.value("endTime"));
+        assertEquals(0.1d, edge.value("weight"), 0.1d);
+        assertEquals(6L, g.V().count().next().longValue());
+        assertEquals(7L, g.E().count().next().longValue());
+    }
+
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    public void g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_20222X_propertyXweight_0_1X() {
+        final Vertex a = g.V().has("name", "chris").next();
+        final Vertex b = g.V().has("name", "alex").next();
+
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022X_propertyXweight_0_1X(a, b);
+        printTraversalForm(traversal);
+        final Edge edge = traversal.next();
+        assertEquals(edge.outVertex(), convertToVertex(graph, "chris"));
+        assertEquals(edge.inVertex(), convertToVertex(graph, "alex"));
+        assertEquals("knows", edge.label());
+        assertEquals(1, IteratorUtils.count(edge.properties()));
+        assertEquals("10-05-2022", edge.value("startTime"));
+        assertEquals("1e10", edge.value("endTime"));
+        assertEquals(0.1d, edge.value("weight"), 0.1d);
+        assertEquals(6L, g.V().count().next().longValue());
+        assertEquals(7L, g.E().count().next().longValue());
+    }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
     public void g_V_hasXname_markoX_asXaX_outEXcreatedX_asXbX_inV_addEXselectXbX_labelX_toXaX() {
         final Traversal<Vertex, Edge> traversal = get_g_V_hasXname_markoX_asXaX_outEXcreatedX_asXbX_inV_addEXselectXbX_labelX_toXaX();
         printTraversalForm(traversal);
@@ -359,6 +404,16 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         }
 
         @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X(final Vertex a, final Vertex b) {
+            return g.addE("knows").from(a).to(b).lifetime("10-05-2022", "10-05-2222").property("weight", 0.1d);
+        }
+
+        @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022X_propertyXweight_0_1X(final Vertex a, final Vertex b) {
+            return g.addE("knows").from(a).to(b).lifetime("10-05-2022").property("weight", 0.1d);
+        }
+
+        @Override
         public Traversal<Vertex, Edge> get_g_V_hasXname_markoX_asXaX_outEXcreatedX_asXbX_inV_addEXselectXbX_labelX_toXaX() {
             return g.V().has("name", "marko").as("a").outE("created").as("b").inV().addE(select("b").label()).to("a");
         }
@@ -367,5 +422,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         public Traversal<Edge, Edge> get_g_addEXV_outE_label_groupCount_orderXlocalX_byXvalues_descX_selectXkeysX_unfold_limitX1XX_fromXV_hasXname_vadasXX_toXV_hasXname_lopXX() {
             return g.addE(V().outE().label().groupCount().order(local).by(values, desc).select(keys).<String>unfold().limit(1)).from(V().has("name", "vadas")).to(V().has("name", "lop"));
         }
+
+
     }
 }
