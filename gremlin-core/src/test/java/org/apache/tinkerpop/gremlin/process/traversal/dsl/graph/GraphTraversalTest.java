@@ -53,9 +53,9 @@ public class GraphTraversalTest {
     private static final Logger logger = LoggerFactory.getLogger(GraphTraversalTest.class);
     private static final GraphTraversalSource g = traversal().withEmbedded(EmptyGraph.instance());
 
-    private static Set<String> NO_GRAPH = new HashSet<>(Arrays.asList("asAdmin", "by", "read", "write", "with", "option", "iterate", "to", "from", "profile", "pageRank", "connectedComponent", "peerPressure", "shortestPath", "program", "none"));
+    private static Set<String> NO_GRAPH = new HashSet<>(Arrays.asList("asAdmin", "by", "read", "write", "with", "option", "iterate", "to", "from", "profile", "pageRank", "connectedComponent", "peerPressure", "shortestPath", "program", "none", "lifetime", "lifetimeProperty"));
     private static Set<String> NO_ANONYMOUS = new HashSet<>(Arrays.asList("start", "__"));
-    private static Set<String> IGNORES_BYTECODE = new HashSet<>(Arrays.asList("asAdmin", "read", "write", "iterate"));
+    private static Set<String> IGNORES_BYTECODE = new HashSet<>(Arrays.asList("asAdmin", "read", "write", "iterate", "lifetime", "lifetimeProperty"));
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailPropertyWithNullVertexId() {
