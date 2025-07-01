@@ -25,20 +25,42 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;        
+import org.apache.tinkerpop.gremlin.structure.Property;        
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import java.util.NoSuchElementException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Arrays;
 
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
-    private final String startTime;
-    private final String endTime;
+    private String startTime;
+    private String endTime;
     private final String propertyKey;
     private final String propertyValue;
     public static final String DEFAULT_ENDTIME = "1e10";
+    
+    // Common date formats to try
+    private static final String[] DATE_FORMATS = {
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd",
+        "yyyy/MM/dd HH:mm:ss",
+        "yyyy/MM/dd",
+        "dd/MM/yyyy HH:mm:ss",
+        "dd/MM/yyyy",
+        "dd-MM-yyyy HH:mm:ss",
+        "dd-MM-yyyy",
+        "MM/dd/yyyy HH:mm:ss",
+        "MM/dd/yyyy",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS",
+        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "yyyy-MM-dd'T'HH:mm:ss'Z'"
+    };
 
     public LifetimeStep(final Traversal.Admin traversal, final String startTime, final String endTime, final String propertyKey, final String propertyValue) {
         super(traversal);
@@ -46,6 +68,67 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         this.endTime = (endTime == null) ? DEFAULT_ENDTIME : endTime;
         this.propertyKey = propertyKey;
         this.propertyValue = propertyValue;
+        
+        // Validate the time parameters
+        validateTimeParameters(this.startTime, this.endTime);
+    }
+
+    private void validateTimeParameters(String startTime, String endTime) {
+        if (startTime == null || startTime.trim().isEmpty()) {
+            throw new IllegalArgumentException("Start time cannot be null or empty");
+        }
+        
+        if (endTime == null || endTime.trim().isEmpty()) {
+            throw new IllegalArgumentException("End time cannot be null or empty");
+        }
+        
+        Date startDate = parseDate(startTime);
+        Date endDate = parseDate(endTime);
+        
+        if (startDate == null) {
+            throw new IllegalArgumentException("Start time '" + startTime + "' is not in a valid date format. Supported formats: " + Arrays.toString(DATE_FORMATS));
+        }
+        
+        if (endDate == null) {
+            throw new IllegalArgumentException("End time '" + endTime + "' is not in a valid date format. Supported formats: " + Arrays.toString(DATE_FORMATS));
+        }
+        
+        if (!startDate.before(endDate)) {
+            throw new IllegalArgumentException("Start time (" + startTime + ") must be before end time (" + endTime + ")");
+        }
+    }
+    
+    private Date parseDate(String dateString) {
+        if (DEFAULT_ENDTIME.equals(dateString)) {
+            return new Date(Long.MAX_VALUE);
+        }
+        
+        try {
+            long timestamp = Long.parseLong(dateString);
+            return new Date(timestamp);
+        } catch (NumberFormatException e) {
+        }
+        
+        // Try each date format
+        for (String format : DATE_FORMATS) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat(format);
+                sdf.setLenient(false); // Strict parsing
+                Date parsedDate = sdf.parse(dateString);
+                
+                // Additional validation: check if the parsed date matches the original string
+                // This prevents cases like "2023-01-01T25:00:00" from being parsed as valid
+                String formattedBack = sdf.format(parsedDate);
+                if (!dateString.equals(formattedBack)) {
+                    continue; // Try next format
+                }
+                
+                return parsedDate;
+            } catch (ParseException e) {
+            }
+        }
+        
+        return null; 
     }
 
     @Override
@@ -54,6 +137,20 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode();
         }
         return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode() ^ this.propertyKey.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof LifetimeStep)) return false;
+        if (!super.equals(obj)) return false;
+        
+        LifetimeStep<?> that = (LifetimeStep<?>) obj;
+        
+        if (!startTime.equals(that.startTime)) return false;
+        if (!endTime.equals(that.endTime)) return false;
+        if (propertyKey != null ? !propertyKey.equals(that.propertyKey) : that.propertyKey != null) return false;
+        return propertyValue != null ? propertyValue.equals(that.propertyValue) : that.propertyValue == null;
     }
 
     @Override
@@ -90,11 +187,19 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             vertex.property("endTime", this.endTime);
           }
       }else if ( traverser.get() instanceof  Edge){
-            final Edge edge = (Edge) traverser.get();
-            edge.property("startTime", this.startTime);
-            edge.property("endTime", this.endTime);
+          final Edge edge = (Edge) traverser.get();
+          edge.property("startTime", this.startTime);
+          edge.property("endTime", this.endTime);
       }
 
       return traverser;
+    }
+
+    public String getStartTime() {
+        return startTime;
+    }
+
+    public String getEndTime() {
+        return endTime;
     }
 } 
