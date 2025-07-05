@@ -104,6 +104,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.ElementMapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ElementStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FoldStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FormatStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetEndTimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetStartTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GroupCountStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GroupStep;
@@ -3227,7 +3229,49 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
       return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
     }
     
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final String endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+    }
+    
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final String startTime, final Traversal<?, String> endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+    }
+    
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final Traversal<?, String> endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+    }
+    
     public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String startTime, final String endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
+    }
+    
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Traversal<?, String> startTime, final String endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
+    }
+    
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String startTime, final Traversal<?, String> endTime)
+    {
+      if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
+      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
+    }
+    
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Traversal<?, String> startTime, final Traversal<?, String> endTime)
     {
       if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
       this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
@@ -3240,12 +3284,64 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
+    
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime, final String endTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
+    }
+    
+    public default GraphTraversal<S, E> lifetime(final String startTime, final Traversal<?, String> endTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
+    }
+    
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime, final Traversal<?, String> endTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
+    }
 
     public default GraphTraversal<S, E> lifetime(final String startTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
+    }
+    
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime)
+    {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
+    }
+
+    /**
+     * Map the {@link Element} to its startTime property value.
+     *
+     * @return the traversal with an appended {@link GetStartTimeStep}.
+     * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getstarttime-step" target="_blank">Reference Documentation - GetStartTime Step</a>
+     * @since 3.0.0-incubating
+     */
+    public default GraphTraversal<S, String> getStartTime() {
+        this.asAdmin().getBytecode().addStep(Symbols.getStartTime);
+        return this.asAdmin().addStep(new GetStartTimeStep<>(this.asAdmin()));
+    }
+
+    /**
+     * Map the {@link Element} to its endTime property value.
+     *
+     * @return the traversal with an appended {@link GetEndTimeStep}.
+     * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getendtime-step" target="_blank">Reference Documentation - GetEndTime Step</a>
+     * @since 3.0.0-incubating
+     */
+    public default GraphTraversal<S, String> getEndTime() {
+        this.asAdmin().getBytecode().addStep(Symbols.getEndTime);
+        return this.asAdmin().addStep(new GetEndTimeStep<>(this.asAdmin()));
     }
     ///////////////////// BRANCH STEPS /////////////////////
 
@@ -4156,6 +4252,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String property = "property";
         public static final String lifetime = "lifetime";
         public static final String lifetimeProperty = "lifetimeProperty";
+        public static final String getStartTime = "getStartTime";
+        public static final String getEndTime = "getEndTime";
 
         /**
          * @deprecated As of release 3.4.3, replaced by {@link Symbols#aggregate} with a {@link Scope#local}.
