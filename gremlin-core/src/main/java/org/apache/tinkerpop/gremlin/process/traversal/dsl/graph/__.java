@@ -1318,11 +1318,53 @@ public class __ {
     public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final String startTime, final String endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, propertyValue ,startTime, endTime);
     }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final String endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final String startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
+    }
 
     /**
      * @see GraphTraversal#lifetime(Map)
      */
     public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String startTime, final String endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final Traversal<?, String> startTime, final String endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
     }
 
@@ -1333,12 +1375,54 @@ public class __ {
     public static <A> GraphTraversal<A, A> lifetime(final String startTime, final String endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime, final String endTime) {
+        return __.<A>start().lifetime(startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetime(final String startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetime(startTime, endTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetime(startTime, endTime);
+    }
 
     /**
      * @see GraphTraversal#lifetime(Map)
      */
     public static <A> GraphTraversal<A, A> lifetime(final String startTime) {
         return __.<A>start().lifetime(startTime);
+    }
+    
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime) {
+        return __.<A>start().lifetime(startTime);
+    }
+
+    /**
+     * @see GraphTraversal#getStartTime()
+     */
+    public static <A extends Element> GraphTraversal<A, String> getStartTime() {
+        return __.<A>start().getStartTime();
+    }
+
+    /**
+     * @see GraphTraversal#getEndTime()
+     */
+    public static <A extends Element> GraphTraversal<A, String> getEndTime() {
+        return __.<A>start().getEndTime();
     }
     ///////////////////// BRANCH STEPS /////////////////////
 

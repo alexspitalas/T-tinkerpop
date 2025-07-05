@@ -100,6 +100,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.LambdaMapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetStartTimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetEndTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LoopsStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MatchStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MathStep;
@@ -300,6 +302,8 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.property, Collections.singletonList(AddPropertyStep.class));
             put(GraphTraversal.Symbols.lifetime, Collections.singletonList(LifetimeStep.class));
             put(GraphTraversal.Symbols.lifetimeProperty, Collections.singletonList(LifetimeStep.class));
+            put(GraphTraversal.Symbols.getStartTime, Collections.singletonList(GetStartTimeStep.class));
+            put(GraphTraversal.Symbols.getEndTime, Collections.singletonList(GetEndTimeStep.class));
             put(GraphTraversal.Symbols.store, Collections.singletonList(AggregateLocalStep.class));
             put(GraphTraversal.Symbols.aggregate, Arrays.asList(AggregateLocalStep.class, AggregateGlobalStep.class));
             put(GraphTraversal.Symbols.fail, Collections.singletonList(FailStep.class));

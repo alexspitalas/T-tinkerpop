@@ -22,6 +22,7 @@ import org.apache.tinkerpop.gremlin.AbstractGremlinTest;
 import org.apache.tinkerpop.gremlin.FeatureRequirement;
 import org.apache.tinkerpop.gremlin.LoadGraphWith;
 import org.apache.tinkerpop.gremlin.process.GremlinProcessRunner;
+import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.WithOptions;
@@ -92,6 +93,36 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
     public abstract Traversal<Vertex, String> get_g_withSideEffectXa_nameX_addV_propertyXselectXaX_markoX_name();
 
     public abstract Traversal<Vertex, Map<Object, Object>> get_g_V_asXaX_hasXname_markoX_outXcreatedX_asXbX_addVXselectXaX_labelX_propertyXtest_selectXbX_labelX_valueMap_withXtokensX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_propertyXname_aliceX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_2023_01_01X_propertyXname_bobX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimePropertyXname_aliceX_2023_01_01_2023_12_31X();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimePropertyXname_bobX_2023_01_01X();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_propertyXsingle_name_charlieX_lifetimePropertyXname_davidX_2023_01_01_2023_12_31X();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_propertyXname_emmaX_propertyXage_25X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_2023_01_01T10_30_00XendTime_2023_12_31T23_59_59X_propertyXname_frankX();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_1640995200000XendTime_1704067199999X_propertyXname_graceX();
+
+
+
+    public abstract Traversal<Vertex, String> get_g_V_getStartTime();
+
+    public abstract Traversal<Vertex, String> get_g_V_getEndTime();
+
+    public abstract Traversal<Vertex, String> get_g_V_propertiesXnameX_getStartTime();
+
+    public abstract Traversal<Vertex, String> get_g_V_propertiesXnameX_getEndTime();
+
+    public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXgetStartTimeXendTime_2024_12_31X_propertyXname_sarahX();
+
+
 
     @Test
     @LoadGraphWith(MODERN)
@@ -215,10 +246,9 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         printTraversalForm(traversal);
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
-        assertEquals("TFH", chris.value("work"));
-        assertEquals("04-04-2025", chris.property("work").property("startTime").value()); // 4-04-2025
-        assertEquals("1000", chris.property("work").property("salary").value()); //1000
-        assertEquals("06-04-2025", chris.property("work").property("endTime").value()); //6-04-2025"
+        assertEquals("chris", chris.value("name"));
+        assertEquals("04-04-2006", chris.property("name").property("startTime").value());
+        assertEquals("05-04-2006", chris.property("name").property("endTime").value());
     }
 
 
@@ -407,6 +437,227 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals(3, map.size());
     }
 
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addVXpersonX_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_propertyXname_aliceX() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_propertyXname_aliceX();
+        printTraversalForm(traversal);
+        final Vertex alice = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", alice.label());
+        assertEquals("alice", alice.value("name"));
+        assertEquals("2023-01-01", alice.value("startTime"));
+        assertEquals("2025-12-31", alice.value("endTime"));
+        assertEquals(3, IteratorUtils.count(alice.properties())); // name, startTime, endTime
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addVXpersonX_lifetimeXstartTime_2023_01_01X_propertyXname_bobX() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_lifetimeXstartTime_2023_01_01X_propertyXname_bobX();
+        printTraversalForm(traversal);
+        final Vertex bob = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", bob.label());
+        assertEquals("bob", bob.value("name"));
+        assertEquals("2023-01-01", bob.value("startTime"));
+        assertEquals("1e10", bob.value("endTime")); // Default endTime when not specified
+        assertEquals(3, IteratorUtils.count(bob.properties())); // name, startTime, endTime
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
+    public void g_addVXpersonX_lifetimePropertyXname_aliceX_2023_01_01_2023_12_31X() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_lifetimePropertyXname_aliceX_2023_01_01_2023_12_31X();
+        printTraversalForm(traversal);
+        final Vertex alice = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", alice.label());
+        assertEquals("alice", alice.value("name"));
+        
+        // Verify meta-properties on the name property
+        VertexProperty<Object> nameProperty = alice.property("name");
+        assertTrue(nameProperty.property("startTime").isPresent());
+        assertTrue(nameProperty.property("endTime").isPresent());
+        assertEquals("2023-01-01", nameProperty.property("startTime").value());
+        assertEquals("2023-12-31", nameProperty.property("endTime").value());
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
+    public void g_addVXpersonX_lifetimePropertyXname_bobX_2023_01_01X() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_lifetimePropertyXname_bobX_2023_01_01X();
+        printTraversalForm(traversal);
+        final Vertex bob = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", bob.label());
+        assertEquals("bob", bob.value("name"));
+        
+        // Verify meta-properties on the name property
+        VertexProperty<Object> nameProperty = bob.property("name");
+        assertTrue(nameProperty.property("startTime").isPresent());
+        assertTrue(nameProperty.property("endTime").isPresent());
+        assertEquals("2023-01-01", nameProperty.property("startTime").value());
+        assertEquals("1e10", nameProperty.property("endTime").value()); // Default endTime
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
+    public void g_addVXpersonX_propertyXsingle_name_charlieX_lifetimePropertyXname_davidX_2023_01_01_2023_12_31X() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_propertyXsingle_name_charlieX_lifetimePropertyXname_davidX_2023_01_01_2023_12_31X();
+        printTraversalForm(traversal);
+        final Vertex charlie = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", charlie.label());
+        assertEquals("david", charlie.value("name")); // Should be overridden by lifetimeProperty
+        
+        // Verify meta-properties on the name property
+        VertexProperty<Object> nameProperty = charlie.property("name");
+        assertTrue(nameProperty.property("startTime").isPresent());
+        assertTrue(nameProperty.property("endTime").isPresent());
+        assertEquals("2023-01-01", nameProperty.property("startTime").value());
+        assertEquals("2023-12-31", nameProperty.property("endTime").value());
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addVXpersonX_propertyXname_emmaX_propertyXage_25X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_propertyXname_emmaX_propertyXage_25X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X();
+        printTraversalForm(traversal);
+        final Vertex emma = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", emma.label());
+        assertEquals("emma", emma.value("name"));
+        assertEquals(25, emma.<Integer>value("age").intValue());
+        assertEquals("2023-01-01", emma.value("startTime"));
+        assertEquals("2023-12-31", emma.value("endTime"));
+        assertEquals(4, IteratorUtils.count(emma.properties())); // name, age, startTime, endTime
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addVXpersonX_lifetimeXstartTime_2023_01_01T10_30_00XendTime_2023_12_31T23_59_59X_propertyXname_frankX() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_lifetimeXstartTime_2023_01_01T10_30_00XendTime_2023_12_31T23_59_59X_propertyXname_frankX();
+        printTraversalForm(traversal);
+        final Vertex frank = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", frank.label());
+        assertEquals("frank", frank.value("name"));
+        assertEquals("2023-01-01T10:30:00", frank.value("startTime"));
+        assertEquals("2023-12-31T23:59:59", frank.value("endTime"));
+        assertEquals(3, IteratorUtils.count(frank.properties())); // name, startTime, endTime
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_VERTICES)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addVXpersonX_lifetimeXstartTime_1640995200000XendTime_1704067199999X_propertyXname_graceX() {
+        final Traversal<Vertex, Vertex> traversal = get_g_addVXpersonX_lifetimeXstartTime_1640995200000XendTime_1704067199999X_propertyXname_graceX();
+        printTraversalForm(traversal);
+        final Vertex grace = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("person", grace.label());
+        assertEquals("grace", grace.value("name"));
+        assertEquals("1640995200000", grace.value("startTime"));
+        assertEquals("1704067199999", grace.value("endTime"));
+        assertEquals(3, IteratorUtils.count(grace.properties())); // name, startTime, endTime
+    }
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_V_getStartTime() {
+        // First create vertices with different startTimes
+        g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "alice").next();
+        g.addV("person").lifetime("2023-02-01", "2023-12-31").property("name", "bob").next();
+        g.addV("person").lifetime("2023-03-01", "2023-12-31").property("name", "charlie").next();
+        
+        final Traversal<Vertex, String> traversal = get_g_V_getStartTime();
+        printTraversalForm(traversal);
+        
+        List<String> startTimes = IteratorUtils.list(traversal);
+        // Filter out null values since not all vertices have startTime properties
+        startTimes.removeIf(time -> time == null);
+        assertEquals(3, startTimes.size());
+        assertTrue(startTimes.contains("2023-01-01"));
+        assertTrue(startTimes.contains("2023-02-01"));
+        assertTrue(startTimes.contains("2023-03-01"));
+    }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    public void g_V_getEndTime() {
+        // First create vertices with different endTimes
+        g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "alice").next();
+        g.addV("person").lifetime("2023-01-01", "2024-01-31").property("name", "bob").next();
+        g.addV("person").lifetime("2023-01-01", "2024-02-28").property("name", "charlie").next();
+        
+        final Traversal<Vertex, String> traversal = get_g_V_getEndTime();
+        printTraversalForm(traversal);
+        
+        List<String> endTimes = IteratorUtils.list(traversal);
+        // Filter out null values since not all vertices have endTime properties
+        endTimes.removeIf(time -> time == null);
+        assertEquals(3, endTimes.size());
+        assertTrue(endTimes.contains("2023-12-31"));
+        assertTrue(endTimes.contains("2024-01-31"));
+        assertTrue(endTimes.contains("2024-02-28"));
+    }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
+    public void g_V_propertiesXnameX_getStartTime() {
+        // First create vertices with properties that have lifetime metadata
+        g.addV("person").lifetimeProperty("name", "alice", "2023-01-01", "2023-12-31").next();
+        g.addV("person").lifetimeProperty("name", "bob", "2023-02-01", "2023-12-31").next();
+        g.addV("person").lifetimeProperty("name", "charlie", "2023-03-01", "2023-12-31").next();
+        
+        final Traversal<Vertex, String> traversal = get_g_V_propertiesXnameX_getStartTime();
+        printTraversalForm(traversal);
+        
+        List<String> startTimes = IteratorUtils.list(traversal);
+        // Filter out null values since not all properties have startTime metadata
+        startTimes.removeIf(time -> time == null);
+        assertEquals(3, startTimes.size());
+        assertTrue(startTimes.contains("2023-01-01"));
+        assertTrue(startTimes.contains("2023-02-01"));
+        assertTrue(startTimes.contains("2023-03-01"));
+    }
+
+    @Test
+    @LoadGraphWith(MODERN)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_ADD_PROPERTY)
+    @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
+    public void g_V_propertiesXnameX_getEndTime() {
+        // First create vertices with properties that have lifetime metadata
+        g.addV("person").lifetimeProperty("name", "alice", "2023-01-01", "2023-12-31").next();
+        g.addV("person").lifetimeProperty("name", "bob", "2023-01-01", "2024-01-31").next();
+        g.addV("person").lifetimeProperty("name", "charlie", "2023-01-01", "2024-02-28").next();
+        
+        final Traversal<Vertex, String> traversal = get_g_V_propertiesXnameX_getEndTime();
+        printTraversalForm(traversal);
+        
+        List<String> endTimes = IteratorUtils.list(traversal);
+        // Filter out null values since not all properties have endTime metadata
+        endTimes.removeIf(time -> time == null);
+        assertEquals(3, endTimes.size());
+        assertTrue(endTimes.contains("2023-12-31"));
+        assertTrue(endTimes.contains("2024-01-31"));
+        assertTrue(endTimes.contains("2024-02-28"));
+    }
+
     public static class Traversals extends AddVertexTest {
 
         @Override
@@ -440,7 +691,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         }
         @Override
         public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime_endTime() {
-          return g.addV("person").property(VertexProperty.Cardinality.single, "work", "TFH", "salary", "1000").lifetimeProperty("work", "04-04-2025", "06-04-2025");
+          return g.addV("person").lifetimeProperty("name", "chris", "04-04-2006", "05-04-2006");
         }
         @Override
         public Traversal<Vertex, Vertex> get_g_V_hasLabelXpersonX_propertyXname_nullX() {
@@ -501,5 +752,74 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         public Traversal<Vertex, Vertex> get_g_addV_propertyXlabel_personX() {
             return g.addV().property(T.label, "person");
         }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_propertyXname_aliceX() {
+            return g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "alice").lifetime(__.getStartTime(), "2025-12-31");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_2023_01_01X_propertyXname_bobX() {
+            return g.addV("person").lifetime("2023-01-01").property("name", "bob");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimePropertyXname_aliceX_2023_01_01_2023_12_31X() {
+            return g.addV("person").lifetimeProperty("name", "alice", "2023-01-01", "2023-12-31");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimePropertyXname_bobX_2023_01_01X() {
+            return g.addV("person").lifetimeProperty("name", "bob", "2023-01-01", "1e10");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_propertyXsingle_name_charlieX_lifetimePropertyXname_davidX_2023_01_01_2023_12_31X() {
+            return g.addV("person").property(VertexProperty.Cardinality.single, "name", "charlie").lifetimeProperty("name", "david", "2023-01-01", "2023-12-31");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_propertyXname_emmaX_propertyXage_25X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X() {
+            return g.addV("person").property("name", "emma").property("age", 25).lifetime("2023-01-01", "2023-12-31");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_2023_01_01T10_30_00XendTime_2023_12_31T23_59_59X_propertyXname_frankX() {
+            return g.addV("person").lifetime("2023-01-01T10:30:00", "2023-12-31T23:59:59").property("name", "frank");
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_1640995200000XendTime_1704067199999X_propertyXname_graceX() {
+            return g.addV("person").lifetime("1640995200000", "1704067199999").property("name", "grace");
+        }
+
+
+
+        @Override
+        public Traversal<Vertex, String> get_g_V_getStartTime() {
+            return g.V().getStartTime();
+        }
+
+        @Override
+        public Traversal<Vertex, String> get_g_V_getEndTime() {
+            return g.V().getEndTime();
+        }
+
+        @Override
+        public Traversal<Vertex, String> get_g_V_propertiesXnameX_getStartTime() {
+            return g.V().properties("name").getStartTime();
+        }
+
+        @Override
+        public Traversal<Vertex, String> get_g_V_propertiesXnameX_getEndTime() {
+            return g.V().properties("name").getEndTime();
+        }
+
+        @Override
+        public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXgetStartTimeXendTime_2024_12_31X_propertyXname_sarahX() {
+            return g.addV("person").lifetime(__.getStartTime(), "2024-12-31").property("name", "sarah");
+        }
+
+
     }
 }

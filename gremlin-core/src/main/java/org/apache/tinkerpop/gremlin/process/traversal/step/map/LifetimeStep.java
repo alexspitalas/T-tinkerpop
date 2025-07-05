@@ -23,6 +23,10 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetStartTimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetEndTimeStep;
+import org.apache.tinkerpop.gremlin.structure.Element;
+
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;        
 import org.apache.tinkerpop.gremlin.structure.Property;        
@@ -38,8 +42,8 @@ import java.util.Date;
 import java.util.Arrays;
 
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
-    private String startTime;
-    private String endTime;
+    private Object startTime; // Can be String or Traversal
+    private Object endTime;   // Can be String or Traversal
     private final String propertyKey;
     private final String propertyValue;
     public static final String DEFAULT_ENDTIME = "1e10";
@@ -62,15 +66,23 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         "yyyy-MM-dd'T'HH:mm:ss'Z'"
     };
 
-    public LifetimeStep(final Traversal.Admin traversal, final String startTime, final String endTime, final String propertyKey, final String propertyValue) {
+    public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime, final String propertyKey, final String propertyValue) {
         super(traversal);
+        
+        // Validate startTime is not null
+        if (startTime == null) {
+            throw new IllegalArgumentException("Start time cannot be null");
+        }
+        
         this.startTime = startTime;
         this.endTime = (endTime == null) ? DEFAULT_ENDTIME : endTime;
         this.propertyKey = propertyKey;
         this.propertyValue = propertyValue;
         
-        // Validate the time parameters
-        validateTimeParameters(this.startTime, this.endTime);
+        // Validate the time parameters only if they are strings
+        if (startTime instanceof String && this.endTime instanceof String) {
+            validateTimeParameters((String) startTime, (String) this.endTime);
+        }
     }
 
     private void validateTimeParameters(String startTime, String endTime) {
@@ -157,11 +169,15 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
       final Traverser.Admin<S> traverser = this.starts.next();
         
+      // Evaluate traversal parameters at runtime
+      String actualStartTime = evaluateTimeParameter(this.startTime, traverser);
+      String actualEndTime = evaluateTimeParameter(this.endTime, traverser);
+        
       if( traverser.get() instanceof Vertex){
         final Vertex vertex = (Vertex) traverser.get();
 
         if (this.propertyKey != null && this.propertyValue != null){
-            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", this.startTime , "endTime", this.endTime);
+            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", actualStartTime , "endTime", actualEndTime);
         }else if (this.propertyKey != null){
             
           // Step 1: Store Previous metaProperties 
@@ -174,8 +190,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
           vertex.property(this.propertyKey).remove();
 
           // Step 3: Recreate with extra meta-property
-          metaProperties.put("startTime", this.startTime);
-          metaProperties.put("endTime", this.endTime); // Add new meta-property
+          metaProperties.put("startTime", actualStartTime);
+          metaProperties.put("endTime", actualEndTime); // Add new meta-property
           List<Object> args = new ArrayList<>();
           metaProperties.forEach((key, value) -> {
               args.add(key);
@@ -183,23 +199,67 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
           });
           vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue, args.toArray(new Object[0]));
           }else{
-            vertex.property("startTime", this.startTime);
-            vertex.property("endTime", this.endTime);
+            vertex.property("startTime", actualStartTime);
+            vertex.property("endTime", actualEndTime);
           }
       }else if ( traverser.get() instanceof  Edge){
           final Edge edge = (Edge) traverser.get();
-          edge.property("startTime", this.startTime);
-          edge.property("endTime", this.endTime);
+          edge.property("startTime", actualStartTime);
+          edge.property("endTime", actualEndTime);
       }
 
       return traverser;
     }
+    
+    private String evaluateTimeParameter(Object timeParam, Traverser.Admin<S> traverser) {
+        if (timeParam instanceof String) {
+            return (String) timeParam;
+        } else if (timeParam instanceof Traversal) {
+            @SuppressWarnings("unchecked")
+            Traversal<?, String> traversal = (Traversal<?, String>) timeParam;
+            
+            Traversal.Admin<?, String> adminTraversal = traversal.asAdmin();
+            
+            if (adminTraversal.getSteps().size() > 0) {
+                Object step = adminTraversal.getSteps().get(0);
+                if (step instanceof GetStartTimeStep) {
+                    if (traverser.get() instanceof Element) {
+                        Element element = (Element) traverser.get();
+                        Property<String> prop = element.property("startTime");
+                        if (prop.isPresent()) {
+                            return prop.value();
+                        } else {
+                            throw new IllegalArgumentException("Cannot use getStartTime() when the element does not have a startTime property. Please provide an explicit startTime value.");
+                        }
+                    }
+                } else if (step instanceof GetEndTimeStep) {
+                    if (traverser.get() instanceof Element) {
+                        Element element = (Element) traverser.get();
+                        Property<String> prop = element.property("endTime");
+                        if (prop.isPresent()) {
+                            return prop.value();
+                        } else {
+                            throw new IllegalArgumentException("Cannot use getEndTime() when the element does not have an endTime property. Please provide an explicit endTime value.");
+                        }
+                    }
+                }
+            }
+            
+            // For other traversals, throw an error
+            throw new IllegalArgumentException("Unsupported traversal type for time parameter. Only getStartTime() and getEndTime() are supported.");
+        }
+        return DEFAULT_ENDTIME;
+    }
+    
 
-    public String getStartTime() {
+    
+
+
+    public Object getStartTime() {
         return startTime;
     }
 
-    public String getEndTime() {
+    public Object getEndTime() {
         return endTime;
     }
 } 
