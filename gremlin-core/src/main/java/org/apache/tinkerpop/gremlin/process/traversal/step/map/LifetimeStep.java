@@ -202,13 +202,79 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             vertex.property("startTime", actualStartTime);
             vertex.property("endTime", actualEndTime);
           }
-      }else if ( traverser.get() instanceof  Edge){
+      } else if (traverser.get() instanceof Edge) {
           final Edge edge = (Edge) traverser.get();
-          edge.property("startTime", actualStartTime);
-          edge.property("endTime", actualEndTime);
+          
+          // For edges, validate that both vertices exist during the edge's lifetime
+          if (validateEdgeLifetime(edge, actualStartTime, actualEndTime)) {
+              edge.property("startTime", actualStartTime);
+              edge.property("endTime", actualEndTime);
+          } else {
+              // If validation fails, throw an error
+              throw new IllegalArgumentException("Cannot create edge with lifetime [" + actualStartTime + ", " + actualEndTime + 
+                  "] because one or both vertices do not exist during this time period.");
+          }
       }
 
       return traverser;
+    }
+    
+
+    private boolean validateEdgeLifetime(Edge edge, String edgeStartTime, String edgeEndTime) {
+        Vertex inVertex = edge.inVertex();
+        Vertex outVertex = edge.outVertex();
+        
+        // Check if both vertices have lifetime properties
+        if (!hasLifetimeProperty(inVertex) || !hasLifetimeProperty(outVertex)) {
+            // If vertices don't have lifetime properties, assume they exist for all time
+            return true;
+        }
+        
+        // Get vertex lifetimes
+        String inVertexStartTime = getVertexStartTime(inVertex);
+        String inVertexEndTime = getVertexEndTime(inVertex);
+        String outVertexStartTime = getVertexStartTime(outVertex);
+        String outVertexEndTime = getVertexEndTime(outVertex);
+        
+        // Check if edge lifetime overlaps with both vertex lifetimes
+        return timeRangesOverlap(edgeStartTime, edgeEndTime, inVertexStartTime, inVertexEndTime) &&
+               timeRangesOverlap(edgeStartTime, edgeEndTime, outVertexStartTime, outVertexEndTime);
+    }
+    
+
+    private boolean hasLifetimeProperty(Vertex vertex) {
+        return vertex.property("startTime").isPresent() && vertex.property("endTime").isPresent();
+    }
+    
+    private String getVertexStartTime(Vertex vertex) {
+        Property<String> prop = vertex.property("startTime");
+        return prop.isPresent() ? prop.value() : null;
+    }
+    
+    private String getVertexEndTime(Vertex vertex) {
+        Property<String> prop = vertex.property("endTime");
+        return prop.isPresent() ? prop.value() : null;
+    }
+    
+    private boolean timeRangesOverlap(String start1, String end1, String start2, String end2) {
+        try {
+            Date start1Date = parseDate(start1);
+            Date end1Date = parseDate(end1);
+            Date start2Date = parseDate(start2);
+            Date end2Date = parseDate(end2);
+            
+            if (start1Date == null || end1Date == null || start2Date == null || end2Date == null) {
+                // If we can't parse the dates, assume they overlap
+                return true;
+            }
+            
+            // Check if the ranges overlap: start1 <= end2 AND start2 <= end1
+            return !start1Date.after(end2Date) && !start2Date.after(end1Date);
+            
+        } catch (Exception e) {
+            // If there's any error parsing dates, assume they overlap
+            return true;
+        }
     }
     
     private String evaluateTimeParameter(Object timeParam, Traverser.Admin<S> traverser) {
@@ -251,10 +317,6 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         return DEFAULT_ENDTIME;
     }
     
-
-    
-
-
     public Object getStartTime() {
         return startTime;
     }

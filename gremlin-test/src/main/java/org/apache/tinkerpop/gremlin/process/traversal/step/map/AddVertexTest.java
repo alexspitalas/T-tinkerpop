@@ -29,6 +29,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.util.WithOptions;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
@@ -121,6 +122,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
     public abstract Traversal<Vertex, String> get_g_V_propertiesXnameX_getEndTime();
 
     public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXgetStartTimeXendTime_2024_12_31X_propertyXname_sarahX();
+
+
 
 
 
@@ -658,6 +661,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertTrue(endTimes.contains("2024-02-28"));
     }
 
+
+
     public static class Traversals extends AddVertexTest {
 
         @Override
@@ -819,6 +824,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXgetStartTimeXendTime_2024_12_31X_propertyXname_sarahX() {
             return g.addV("person").lifetime(__.getStartTime(), "2024-12-31").property("name", "sarah");
         }
+
+
 
 
     }

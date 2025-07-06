@@ -33,6 +33,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Arrays;
+import java.util.concurrent.CompletionException;
 
 import static org.apache.tinkerpop.gremlin.LoadGraphWith.GraphData.MODERN;
 import static org.apache.tinkerpop.gremlin.process.traversal.Order.desc;
@@ -48,6 +49,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
@@ -83,6 +86,12 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     public abstract Traversal<Vertex, Edge> get_g_V_hasXname_markoX_asXaX_outEXcreatedX_asXbX_inV_addEXselectXbX_labelX_toXaX();
 
     public abstract Traversal<Edge, Edge> get_g_addEXV_outE_label_groupCount_orderXlocalX_byXvalues_descX_selectXkeysX_unfold_limitX1XX_fromXV_hasXname_vadasXX_toXV_hasXname_lopXX();
+
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X();
+
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X();
+
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime();
 
     ///////
 
@@ -322,6 +331,95 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     }
 
     @Test
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X() {
+        // Create vertices with specific lifetimes
+        Vertex v1 = g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "alice").next();
+        Vertex v2 = g.addV("person").lifetime("2023-06-01", "2024-06-30").property("name", "bob").next();
+        
+        // Add edge with lifetime that overlaps with both vertices
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X();
+        printTraversalForm(traversal);
+        
+        final Edge edge = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("knows", edge.label());
+        assertEquals(v1, edge.outVertex());
+        assertEquals(v2, edge.inVertex());
+        assertEquals("2023-06-01", edge.value("startTime"));
+        assertEquals("2023-12-31", edge.value("endTime"));
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X() {
+        // Create vertices with specific lifetimes
+        Vertex v1 = g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "alice").next();
+        Vertex v2 = g.addV("person").lifetime("2023-06-01", "2024-06-30").property("name", "bob").next();
+        
+        // Try to add edge with lifetime that doesn't overlap with vertices
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X();
+        printTraversalForm(traversal);
+        
+        // This should throw an exception because the edge lifetime doesn't overlap with vertex lifetimes
+        try {
+            traversal.next();
+            fail("Expected IllegalArgumentException to be thrown");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+            assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
+        } catch (CompletionException e) {
+            // In remote test environments, the exception is wrapped in CompletionException
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
+            } else {
+                // Check if the cause is a ResponseException by checking the class name
+                String causeClassName = cause.getClass().getName();
+                if (causeClassName.contains("ResponseException")) {
+                    assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                    assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
+                } else {
+                    throw e; // Re-throw if it's not the expected exception
+                }
+            }
+        } catch (Exception e) {
+            // Check if this is a ResponseException by checking the class name
+            String exceptionClassName = e.getClass().getName();
+            if (exceptionClassName.contains("ResponseException")) {
+                assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
+            } else {
+                throw e; // Re-throw if it's not the expected exception
+            }
+        }
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime() {
+        // Create vertices without lifetime properties
+        Vertex v1 = g.addV("person").property("name", "alice").next();
+        Vertex v2 = g.addV("person").property("name", "bob").next();
+        
+        // Add edge with lifetime - should work because vertices don't have lifetime constraints
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime();
+        printTraversalForm(traversal);
+        
+        final Edge edge = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("knows", edge.label());
+        assertEquals(v1, edge.outVertex());
+        assertEquals(v2, edge.inVertex());
+        assertEquals("2023-01-01", edge.value("startTime"));
+        assertEquals("2023-12-31", edge.value("endTime"));
+    }
+
+    @Test
     @LoadGraphWith(MODERN)
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
     public void g_V_hasXname_markoX_asXaX_outEXcreatedX_asXbX_inV_addEXselectXbX_labelX_toXaX() {
@@ -421,6 +519,21 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         @Override
         public Traversal<Edge, Edge> get_g_addEXV_outE_label_groupCount_orderXlocalX_byXvalues_descX_selectXkeysX_unfold_limitX1XX_fromXV_hasXname_vadasXX_toXV_hasXname_lopXX() {
             return g.addE(V().outE().label().groupCount().order(local).by(values, desc).select(keys).<String>unfold().limit(1)).from(V().has("name", "vadas")).to(V().has("name", "lop"));
+        }
+
+        @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X() {
+            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-06-01", "2023-12-31");
+        }
+
+        @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X() {
+            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2022-01-01", "2022-12-31");
+        }
+
+        @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime() {
+            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-01-01", "2023-12-31");
         }
 
 
