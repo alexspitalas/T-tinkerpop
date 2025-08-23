@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FormatStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.AllenOperators;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
 import org.apache.tinkerpop.gremlin.structure.Column;
@@ -1636,5 +1637,18 @@ public class __ {
      */
     public static <A, B> GraphTraversal<A, B> call(final String service, final Map params, final Traversal<?, Map<?,?>> childTraversal) {
         return __.<A>start().call(service, params, childTraversal);
+    }
+
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal equals relationship.
+     * 
+     * @param referenceElement the element to compare temporal intervals with
+     * @return the anonymous traversal with temporal equals filtering
+     * @see GraphTraversal#temporalEquals(Element)
+     * @since 4.0.0-temporal
+     */
+    public static <S> GraphTraversal<S, S> temporalEquals(final Element referenceElement) {
+        return __.<S>start().temporalEquals(referenceElement);
     }
 }

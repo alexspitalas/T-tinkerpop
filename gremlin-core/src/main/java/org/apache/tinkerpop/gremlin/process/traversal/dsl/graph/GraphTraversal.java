@@ -230,7 +230,7 @@ import static org.apache.tinkerpop.gremlin.structure.VertexProperty.Cardinality.
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public interface GraphTraversal<S, E> extends Traversal<S, E> {
+public interface GraphTraversal<S, E> extends Traversal<S, E>, GraphTraversalTemporal<S, E>  {
 
     public interface Admin<S, E> extends Traversal.Admin<S, E>, GraphTraversal<S, E> {
 
@@ -4255,6 +4255,24 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String getStartTime = "getStartTime";
         public static final String getEndTime = "getEndTime";
 
+
+        // Allen temporal relationship symbols
+        public static final String allen = "allen";
+
+        // Individual Allen relation symbols (for bytecode clarity and direct usage)
+        public static final String temporalBefore = "temporalBefore";
+        public static final String temporalAfter = "temporalAfter"; 
+        public static final String temporalMeets = "temporalMeets";
+        public static final String temporalMetBy = "temporalMetBy";
+        public static final String temporalOverlaps = "temporalOverlaps";
+        public static final String temporalOverlappedBy = "temporalOverlappedBy";
+        public static final String temporalStarts = "temporalStarts";
+        public static final String temporalStartedBy = "temporalStartedBy";
+        public static final String temporalFinishes = "temporalFinishes";
+        public static final String temporalFinishedBy = "temporalFinishedBy";
+        public static final String temporalDuring = "temporalDuring";
+        public static final String temporalContains = "temporalContains";
+        public static final String temporalEquals = "temporalEquals";
         /**
          * @deprecated As of release 3.4.3, replaced by {@link Symbols#aggregate} with a {@link Scope#local}.
          */
