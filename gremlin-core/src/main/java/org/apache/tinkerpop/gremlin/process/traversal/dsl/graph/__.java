@@ -26,7 +26,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FormatStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.util.AllenOperators;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
 import org.apache.tinkerpop.gremlin.structure.Column;
@@ -1641,14 +1640,93 @@ public class __ {
 
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal equals relationship.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the anonymous traversal with temporal equals filtering
-     * @see GraphTraversal#temporalEquals(Element)
-     * @since 4.0.0-temporal
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal before relationship.
      */
-    public static <S> GraphTraversal<S, S> temporalEquals(final Element referenceElement) {
-        return __.<S>start().temporalEquals(referenceElement);
+    public static <A> GraphTraversal<A, A> temporalBefore(final Element referenceElement) {
+        return __.<A>start().temporalBefore(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal after relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalAfter(final Element referenceElement) {
+        return __.<A>start().temporalAfter(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal meets relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalMeets(final Element referenceElement) {
+        return __.<A>start().temporalMeets(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal met-by relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalMetBy(final Element referenceElement) {
+        return __.<A>start().temporalMetBy(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal overlaps relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalOverlaps(final Element referenceElement) {
+        return __.<A>start().temporalOverlaps(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal overlapped-by relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Element referenceElement) {
+        return __.<A>start().temporalOverlappedBy(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal starts relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalStarts(final Element referenceElement) {
+        return __.<A>start().temporalStarts(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal started-by relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalStartedBy(final Element referenceElement) {
+        return __.<A>start().temporalStartedBy(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal finishes relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalFinishes(final Element referenceElement) {
+        return __.<A>start().temporalFinishes(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal finished-by relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalFinishedBy(final Element referenceElement) {
+        return __.<A>start().temporalFinishedBy(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal during relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalDuring(final Element referenceElement) {
+        return __.<A>start().temporalDuring(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal contains relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalContains(final Element referenceElement) {
+        return __.<A>start().temporalContains(referenceElement);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal equals relationship.
+     */
+    public static <A> GraphTraversal<A, A> temporalEquals(final Element referenceElement) {
+        return __.<A>start().temporalEquals(referenceElement);
     }
 }
