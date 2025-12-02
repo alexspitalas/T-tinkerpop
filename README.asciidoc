@@ -34,6 +34,102 @@ Apache TinkerPop™ provides graph computing capabilities for both graph databas
 * link:https://tinkerpop.apache.org/javadocs/current/core/[core javadoc]
 * link:https://tinkerpop.apache.org/javadocs/current/full/[full javadoc]
 
+Additionally to the above, we have added temporal functionality.
+
+=== Temporal Functionality
+
+1.  **Lifetime Management**: A standardized way to define the validity interval (start and end time) for vertices, edges, and their properties.
+2.  **Allen's Interval Algebra**: A complete implementation of all 13 temporal relationships for powerful interval-based filtering and querying.
+
+## How to Use
+
+### 1. Lifetime Management
+
+The `lifetime()` step makes time a first-class citizen in your graph, allowing you to easily set and retrieve the temporal validity of any element.
+
+#### Setting a Lifetime
+
+The `lifetime(startTime, endTime)` step is used when creating vertices or edges. If `endTime` is omitted, the element's lifetime is considered ongoing.
+
+```java
+// Set startTime and endTime for a new vertex
+g.addV("person")
+  .lifetime("2023-01-01T10:00:00Z", "2024-12-31T23:59:59Z")
+  .property("name", "John Doe")
+  .next();
+
+// Set only a startTime for a vertex that is still valid
+g.addV("project")
+  .lifetime("2023-01-01T09:00:00Z")
+  .property("name", "Bob Doe")
+  .next();
+```
+
+#### Retrieving Lifetime Information
+
+Use the `getStartTime()` and `getEndTime()` methods on a `Vertex` or `Edge` element.
+
+```java
+// Get temporal bounds from an element
+Vertex project = g.V().has("status", "active").next();
+LocalDateTime start = project.getStartTime();
+LocalDateTime end = project.getEndTime(); // May be null if ongoing
+```
+
+### 2. Allen's Interval Algebra Operators
+
+T-Gremlin provides all 13 of Allen's operators as native traversal steps. These steps filter the traversal to only include elements that have the specified temporal relationship with a reference element.
+
+#### Available Operators
+
+| Operator | Description |
+|---|---|
+| `temporalBefore(ref)` | The element's interval ends before the reference interval starts. |
+| `temporalAfter(ref)` | The element's interval starts after the reference interval ends. |
+| `temporalMeets(ref)` | The element's interval ends exactly when the reference interval starts. |
+| `temporalMetBy(ref)` | The element's interval starts exactly when the reference interval ends. |
+| `temporalOverlaps(ref)` | The element starts before the reference, and they overlap. |
+| `temporalOverlappedBy(ref)` | The reference starts before the element, and they overlap. |
+| `temporalDuring(ref)` | The element is fully contained within the reference's interval. |
+| `temporalContains(ref)` | The element's interval fully contains the reference's interval. |
+| `temporalStarts(ref)` | Both intervals start together, but the element finishes first. |
+| `temporalStartedBy(ref)` | Both intervals start together, but the reference finishes first. |
+| `temporalFinishes(ref)` | Both intervals finish together, but the element starts later. |
+| `temporalFinishedBy(ref)` | Both intervals finish together, but the reference starts later. |
+| `temporalEquals(ref)` | Both intervals have the exact same start and end times. |
+
+#### Query Examples
+
+```java
+// Example 1: Find tasks that must complete BEFORE a milestone
+g.V().has("type", "task")
+  .temporalBefore(milestoneVertex)
+  .values("name");
+
+// Example 2: Find all incidents that occurred DURING a maintenance window
+g.V().hasLabel("MaintenanceWindow").as("window")
+  .V().hasLabel("Incident")
+  .temporalDuring(select("window"));
+
+// Example 3: Identify conflicting meetings that OVERLAP
+g.V().hasLabel("Meeting").as("meeting1")
+  .V().hasLabel("Meeting").where(neq("meeting1"))
+  .temporalOverlaps(select("meeting1"));
+```
+
+#### Usage within `where()`
+
+All temporal operators are also available for anonymous traversals using the `__` (double-underscore) class, making them ideal for complex `where()` clauses.
+
+```java
+// Find tasks that start or overlap with a given project's timeline
+g.V().hasLabel("Task")
+  .where(__.or(
+      __.temporalStarts(projectVertex),
+      __.temporalOverlaps(projectVertex)
+  )).toList();
+```
+
 === Building and Testing
 
 TinkerPop uses link:https://maven.apache.org/[Maven] and requires `Java 11` for proper building and proper operations. To build, execute unit tests and package Gremlin Console/Server run:
