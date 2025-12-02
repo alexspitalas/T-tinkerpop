@@ -58,6 +58,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.filter.PathFilterStep
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.RangeGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.SampleGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TailGlobalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TimeLimitStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TraversalFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.WherePredicateStep;
@@ -304,6 +305,20 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.lifetimeProperty, Collections.singletonList(LifetimeStep.class));
             put(GraphTraversal.Symbols.getStartTime, Collections.singletonList(GetStartTimeStep.class));
             put(GraphTraversal.Symbols.getEndTime, Collections.singletonList(GetEndTimeStep.class));
+        // Allen temporal relationships
+            put(GraphTraversal.Symbols.temporalBefore, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalAfter, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalMeets, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalMetBy, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalOverlaps, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalOverlappedBy, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalStarts, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalStartedBy, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalFinishes, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalFinishedBy, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalDuring, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalContains, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalEquals, Collections.singletonList(AllenFilterStep.class));
             put(GraphTraversal.Symbols.store, Collections.singletonList(AggregateLocalStep.class));
             put(GraphTraversal.Symbols.aggregate, Arrays.asList(AggregateLocalStep.class, AggregateGlobalStep.class));
             put(GraphTraversal.Symbols.fail, Collections.singletonList(FailStep.class));

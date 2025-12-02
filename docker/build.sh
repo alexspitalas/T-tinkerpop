@@ -133,6 +133,11 @@ if [ -n "${RUN_TESTS}" ]; then
   pushd ${ABS_PROJECT_HOME}/gremlin-server > /dev/null
   docker build -f ./Dockerfile --build-arg GREMLIN_SERVER_DIR=target/apache-tinkerpop-gremlin-server-${GREMLIN_SERVER}-standalone -t tinkerpop/gremlin-server:${GREMLIN_SERVER} .
   check_status
+  #pushd ${ABS_PROJECT_HOME}/gremlin-socket-server > /dev/null
+  #docker build -f ./Dockerfile \
+  #  --build-arg GREMLIN_SERVER_DIR=../gremlin-server/target/apache-tinkerpop-gremlin-server-${GREMLIN_SERVER}-standalone \
+  #  -t tinkerpop/gremlin-socket-server:${GREMLIN_SERVER} .
+  #popd > /dev/null
 fi
 
 if [ -n "${INCLUDE_GO}" ] && [ -n "${RUN_TESTS}" ]; then
