@@ -75,6 +75,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.filter.PathFilterStep
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.RangeGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.SampleGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TailGlobalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TemporalPathFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TimeLimitStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TraversalFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.WherePredicateStep;
@@ -175,6 +176,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.UnfoldStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.AddPropertyStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.AggregateGlobalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.AggregateLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.FailStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.GroupCountSideEffectStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.GroupSideEffectStep;
@@ -186,7 +188,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.ProfileSid
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.SackValueStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.SideEffectCapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.StartStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.AggregateLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.SubgraphStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.TraversalSideEffectStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.sideEffect.TreeSideEffectStep;
@@ -231,7 +232,7 @@ import static org.apache.tinkerpop.gremlin.structure.VertexProperty.Cardinality.
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  * @author Stephen Mallette (http://stephen.genoprime.com)
  */
-public interface GraphTraversal<S, E> extends Traversal<S, E>  {
+public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
     public interface Admin<S, E> extends Traversal.Admin<S, E>, GraphTraversal<S, E> {
 
@@ -3223,6 +3224,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E>  {
         return this;
     }
 
+
     public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final String startTime, final String endTime)
     {
       if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
@@ -3344,6 +3346,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E>  {
         this.asAdmin().getBytecode().addStep(Symbols.getEndTime);
         return this.asAdmin().addStep(new GetEndTimeStep<>(this.asAdmin()));
     }
+
 
     // =============================================================================
     // ALLEN TEMPORAL RELATIONSHIP METHODS
@@ -3517,8 +3520,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E>  {
         this.asAdmin().getBytecode().addStep(Symbols.temporalEquals, referenceElement);
         return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.EQUALS, referenceElement));
     }
-
-
+    
     ///////////////////// BRANCH STEPS /////////////////////
 
     /**
@@ -4298,6 +4300,50 @@ public interface GraphTraversal<S, E> extends Traversal<S, E>  {
         return this;
     }
 
+
+
+    /**
+     * Traverses to adjacent vertices via Continuous Paths (CP).
+     *
+     * @param edgeLabels the edge labels to traverse
+     * @return the traversal with a Continuous Path step applied
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, Vertex> continuousPath(final String... edgeLabels) {
+        this.asAdmin().getBytecode().addStep(Symbols.continuousPath, edgeLabels);
+        this.asAdmin().addStep(new VertexStep<>(this.asAdmin(), Edge.class, Direction.OUT, edgeLabels));
+        this.asAdmin().addStep(new TemporalPathFilterStep<>(this.asAdmin(), TemporalPathFilterStep.TemporalPathType.CONTINUOUS));
+        return this.asAdmin().addStep(new EdgeVertexStep(this.asAdmin(), Direction.IN));
+    }
+
+    /**
+     * Traverses to adjacent vertices via Sequential Paths (SP).
+     *
+     * @param edgeLabels the edge labels to traverse
+     * @return the traversal with a Sequential Path step applied
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, Vertex> sequentialPath(final String... edgeLabels) {
+        this.asAdmin().getBytecode().addStep(Symbols.sequentialPath, edgeLabels);
+        this.asAdmin().addStep(new VertexStep<>(this.asAdmin(), Edge.class, Direction.OUT, edgeLabels));
+        this.asAdmin().addStep(new TemporalPathFilterStep<>(this.asAdmin(), TemporalPathFilterStep.TemporalPathType.SEQUENTIAL));
+        return this.asAdmin().addStep(new EdgeVertexStep(this.asAdmin(), Direction.IN));
+    }
+
+    /**
+     * Traverses to adjacent vertices via Pairwise-Continuous Paths (PCP).
+     *
+     * @param edgeLabels the edge labels to traverse
+     * @return the traversal with a Pairwise-Continuous Path step applied
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, Vertex> pairwiseContinuousPath(final String... edgeLabels) {
+        this.asAdmin().getBytecode().addStep(Symbols.pairwiseContinuousPath, edgeLabels);
+        this.asAdmin().addStep(new VertexStep<>(this.asAdmin(), Edge.class, Direction.OUT, edgeLabels));
+        this.asAdmin().addStep(new TemporalPathFilterStep<>(this.asAdmin(), TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS));
+        return this.asAdmin().addStep(new EdgeVertexStep(this.asAdmin(), Direction.IN));
+    }
+
     /**
      * Iterates the traversal presumably for the generation of side-effects.
      */
@@ -4431,9 +4477,6 @@ public interface GraphTraversal<S, E> extends Traversal<S, E>  {
         public static final String getStartTime = "getStartTime";
         public static final String getEndTime = "getEndTime";
 
-
-
-        // Individual Allen relation symbols (for bytecode clarity and direct usage)
         public static final String temporalAfter = "temporalAfter";
         public static final String temporalBefore = "temporalBefore";
         public static final String temporalContains = "temporalContains";
@@ -4447,7 +4490,11 @@ public interface GraphTraversal<S, E> extends Traversal<S, E>  {
         public static final String temporalOverlappedBy = "temporalOverlappedBy";
         public static final String temporalStarts = "temporalStarts";
         public static final String temporalStartedBy = "temporalStartedBy";
-        
+
+        public static final String continuousPath = "continuousPath";
+        public static final String sequentialPath = "sequentialPath";
+        public static final String pairwiseContinuousPath = "pairwiseContinuousPath";
+
         /**
          * @deprecated As of release 3.4.3, replaced by {@link Symbols#aggregate} with a {@link Scope#local}.
          */

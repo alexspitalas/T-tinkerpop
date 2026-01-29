@@ -1315,59 +1315,66 @@ public class __ {
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final String startTime, final String endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, propertyValue ,startTime, endTime);
-    }
-    
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final String endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
-    }
-    
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final String startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
-    }
-    
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
+            final String startTime, final String endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
     }
 
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String startTime, final String endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
+            final Traversal<?, String> startTime, final String endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final Traversal<?, String> startTime, final String endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
+            final String startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final String startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
+            final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty( final String propertyKey, final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String startTime,
+            final String endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
     }
 
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey,
+            final Traversal<?, String> startTime, final String endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    }
+
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String startTime,
+            final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    }
+
+    /**
+     * @see GraphTraversal#lifetime(Map)
+     */
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey,
+            final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
+    }
 
     /**
      * @see GraphTraversal#lifetime(Map)
@@ -1375,25 +1382,26 @@ public class __ {
     public static <A> GraphTraversal<A, A> lifetime(final String startTime, final String endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
     public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime, final String endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
     public static <A> GraphTraversal<A, A> lifetime(final String startTime, final Traversal<?, String> endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime,
+            final Traversal<?, String> endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
 
@@ -1403,7 +1411,7 @@ public class __ {
     public static <A> GraphTraversal<A, A> lifetime(final String startTime) {
         return __.<A>start().lifetime(startTime);
     }
-    
+
     /**
      * @see GraphTraversal#lifetime(Map)
      */
@@ -1638,93 +1646,126 @@ public class __ {
         return __.<A>start().call(service, params, childTraversal);
     }
 
+    /**
+     * @see GraphTraversal#continuousPath(String...)
+     */
+    public static <A> GraphTraversal<A, Vertex> continuousPath(final String... edgeLabels) {
+        return __.<A>start().continuousPath(edgeLabels);
+    }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal before relationship.
+     * @see GraphTraversal#sequentialPath(String...)
+     */
+    public static <A> GraphTraversal<A, Vertex> sequentialPath(final String... edgeLabels) {
+        return __.<A>start().sequentialPath(edgeLabels);
+    }
+
+    /**
+     * @see GraphTraversal#pairwiseContinuousPath(String...)
+     */
+    public static <A> GraphTraversal<A, Vertex> pairwiseContinuousPath(final String... edgeLabels) {
+        return __.<A>start().pairwiseContinuousPath(edgeLabels);
+    }
+
+    /**
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal before relationship.
      */
     public static <A> GraphTraversal<A, A> temporalBefore(final Element referenceElement) {
         return __.<A>start().temporalBefore(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal after relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal after relationship.
      */
     public static <A> GraphTraversal<A, A> temporalAfter(final Element referenceElement) {
         return __.<A>start().temporalAfter(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal meets relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal meets relationship.
      */
     public static <A> GraphTraversal<A, A> temporalMeets(final Element referenceElement) {
         return __.<A>start().temporalMeets(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal met-by relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal met-by relationship.
      */
     public static <A> GraphTraversal<A, A> temporalMetBy(final Element referenceElement) {
         return __.<A>start().temporalMetBy(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal overlaps relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal overlaps relationship.
      */
     public static <A> GraphTraversal<A, A> temporalOverlaps(final Element referenceElement) {
         return __.<A>start().temporalOverlaps(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal overlapped-by relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal overlapped-by relationship.
      */
     public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Element referenceElement) {
         return __.<A>start().temporalOverlappedBy(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal starts relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal starts relationship.
      */
     public static <A> GraphTraversal<A, A> temporalStarts(final Element referenceElement) {
         return __.<A>start().temporalStarts(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal started-by relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal started-by relationship.
      */
     public static <A> GraphTraversal<A, A> temporalStartedBy(final Element referenceElement) {
         return __.<A>start().temporalStartedBy(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal finishes relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal finishes relationship.
      */
     public static <A> GraphTraversal<A, A> temporalFinishes(final Element referenceElement) {
         return __.<A>start().temporalFinishes(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal finished-by relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal finished-by relationship.
      */
     public static <A> GraphTraversal<A, A> temporalFinishedBy(final Element referenceElement) {
         return __.<A>start().temporalFinishedBy(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal during relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal during relationship.
      */
     public static <A> GraphTraversal<A, A> temporalDuring(final Element referenceElement) {
         return __.<A>start().temporalDuring(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal contains relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal contains relationship.
      */
     public static <A> GraphTraversal<A, A> temporalContains(final Element referenceElement) {
         return __.<A>start().temporalContains(referenceElement);
     }
 
     /**
-     * Spawns a {@link GraphTraversal} that filters elements based on Allen's temporal equals relationship.
+     * Spawns a {@link GraphTraversal} that filters elements based on Allen's
+     * temporal equals relationship.
      */
     public static <A> GraphTraversal<A, A> temporalEquals(final Element referenceElement) {
         return __.<A>start().temporalEquals(referenceElement);
