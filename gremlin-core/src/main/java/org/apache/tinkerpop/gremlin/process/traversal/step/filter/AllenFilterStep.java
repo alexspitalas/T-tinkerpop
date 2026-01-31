@@ -109,14 +109,14 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
             final LocalDateTime refEnd = refEndTime != null ? 
                 parseDateTime(refEndTime) : LocalDateTime.MAX;
             
-            return evaluateAllenRelation(currentStart, currentEnd, refStart, refEnd);
+            return evaluate(relation, currentStart, currentEnd, refStart, refEnd);
             
         } catch (Exception e) {
             return false;
         }
     }
 
-    private boolean evaluateAllenRelation(final LocalDateTime start1, final LocalDateTime end1,
+    public static boolean evaluate(final AllenRelation relation, final LocalDateTime start1, final LocalDateTime end1,
                                          final LocalDateTime start2, final LocalDateTime end2) {
         switch (relation) {
             case BEFORE:
