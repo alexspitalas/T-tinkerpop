@@ -372,4 +372,121 @@ public class TemporalPathIntegrationTest {
             .toList();
         assertTrue("❌ Continuous fails (no overlap)", continuousResult.isEmpty());
     }
+    // ==================== Test 8: Repeat Times Continuous Path Success ====================
+
+    /**
+     * REPEAT TIMES SUCCESS: loop continuousPath 3 times
+     * 
+     * Timeline:
+     * Edge 1: [10:00-12:00]
+     * Edge 2:   [11:00-13:00]
+     * Edge 3:     [11:30-12:30]
+     * 
+     * Intersection: [11:30-12:00] ✓
+     */
+    @Test
+    public void testRepeatTimesContinuousPathSuccess() {
+        Vertex vA = graph.addVertex("name", "josh");
+        Vertex vB = graph.addVertex("name", "ripple");
+        Vertex vC = graph.addVertex("name", "peter");
+        Vertex vD = graph.addVertex("name", "mark");
+        
+        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:30:00");
+        
+        List<Vertex> result = graph.traversal().V(vA)
+            .repeat(__.continuousPath("follows"))
+            .times(3)
+            .toList();
+            
+        assertEquals("✅ Repeat Times(3) Success", 1, result.size());
+        assertEquals("mark", result.get(0).property("name").value());
+    }
+
+    // ==================== Test 9: Repeat Times Continuous Path Failure ====================
+
+    /**
+     * REPEAT TIMES FAILURE: loop breaks continuity on 3rd edge
+     * 
+     * Timeline:
+     * Edge 1: [10:00-12:00]
+     * Edge 2:   [11:00-13:00]
+     * Edge 3:         [12:30-14:00] ← No overlap with [11:00-12:00]
+     */
+    @Test
+    public void testRepeatTimesContinuousPathFailure() {
+        Vertex vA = graph.addVertex("name", "josh");
+        Vertex vB = graph.addVertex("name", "ripple");
+        Vertex vC = graph.addVertex("name", "peter");
+        Vertex vD = graph.addVertex("name", "mark");
+        
+        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00");
+        
+        List<Vertex> result = graph.traversal().V(vA)
+            .repeat(__.continuousPath("follows"))
+            .times(3)
+            .toList();
+            
+        assertTrue("❌ Repeat Times(3) Failure (correct)", result.isEmpty());
+    }
+
+    // ==================== Test 10: Repeat Until Continuous Path Success ====================
+
+    /**
+     * REPEAT UNTIL SUCCESS: loop until reaching a specific vertex
+     * 
+     * Same timeline as Test 8 (Success)
+     */
+    @Test
+    public void testRepeatUntilContinuousPathSuccess() {
+        Vertex vA = graph.addVertex("name", "josh");
+        Vertex vB = graph.addVertex("name", "ripple");
+        Vertex vC = graph.addVertex("name", "peter");
+        Vertex vD = graph.addVertex("name", "mark");
+        
+        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:30:00");
+        
+        List<Vertex> result = graph.traversal().V(vA)
+            .repeat(__.continuousPath("follows"))
+            .until(__.has("name", "mark"))
+            .toList();
+            
+        assertEquals("✅ Repeat Until Success", 1, result.size());
+        assertEquals("mark", result.get(0).property("name").value());
+    }
+
+    // ==================== Test 11: Repeat Until Continuous Path Failure ====================
+
+    /**
+     * REPEAT UNTIL FAILURE: continuity maintained until last step, BUT loop condition not met or path broken?
+     * Actually, let's test a case where path breaks BEFORE condition is met.
+     * 
+     * Target: "mark" (depth 3)
+     * Path breaks at depth 3 (Edge 3).
+     * 
+     * Timeline same as Test 9 (Failure).
+     */
+    @Test
+    public void testRepeatUntilContinuousPathFailure() {
+        Vertex vA = graph.addVertex("name", "josh");
+        Vertex vB = graph.addVertex("name", "ripple");
+        Vertex vC = graph.addVertex("name", "peter");
+        Vertex vD = graph.addVertex("name", "mark");
+        
+        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00"); // Break
+        
+        List<Vertex> result = graph.traversal().V(vA)
+            .repeat(__.continuousPath("follows"))
+            .until(__.has("name", "mark"))
+            .toList();
+            
+        assertTrue("❌ Repeat Until Failure (correct)", result.isEmpty());
+    }
 }
