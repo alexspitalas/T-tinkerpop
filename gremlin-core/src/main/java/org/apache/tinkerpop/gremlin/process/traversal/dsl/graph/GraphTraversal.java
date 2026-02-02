@@ -4304,10 +4304,11 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
     /**
      * Traverses to adjacent vertices via Continuous Paths (CP).
+     * All edges in the path should have an intersection for the path to be valid
      *
      * @param edgeLabels the edge labels to traverse
      * @return the traversal with a Continuous Path step applied
-     * @since 4.0.0-temporal
+     * @since 3.7.3-T
      */
     public default GraphTraversal<S, Vertex> continuousPath(final String... edgeLabels) {
         this.asAdmin().getBytecode().addStep(Symbols.continuousPath, edgeLabels);
@@ -4318,10 +4319,11 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
     /**
      * Traverses to adjacent vertices via Sequential Paths (SP).
+     * Every edge should start after the previous edge has finished for a path to be valid.
      *
      * @param edgeLabels the edge labels to traverse
      * @return the traversal with a Sequential Path step applied
-     * @since 4.0.0-temporal
+     * @since 3.7.3-T
      */
     public default GraphTraversal<S, Vertex> sequentialPath(final String... edgeLabels) {
         this.asAdmin().getBytecode().addStep(Symbols.sequentialPath, edgeLabels);
@@ -4332,10 +4334,11 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
     /**
      * Traverses to adjacent vertices via Pairwise-Continuous Paths (PCP).
+     * Adjacent edges should have an intersection for the path to be valid.
      *
      * @param edgeLabels the edge labels to traverse
      * @return the traversal with a Pairwise-Continuous Path step applied
-     * @since 4.0.0-temporal
+     * @since 3.7.3-T
      */
     public default GraphTraversal<S, Vertex> pairwiseContinuousPath(final String... edgeLabels) {
         this.asAdmin().getBytecode().addStep(Symbols.pairwiseContinuousPath, edgeLabels);

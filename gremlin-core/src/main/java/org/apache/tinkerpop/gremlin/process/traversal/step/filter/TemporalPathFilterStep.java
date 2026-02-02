@@ -110,9 +110,6 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (!foundOtherEdge)
             return true;
 
-        // Check if the current edge overlaps with the cumulative intersection of previous edges
-        // We use Allen logic: (Intersection) NOT (BEFORE or AFTER) (Current)
-        
         // First, check if the previous edges themselves have a valid intersection
         if (intersectStart.isAfter(intersectEnd)) {
              // Depending on definition, single point intersection involves intersectStart == intersectEnd
@@ -148,7 +145,8 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             return true;
 
         final String prevStartStr = getProperty(prevEdge, "startTime");
-        if (prevStartStr == null) return true; // Should maybe fail? But sticking to permissive
+        // Should maybe fail? But sticking to permissive
+        if (prevStartStr == null) return true; 
         
         final String prevEndStr = getProperty(prevEdge, "endTime");
         final LocalDateTime prevEnd = prevEndStr != null ? parseDateTime(prevEndStr) : LocalDateTime.MAX;
