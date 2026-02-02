@@ -1,0 +1,416 @@
+////
+Licensed to the Apache Software Foundation (ASF) under one or more
+contributor license agreements.  See the NOTICE file distributed with
+this work for additional information regarding copyright ownership.
+The ASF licenses this file to You under the Apache License, Version 2.0
+(the "License"); you may not use this file except in compliance with
+the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+////
+
+= Temporal Functionality
+
+== Overview
+
+Apache TinkerPop™ has been extended with temporal functionality, enabling time-aware graph queries and traversals. This extension provides three main capabilities:
+
+1. **Lifetime Management**: Define temporal validity intervals for vertices and edges
+2. **Allen's Interval Algebra**: Thirteen operators for interval-based temporal filtering
+3. **Temporal Paths**: Constrain traversals based on temporal relationships between edges
+
+== Lifetime Management
+
+=== Setting Lifetimes
+
+The `lifetime()` step allows you to define the temporal validity of graph elements during creation.
+
+[source,java]
+----
+// Vertex with start and end time
+g.addV("employee")
+  .lifetime("2020-01-15T09:00:00", "2023-12-31T17:00:00")
+  .property("name", "Alice")
+  .next();
+
+// Edge with ongoing validity (no end time)
+g.V().has("name", "Alice").as("a")
+  .V().has("name", "Bob").as("b")
+  .addE("manages")
+  .from("a").to("b")
+  .lifetime("2022-06-01T09:00:00")
+  .next();
+----
+
+=== Retrieving Lifetime Information
+
+[source,java]
+----
+Vertex employee = g.V().has("name", "Alice").next();
+LocalDateTime startTime = employee.getStartTime();
+LocalDateTime endTime = employee.getEndTime(); // May be null if ongoing
+----
+
+=== Internal Representation
+
+Lifetimes are stored as properties:
+- `lifetime_start`: Start of validity interval (required)
+- `lifetime_end`: End of validity interval (optional, null = ongoing)
+
+== Allen's Interval Algebra
+
+=== Overview
+
+Allen's Interval Algebra provides 13 distinct temporal relationships between intervals. Each relationship is implemented as a traversal step for filtering graph elements.
+
+=== The 13 Allen Operators
+
+[width="100%",cols="2,5,3",options="header"]
+|===
+|Operator |Description |Example Use Case
+
+|`temporalBefore(ref)`
+|Element ends before reference starts
+|Tasks before a deadline
+
+|`temporalAfter(ref)`
+|Element starts after reference ends
+|Events after a milestone
+
+|`temporalMeets(ref)`
+|Element ends exactly when reference starts
+|Perfect handoffs
+
+|`temporalMetBy(ref)`
+|Element starts exactly when reference ends
+|Sequential processes
+
+|`temporalOverlaps(ref)`
+|Element starts before reference, both overlap
+|Overlapping meetings
+
+|`temporalOverlappedBy(ref)`
+|Reference starts before element, both overlap
+|Overlapping shifts
+
+|`temporalDuring(ref)`
+|Element fully contained within reference
+|Subtasks within project
+
+|`temporalContains(ref)`
+|Element fully contains reference
+|Projects containing tasks
+
+|`temporalStarts(ref)`
+|Both start together, element finishes first
+|Sprint tasks starting together
+
+|`temporalStartedBy(ref)`
+|Both start together, reference finishes first
+|Main task with early subtask
+
+|`temporalFinishes(ref)`
+|Both finish together, element starts later
+|Tasks converging to deadline
+
+|`temporalFinishedBy(ref)`
+|Both finish together, reference starts later
+|Project with late-joining task
+
+|`temporalEquals(ref)`
+|Identical start and end times
+|Exactly matching intervals
+|===
+
+=== Usage Examples
+
+[source,java]
+----
+// Find all tasks that must complete BEFORE a milestone
+Vertex milestone = g.V().has("type", "milestone").has("name", "Release 1.0").next();
+List<Vertex> priorTasks = g.V().hasLabel("Task")
+    .temporalBefore(milestone)
+    .toList();
+
+// Find events that occurred DURING a specific time period
+Vertex maintenanceWindow = g.V().has("type", "maintenance").next();
+List<Vertex> incidents = g.V().hasLabel("Incident")
+    .temporalDuring(maintenanceWindow)
+    .toList();
+
+// Identify overlapping meetings for conflict detection
+List<Path> conflicts = g.V().hasLabel("Meeting").as("m1")
+    .V().hasLabel("Meeting").where(neq("m1")).as("m2")
+    .temporalOverlaps(select("m1"))
+    .path()
+    .toList();
+
+// Complex temporal queries with where()
+List<Vertex> complexQuery = g.V().hasLabel("Task")
+    .where(__.or(
+        __.temporalDuring(projectVertex),
+        __.temporalOverlaps(projectVertex)
+    ))
+    .toList();
+----
+
+== Temporal Paths
+
+=== Overview
+
+Temporal paths extend standard graph traversals by enforcing temporal constraints across edges in a path. This enables queries like "find paths where all edges overlap" or "find paths that respect causality."
+
+=== Three Path Types
+
+[width="100%",cols="2,5,3",options="header"]
+|===
+|Type |Constraint |Use Case
+
+|`continuousPath(label)`
+|All edges must overlap at a common time point
+|Concurrent collaborations, team activities
+
+|`sequentialPath(label)`
+|Each edge starts ≥ when previous ends (causality)
+|Workflows, event sequences, dependencies
+
+|`pairwiseContinuousPath(label)`
+|Consecutive edges overlap
+|Hand-off processes, relay activities
+|===
+
+=== Continuous Paths
+
+All edges in the path must share at least one common time point.
+
+[source,java]
+----
+// Find 4-person teams where all worked together simultaneously
+List<Path> teams = g.V().has("name", "Alice")
+    .continuousPath("collaborates")
+    .continuousPath("collaborates")
+    .continuousPath("collaborates")
+    .path()
+    .toList();
+
+// Timeline visualization:
+// Edge 1: [10:00-12:00]
+// Edge 2:   [11:00-13:00]
+// Edge 3:     [11:30-12:30]
+// Edge 4:       [12:00-14:00]
+// Common overlap: [12:00-12:00] ✓ Valid continuous path
+----
+
+=== Sequential Paths
+
+Each edge must start at or after the previous edge ends, ensuring temporal causality.
+
+[source,java]
+----
+// Find causal process chains
+List<Vertex> workflow = g.V().has("status", "started")
+    .sequentialPath("processedBy")
+    .sequentialPath("processedBy")
+    .sequentialPath("processedBy")
+    .has("status", "completed")
+    .toList();
+
+// Timeline visualization:
+// Edge 1: [10:00-11:00] ends
+// Edge 2:      [11:00-12:00] starts when Edge 1 ends
+// Edge 3:           [12:00-13:00] starts when Edge 2 ends
+// Perfect sequential handoffs ✓
+----
+
+=== Pairwise Continuous Paths
+
+Adjacent edges must overlap, but not necessarily all edges simultaneously.
+
+[source,java]
+----
+// Find hand-off chains where consecutive steps overlap
+List<Vertex> handoffs = g.V().has("type", "task")
+    .pairwiseContinuousPath("handedTo")
+    .pairwiseContinuousPath("handedTo")
+    .pairwiseContinuousPath("handedTo")
+    .toList();
+
+// Timeline visualization:
+// Edge 1: [10:00-12:00]
+// Edge 2:   [11:00-13:00] overlaps with Edge 1 ✓
+// Edge 3:       [12:30-14:00] overlaps with Edge 2 ✓
+// Edge 4:         [13:30-15:00] overlaps with Edge 3 ✓
+// Note: Edge 1 and Edge 4 don't overlap - that's OK for pairwise
+----
+
+=== Branching Paths
+
+When a vertex has multiple outgoing edges, temporal path filters evaluate each independently and return ALL valid paths.
+
+[source,java]
+----
+// Graph structure: A->B->{C, D, E}
+// Timeline:
+//   A->B: [10:00-12:00]
+//   B->C: [11:00-11:30] (overlaps A->B) ✓
+//   B->D: [11:30-12:00] (overlaps A->B) ✓
+//   B->E: [12:30-13:00] (no overlap) ✗
+
+List<String> results = g.V(vertexA)
+    .continuousPath("follows")
+    .continuousPath("follows")
+    .values("name")
+    .toList();
+// Returns: ["C", "D"] - both valid paths, E filtered out
+----
+
+=== Using with Repeat
+
+Temporal paths integrate with `repeat()` for dynamic exploration.
+
+[source,java]
+----
+// Find all continuous paths up to depth 5
+List<Path> allPaths = g.V().has("name", "start")
+    .repeat(__.continuousPath("connected"))
+    .times(5)
+    .path()
+    .toList();
+
+// Find paths until reaching a specific target
+List<Vertex> targetPaths = g.V().has("name", "source")
+    .repeat(__.sequentialPath("flows"))
+    .until(__.has("name", "destination"))
+    .toList();
+
+// Combine with emit() for all intermediate results
+List<Vertex> allNodes = g.V().has("id", 1)
+    .repeat(__.pairwiseContinuousPath("knows"))
+    .emit()
+    .times(3)
+    .toList();
+----
+
+=== Temporal Paths with Shortest Path
+
+You can combine temporal constraints with shortest path algorithms.
+
+[source,java]
+----
+// Find the shortest sequential path (respecting causality)
+// Uses custom traversal that tracks path length
+List<Path> shortestSequential = g.V().has("name", "start")
+    .repeat(
+        __.sequentialPath("edge")
+          .simplePath()
+    )
+    .until(__.has("name", "end"))
+    .limit(1)
+    .path()
+    .toList();
+
+// Alternative: Find all paths then select shortest
+List<Path> allSequentialPaths = g.V().has("name", "start")
+    .repeat(__.sequentialPath("edge").simplePath())
+    .until(__.has("name", "end"))
+    .path()
+    .toList();
+
+Path shortest = allSequentialPaths.stream()
+    .min(Comparator.comparingInt(Path::size))
+    .orElse(null);
+
+// Continuous shortest path
+List<Path> shortestContinuous = g.V().has("name", "start")
+    .repeat(
+        __.continuousPath("collaborates")
+          .simplePath()
+    )
+    .until(__.has("name", "end"))
+    .path()
+    .order().by(__.path().count(local))
+    .limit(1)
+    .toList();
+----
+
+== Implementation Notes
+
+=== Performance Considerations
+
+1. **Indexing**: Create indices using solr on `lifetime_start` and `lifetime_end` for optimal performance
+2. **Edge Properties**: Temporal path filters require edges to have `startTime` (and optionally `endTime`) properties
+3. **Path Length**: Longer paths with continuous constraints require more intersection calculations
+
+=== Time Format
+
+The implementation uses `LocalDateTime` with ISO 8601 format:
+- Format: `yyyy-MM-dd'T'HH:mm:ss`
+- Example: `2023-06-15T14:30:00`
+
+=== Null Handling
+
+- Missing `endTime` (or `lifetime_end`) is treated as `LocalDateTime.MAX` (ongoing validity)
+- Missing `startTime` (or `lifetime_start`) causes the element to be filtered out
+
+== Advanced Examples
+
+=== Combining Allen Operators with Temporal Paths
+
+[source,java]
+----
+// Find sequential paths where all edges DURING a project timeframe
+Vertex project = g.V().has("name", "Project Alpha").next();
+
+List<Path> constrainedPaths = g.V().has("type", "task")
+    .repeat(
+        __.sequentialPath("depends")
+          .temporalDuring(project)
+    )
+    .times(3)
+    .path()
+    .toList();
+----
+
+=== Multi-Constraint Queries
+
+[source,java]
+----
+// Find continuous collaboration paths that:
+// 1. All overlap (continuous)
+// 2. Start DURING Q1 2023
+// 3. Involve at least 4 people
+
+Vertex q1_2023 = g.addV("timeframe")
+    .lifetime("2023-01-01T00:00:00", "2023-03-31T23:59:59")
+    .next();
+
+List<Path> results = g.V()
+    .hasLabel("person")
+    .repeat(__.continuousPath("collaborates"))
+    .times(3)
+    .path()
+    .filter(__.path().unfold()
+        .hasLabel("collaborates")
+        .temporalDuring(q1_2023)
+        .count().is(P.gte(3))
+    )
+    .toList();
+----
+
+== Summary
+
+The temporal extensions to Apache TinkerPop provide a framework for time-aware graph analysis, while opening the way for more:
+
+- **Lifetime Management** makes temporal validity a first-class property
+- **Allen's Operators** enable sophisticated interval-based queries
+- **Temporal Paths** allow traversals that respect temporal constraints
+
+For more examples and test cases, see:
+- `TemporalPathIntegrationTest.java` - Comprehensive temporal path tests
+- `AllenFilterStepTest.java` - Allen operator test coverage

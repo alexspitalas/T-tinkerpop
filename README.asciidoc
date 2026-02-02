@@ -130,6 +130,74 @@ g.V().hasLabel("Task")
   )).toList();
 ```
 
+### 3. Temporal Paths
+
+Temporal paths enable traversing graphs while maintaining specific temporal constraints across edges. TinkerPop provides three types of temporal path filtering:
+
+#### Path Types
+
+| Type | Description | Use Case |
+|---|---|---|
+| `continuousPath(edgeLabel)` | All edges must overlap at a common time point | Concurrent collaborations, simultaneous activities |
+| `sequentialPath(edgeLabel)` | Edges respect causality (each starts ≥ previous ends) | Event sequences, workflows, causality chains |
+| `pairwiseContinuousPath(edgeLabel)` | Consecutive edges overlap at intermediate nodes | Hand-off processes, relay activities |
+
+#### Examples
+
+```java
+// Example 1: Find continuous collaboration paths
+// All edges must overlap at some time point
+g.V().has("name", "Alice")
+  .continuousPath("collaborates")
+  .continuousPath("collaborates")
+  .continuousPath("collaborates")
+  .has("name", "David")
+  .path(); // Returns paths where Alice-....-....-David all worked together at the same time
+
+// Example 2: Sequential workflow (respects causality)
+// Each step starts after or when the previous ends
+g.V().has("status", "started")
+  .sequentialPath("processedBy")
+  .sequentialPath("processedBy")
+  .sequentialPath("processedBy")
+  .has("status", "completed")
+  .toList(); // Returns causal process chains
+
+// Example 3: Pairwise continuous (hand-off pattern)
+// Adjacent steps overlap, but not all simultaneously
+g.V().has("type", "task")
+  .pairwiseContinuousPath("handedTo")
+  .pairwiseContinuousPath("handedTo")
+  .toList(); // Returns task hand-off chains
+
+// Example 4: Branching paths - returns ALL valid paths
+// If vertex B has multiple outgoing edges (B->C, B->D, B->E)
+// continuousPath returns all paths that satisfy temporal constraints
+g.V(vertexA)
+  .continuousPath("follows")
+  .continuousPath("follows")
+  .values("name")
+  .toList(); // Returns ["C", "D"] if C and D only have valid timeline, E is filtered out if not satisfies continuousPath
+```
+
+#### Using with Repeat
+
+Temporal paths work seamlessly with `repeat()` for dynamic path exploration:
+
+```java
+// Find all continuous paths up to depth 5
+g.V().has("name", "start")
+  .repeat(__.continuousPath("connected"))
+  .times(5)
+  .path();
+
+// Find paths until reaching target
+g.V().has("name", "source")
+  .repeat(__.sequentialPath("flows"))
+  .until(__.has("name", "destination"))
+  .toList();
+```
+
 === Building and Testing
 
 TinkerPop uses link:https://maven.apache.org/[Maven] and requires `Java 11` for proper building and proper operations. To build, execute unit tests and package Gremlin Console/Server run:
