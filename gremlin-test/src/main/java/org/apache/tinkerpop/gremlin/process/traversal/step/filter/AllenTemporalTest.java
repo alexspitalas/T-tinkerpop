@@ -33,6 +33,7 @@ import java.util.Set;
 import static org.apache.tinkerpop.gremlin.LoadGraphWith.GraphData.MODERN;
 import static org.junit.Assert.*;
 
+// @author Alex Spitalas
 @RunWith(GremlinProcessRunner.class)
 public abstract class AllenTemporalTest extends AbstractGremlinProcessTest {
 

@@ -28,6 +28,8 @@ import java.time.format.DateTimeFormatter;
 /**
  * A filter step that implements all of Allen's temporal relationships.
  * This step compares temporal intervals between the current element and a reference element.
+ * 
+ * @author Alex Spitalas
  */
 public final class AllenFilterStep<S, E> extends FilterStep<S> {
 

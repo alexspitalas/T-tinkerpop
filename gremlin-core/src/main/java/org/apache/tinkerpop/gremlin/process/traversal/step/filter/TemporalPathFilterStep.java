@@ -33,6 +33,8 @@ import java.util.Set;
 /**
  * A FilterStep that validates temporal constraints for edges in a path.
  * Supports Continuous, Sequential, and Pairwise-Continuous patterns.
+ * 
+ * @author Alex Spitalas
  */
 public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
