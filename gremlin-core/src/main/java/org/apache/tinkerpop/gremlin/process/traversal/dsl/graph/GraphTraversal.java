@@ -195,6 +195,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.WithOptions;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
+import org.apache.tinkerpop.gremlin.process.traversal.util.AllenStep;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalMetrics;
 import org.apache.tinkerpop.gremlin.structure.Column;
@@ -3351,175 +3352,162 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     // =============================================================================
     // ALLEN TEMPORAL RELATIONSHIP METHODS
     // =============================================================================
-
     /**
-     * Filters elements that are temporally BEFORE the reference element.
-     * Element X is before Y if X ends before Y starts.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal before filtering applied
+     * Filters elements where the element's temporal interval is BEFORE the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalBefore(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalBefore(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalBefore, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.BEFORE, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.BEFORE, referenceElement);
     }
 
     /**
-     * Filters elements that are temporally AFTER the reference element.
-     * Element X is after Y if X starts after Y ends.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal after filtering applied
+     * Filters elements where the element's temporal interval is AFTER the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalAfter(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalAfter(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalAfter, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.AFTER, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.AFTER, referenceElement);
     }
 
     /**
-     * Filters elements that MEET the reference element.
-     * Element X meets Y if X ends exactly when Y starts.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal meets filtering applied
+     * Filters elements where the element's temporal interval MEETS the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalMeets(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalMeets(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMeets, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.MEETS, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.MEETS, referenceElement);
     }
 
     /**
-     * Filters elements that are MET BY the reference element.
-     * Element X is met by Y if X starts exactly when Y ends.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal met-by filtering applied
+     * Filters elements where the element's temporal interval is MET BY the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalMetBy(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalMetBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMetBy, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.MET_BY, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.MET_BY, referenceElement);
     }
 
     /**
-     * Filters elements that OVERLAP the reference element.
-     * Element X overlaps Y if X starts before Y, ends after Y starts, but ends before Y ends.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal overlaps filtering applied
+     * Filters elements where the element's temporal interval OVERLAPS the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalOverlaps(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalOverlaps(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlaps, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.OVERLAPS, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.OVERLAPS, referenceElement);
     }
 
     /**
-     * Filters elements that are OVERLAPPED BY the reference element.
-     * Element X is overlapped by Y if Y starts before X, Y ends after X starts, but Y ends before X ends.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal overlapped-by filtering applied
+     * Filters elements where the element's temporal interval is OVERLAPPED BY the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalOverlappedBy(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalOverlappedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlappedBy, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.OVERLAPPED_BY, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.OVERLAPPED_BY, referenceElement);
     }
 
     /**
-     * Filters elements that START the reference element.
-     * Element X starts Y if X and Y start at the same time, but X ends before Y.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal starts filtering applied
+     * Filters elements where the element's temporal interval STARTS the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalStarts(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalStarts(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStarts, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.STARTS, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.STARTS, referenceElement);
     }
 
     /**
-     * Filters elements that are STARTED BY the reference element.
-     * Element X is started by Y if X and Y start at the same time, but X ends after Y.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal started-by filtering applied
+     * Filters elements where the element's temporal interval is STARTED BY the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalStartedBy(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalStartedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStartedBy, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.STARTED_BY, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.STARTED_BY, referenceElement);
     }
 
     /**
-     * Filters elements that FINISH the reference element.
-     * Element X finishes Y if X starts after Y starts, but X and Y end at the same time.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal finishes filtering applied
+     * Filters elements where the element's temporal interval FINISHES the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalFinishes(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalFinishes(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishes, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.FINISHES, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.FINISHES, referenceElement);
     }
 
     /**
-     * Filters elements that are FINISHED BY the reference element.
-     * Element X is finished by Y if X starts before Y starts, but X and Y end at the same time.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal finished-by filtering applied
+     * Filters elements where the element's temporal interval is FINISHED BY the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalFinishedBy(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalFinishedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishedBy, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.FINISHED_BY, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.FINISHED_BY, referenceElement);
     }
 
     /**
-     * Filters elements that are DURING the reference element.
-     * Element X is during Y if X starts after Y starts and X ends before Y ends.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal during filtering applied
+     * Filters elements where the element's temporal interval is DURING the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalDuring(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalDuring(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalDuring, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.DURING, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.DURING, referenceElement);
     }
 
     /**
-     * Filters elements that CONTAIN the reference element.
-     * Element X contains Y if X starts before Y starts and X ends after Y ends.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal contains filtering applied
+     * Filters elements where the element's temporal interval CONTAINS the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalContains(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalContains(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalContains, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.CONTAINS, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.CONTAINS, referenceElement);
     }
 
     /**
-     * Filters elements that are temporally EQUAL to the reference element.
-     * Element X equals Y if X and Y have identical start and end times.
-     * 
-     * @param referenceElement the element to compare temporal intervals with
-     * @return the traversal with temporal equals filtering applied
+     * Filters elements where the element's temporal interval EQUALS the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
      * @since 4.0.0-temporal
      */
-    default GraphTraversal<S, S> temporalEquals(final Element referenceElement) {
+    public default GraphTraversal<S, E> temporalEquals(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalEquals, referenceElement);
-        return this.asAdmin().addStep(new AllenFilterStep<>(this.asAdmin(), AllenFilterStep.AllenRelation.EQUALS, referenceElement));
+        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.EQUALS, referenceElement);
     }
+
     
     ///////////////////// BRANCH STEPS /////////////////////
 
