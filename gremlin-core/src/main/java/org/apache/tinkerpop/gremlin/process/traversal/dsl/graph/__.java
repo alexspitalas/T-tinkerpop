@@ -1667,6 +1667,20 @@ public class __ {
     public static <A> GraphTraversal<A, Vertex> pairwiseContinuousPath(final String... edgeLabels) {
         return __.<A>start().pairwiseContinuousPath(edgeLabels);
     }
+
+    /**
+     * @see GraphTraversal#sequentialPath(long, long, String...)
+     */
+    public static <A> GraphTraversal<A, Vertex> sequentialPath(final long minDelay, final long maxDelay, final String... edgeLabels) {
+        return __.<A>start().sequentialPath(minDelay, maxDelay, edgeLabels);
+    }
+
+    /**
+     * @see GraphTraversal#pairwiseContinuousPath(boolean, String...)
+     */
+    public static <A> GraphTraversal<A, Vertex> pairwiseContinuousPath(final boolean monotone, final String... edgeLabels) {
+        return __.<A>start().pairwiseContinuousPath(monotone, edgeLabels);
+    }
     /**
      * Creates an anonymous traversal with a temporal BEFORE filter.
      *

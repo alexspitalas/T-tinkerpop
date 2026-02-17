@@ -287,4 +287,90 @@ public class TemporalPathFilterLogicTest {
         Path path = mockPath(e1, e2, e3);
         assertTrue("Pairwise allows transitive non-overlap", step.filter(mockTraverser(e3, path)));
     }
+
+    @Test
+    public void shouldFilterSequentialPathWithMinDelay() {
+        // Min delay 1 hour (3600000 ms)
+        TemporalPathFilterStep<Edge> step = new TemporalPathFilterStep<>(
+            mockTraversal(), 
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            3600000, Long.MAX_VALUE, false
+        );
+
+        Edge e1 = mockEdge("2023-01-01T10:00:00", "2023-01-01T11:00:00");
+        
+        // e2 starts 30 mins after e1 ends - FAIL (gap < min)
+        Edge e2 = mockEdge("2023-01-01T11:30:00", "2023-01-01T12:30:00");
+        Path pathFail = mockPath(e1, e2);
+        assertFalse("Gap smaller than minDelay should fail", step.filter(mockTraverser(e2, pathFail)));
+
+        // e3 starts 1 hour after e1 ends - PASS (gap == min)
+        Edge e3 = mockEdge("2023-01-01T12:00:00", "2023-01-01T13:00:00");
+        Path pathPass = mockPath(e1, e3);
+        assertTrue("Gap equal to minDelay should pass", step.filter(mockTraverser(e3, pathPass)));
+
+        // e4 starts 2 hours after e1 ends - PASS (gap > min)
+        Edge e4 = mockEdge("2023-01-01T13:00:00", "2023-01-01T14:00:00");
+        Path pathPass2 = mockPath(e1, e4);
+        assertTrue("Gap larger than minDelay should pass", step.filter(mockTraverser(e4, pathPass2)));
+    }
+
+    @Test
+    public void shouldFilterSequentialPathWithMaxDelay() {
+        // Max delay 2 hours (7200000 ms)
+        TemporalPathFilterStep<Edge> step = new TemporalPathFilterStep<>(
+            mockTraversal(), 
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            0, 7200000, false
+        );
+
+        Edge e1 = mockEdge("2023-01-01T10:00:00", "2023-01-01T11:00:00");
+
+        // e2 starts 1 hour after e1 ends - PASS (gap < max)
+        Edge e2 = mockEdge("2023-01-01T12:00:00", "2023-01-01T13:00:00");
+        Path pathPass = mockPath(e1, e2);
+        assertTrue("Gap smaller than maxDelay should pass", step.filter(mockTraverser(e2, pathPass)));
+
+        // e3 starts 3 hours after e1 ends - FAIL (gap > max)
+        Edge e3 = mockEdge("2023-01-01T14:00:00", "2023-01-01T15:00:00");
+        Path pathFail = mockPath(e1, e3);
+        assertFalse("Gap larger than maxDelay should fail", step.filter(mockTraverser(e3, pathFail)));
+    }
+
+    @Test
+    public void shouldFilterPairwiseContinuousPathMonotone() {
+        TemporalPathFilterStep<Edge> step = new TemporalPathFilterStep<>(
+            mockTraversal(), 
+            TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS,
+            0, Long.MAX_VALUE, true // Monotone = true
+        );
+
+        Edge e1 = mockEdge("2023-01-01T10:00:00", "2023-01-01T12:00:00");
+        
+        // e2 starts at 11:00 (after e1 start) and overlaps - PASS
+        Edge e2 = mockEdge("2023-01-01T11:00:00", "2023-01-01T13:00:00");
+        Path pathPass = mockPath(e1, e2);
+        assertTrue("Monotone increasing start time should pass", step.filter(mockTraverser(e2, pathPass)));
+
+        // e3 starts at 09:00 (before e1 start) and overlaps - FAIL
+        Edge e3 = mockEdge("2023-01-01T09:00:00", "2023-01-01T11:00:00");
+        Path pathFail = mockPath(e1, e3);
+        assertFalse("Decreasing start time should fail in monotone mode", step.filter(mockTraverser(e3, pathFail)));
+    }
+
+    @Test
+    public void shouldFilterPairwiseContinuousPathNonMonotone() {
+        TemporalPathFilterStep<Edge> step = new TemporalPathFilterStep<>(
+            mockTraversal(), 
+            TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS,
+            0, Long.MAX_VALUE, false // Monotone = false
+        );
+
+        Edge e1 = mockEdge("2023-01-01T10:00:00", "2023-01-01T12:00:00");
+        
+        // e3 starts at 09:00 (before e1 start) and overlaps - PASS because monotone is false
+        Edge e3 = mockEdge("2023-01-01T09:00:00", "2023-01-01T11:00:00");
+        Path pathPass = mockPath(e1, e3);
+        assertTrue("Decreasing start time should pass in non-monotone mode", step.filter(mockTraverser(e3, pathPass)));
+    }
 }

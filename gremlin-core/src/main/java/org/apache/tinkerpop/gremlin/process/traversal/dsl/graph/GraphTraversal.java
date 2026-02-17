@@ -4321,6 +4321,23 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     }
 
     /**
+     * Traverses to adjacent vertices via Sequential Paths (SP) with time constraints.
+     * Every edge should start after the previous edge has finished, with a delay between minDelay and maxDelay.
+     *
+     * @param minDelay   minimum delay (inclusive) between previous end and current start
+     * @param maxDelay   maximum delay (inclusive) between previous end and current start
+     * @param edgeLabels the edge labels to traverse
+     * @return the traversal with a Sequential Path step applied
+     * @since 3.7.3-T
+     */
+    public default GraphTraversal<S, Vertex> sequentialPath(final long minDelay, final long maxDelay, final String... edgeLabels) {
+        this.asAdmin().getBytecode().addStep(Symbols.sequentialPath, minDelay, maxDelay, edgeLabels);
+        this.asAdmin().addStep(new VertexStep<>(this.asAdmin(), Edge.class, Direction.OUT, edgeLabels));
+        this.asAdmin().addStep(new TemporalPathFilterStep<>(this.asAdmin(), TemporalPathFilterStep.TemporalPathType.SEQUENTIAL, minDelay, maxDelay, false));
+        return this.asAdmin().addStep(new EdgeVertexStep(this.asAdmin(), Direction.IN));
+    }
+
+    /**
      * Traverses to adjacent vertices via Pairwise-Continuous Paths (PCP).
      * Adjacent edges should have an intersection for the path to be valid.
      *
@@ -4332,6 +4349,22 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.pairwiseContinuousPath, edgeLabels);
         this.asAdmin().addStep(new VertexStep<>(this.asAdmin(), Edge.class, Direction.OUT, edgeLabels));
         this.asAdmin().addStep(new TemporalPathFilterStep<>(this.asAdmin(), TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS));
+        return this.asAdmin().addStep(new EdgeVertexStep(this.asAdmin(), Direction.IN));
+    }
+
+    /**
+     * Traverses to adjacent vertices via Pairwise-Continuous Paths (PCP) with monotone constraint.
+     * Adjacent edges should have an intersection for the path to be valid.
+     *
+     * @param monotone   if true, requires current edge start >= previous edge start
+     * @param edgeLabels the edge labels to traverse
+     * @return the traversal with a Pairwise-Continuous Path step applied
+     * @since 3.7.3-T
+     */
+    public default GraphTraversal<S, Vertex> pairwiseContinuousPath(final boolean monotone, final String... edgeLabels) {
+        this.asAdmin().getBytecode().addStep(Symbols.pairwiseContinuousPath, monotone, edgeLabels);
+        this.asAdmin().addStep(new VertexStep<>(this.asAdmin(), Edge.class, Direction.OUT, edgeLabels));
+        this.asAdmin().addStep(new TemporalPathFilterStep<>(this.asAdmin(), TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS, 0, Long.MAX_VALUE, monotone));
         return this.asAdmin().addStep(new EdgeVertexStep(this.asAdmin(), Direction.IN));
     }
 

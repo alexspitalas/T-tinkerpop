@@ -27,6 +27,7 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Set;
 
@@ -46,10 +47,20 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
     private final TemporalPathType type;
     private final DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    private final long minDelay;
+    private final long maxDelay;
+    private final boolean monotone;
 
     public TemporalPathFilterStep(final Traversal.Admin traversal, final TemporalPathType type) {
+        this(traversal, type, 0, Long.MAX_VALUE, false);
+    }
+
+    public TemporalPathFilterStep(final Traversal.Admin traversal, final TemporalPathType type, final long minDelay, final long maxDelay, final boolean monotone) {
         super(traversal);
         this.type = type;
+        this.minDelay = minDelay;
+        this.maxDelay = maxDelay;
+        this.monotone = monotone;
     }
 
     @Override
@@ -157,8 +168,24 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         // Previous edge must be BEFORE or MEET current edge.
         // Equivalent to: prevEnd <= edgeStart
         // Using Allen: prev BEFORE curr OR prev MEETS curr
-        return AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.BEFORE, prevStart, prevEnd, edgeStart, edgeEnd) ||
+        boolean isSequential = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.BEFORE, prevStart, prevEnd, edgeStart, edgeEnd) ||
                AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.MEETS, prevStart, prevEnd, edgeStart, edgeEnd);
+        
+        if (!isSequential) return false;
+
+        // Check Min/Max delay
+        if (minDelay > 0 || maxDelay < Long.MAX_VALUE) {
+            try {
+                long delay = ChronoUnit.MILLIS.between(prevEnd, edgeStart);
+                if (delay < minDelay) return false;
+                if (delay > maxDelay) return false;
+            } catch (Exception e) {
+                // If calculation fails (e.g. MAX LocalDateTime), assume valid or handle gracefully
+                return true; 
+            }
+        }
+
+        return true;
     }
 
     private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final LocalDateTime edgeStart,
@@ -190,7 +217,14 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         boolean isBefore = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.BEFORE, prevStart, prevEnd, edgeStart, edgeEnd);
         boolean isAfter = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.AFTER, prevStart, prevEnd, edgeStart, edgeEnd);
         
-        return !isBefore && !isAfter;
+        if (isBefore || isAfter) return false;
+
+        if (monotone) {
+            // Monotone: current edge start >= previous edge start
+            if (edgeStart.isBefore(prevStart)) return false;
+        }
+
+        return true;
     }
 
     private String getProperty(final Edge edge, final String key) {
@@ -227,6 +261,9 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
     public int hashCode() {
         int result = super.hashCode();
         result = 31 * result + (type != null ? type.hashCode() : 0);
+        result = 31 * result + (int) (minDelay ^ (minDelay >>> 32));
+        result = 31 * result + (int) (maxDelay ^ (maxDelay >>> 32));
+        result = 31 * result + (monotone ? 1 : 0);
         return result;
     }
 
@@ -236,6 +273,6 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (!(other instanceof TemporalPathFilterStep)) return false;
         if (!super.equals(other)) return false;
         final TemporalPathFilterStep<?> that = (TemporalPathFilterStep<?>) other;
-        return type == that.type;
+        return type == that.type && minDelay == that.minDelay && maxDelay == that.maxDelay && monotone == that.monotone;
     }
 }
