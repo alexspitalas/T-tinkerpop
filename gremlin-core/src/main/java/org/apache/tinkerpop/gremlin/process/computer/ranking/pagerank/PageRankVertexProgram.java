@@ -32,6 +32,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Operator;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.process.traversal.util.PureTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.util.ScriptTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
@@ -42,8 +43,10 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -62,6 +65,8 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
     private static final String MAX_ITERATIONS = "gremlin.pageRankVertexProgram.maxIterations";
     private static final String EDGE_TRAVERSAL = "gremlin.pageRankVertexProgram.edgeTraversal";
     private static final String INITIAL_RANK_TRAVERSAL = "gremlin.pageRankVertexProgram.initialRankTraversal";
+    private static final String START_TIME = "gremlin.pageRankVertexProgram.startTime";
+    private static final String END_TIME = "gremlin.pageRankVertexProgram.endTime";
     private static final String TELEPORTATION_ENERGY = "gremlin.pageRankVertexProgram.teleportationEnergy";
     private static final String CONVERGENCE_ERROR = "gremlin.pageRankVertexProgram.convergenceError";
 
@@ -73,6 +78,8 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
     private double epsilon = 0.00001d;
     private int maxIterations = 20;
     private String property = PAGE_RANK;
+    private String startTime;
+    private String endTime;
     private Set<VertexComputeKey> vertexComputeKeys;
     private Set<MemoryComputeKey> memoryComputeKeys;
 
@@ -93,6 +100,8 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
         this.epsilon = configuration.getDouble(EPSILON, this.epsilon);
         this.maxIterations = configuration.getInt(MAX_ITERATIONS, 20);
         this.property = configuration.getString(PROPERTY, PAGE_RANK);
+        this.startTime = configuration.getString(START_TIME, null);
+        this.endTime = null == this.startTime ? null : LifetimeHelper.getEndTimeOrDefault(configuration.getString(END_TIME, null));
         this.vertexComputeKeys = new HashSet<>(Arrays.asList(
                 VertexComputeKey.of(this.property, false),
                 VertexComputeKey.of(EDGE_COUNT, true)));
@@ -109,6 +118,10 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
         configuration.setProperty(EPSILON, this.epsilon);
         configuration.setProperty(PROPERTY, this.property);
         configuration.setProperty(MAX_ITERATIONS, this.maxIterations);
+        if (null != this.startTime)
+            configuration.setProperty(START_TIME, this.startTime);
+        if (null != this.startTime)
+            configuration.setProperty(END_TIME, LifetimeHelper.getEndTimeOrDefault(this.endTime));
         if (null != this.edgeTraversal)
             this.edgeTraversal.storeState(configuration, EDGE_TRAVERSAL);
         if (null != this.initialRankTraversal)
@@ -151,6 +164,8 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
     public PageRankVertexProgram clone() {
         try {
             final PageRankVertexProgram clone = (PageRankVertexProgram) super.clone();
+            if (null != this.edgeTraversal)
+                clone.edgeTraversal = this.edgeTraversal.clone();
             if (null != this.initialRankTraversal)
                 clone.initialRankTraversal = this.initialRankTraversal.clone();
             return clone;
@@ -168,6 +183,9 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
 
     @Override
     public void execute(final Vertex vertex, Messenger<Double> messenger, final Memory memory) {
+        if (this.hasTemporalWindow() && !LifetimeHelper.isActive(vertex, this.startTime, LifetimeHelper.getEndTimeOrDefault(this.endTime)))
+            return;
+
         if (memory.isInitialIteration()) {
             messenger.sendMessage(this.countMessageScope, 1.0d);
             memory.add(VERTEX_COUNT, 1.0d);
@@ -213,7 +231,15 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
 
     @Override
     public String toString() {
-        return StringFactory.vertexProgramString(this, "alpha=" + this.alpha + ", epsilon=" + this.epsilon + ", iterations=" + this.maxIterations);
+        final List<String> options = new ArrayList<>(Arrays.asList(
+                "alpha=" + this.alpha,
+                "epsilon=" + this.epsilon,
+                "iterations=" + this.maxIterations));
+        if (this.hasTemporalWindow()) {
+            options.add("startTime=" + this.startTime);
+            options.add("endTime=" + LifetimeHelper.getEndTimeOrDefault(this.endTime));
+        }
+        return StringFactory.vertexProgramString(this, String.join(", ", options));
     }
 
     //////////////////////////////
@@ -248,6 +274,19 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
             return this;
         }
 
+        public Builder startTime(final String startTime) {
+            this.configuration.setProperty(START_TIME, startTime);
+            if (!this.configuration.containsKey(END_TIME)) {
+                this.configuration.setProperty(END_TIME, LifetimeHelper.DEFAULT_ENDTIME);
+            }
+            return this;
+        }
+
+        public Builder endTime(final String endTime) {
+            this.configuration.setProperty(END_TIME, LifetimeHelper.getEndTimeOrDefault(endTime));
+            return this;
+        }
+
         public Builder edges(final Traversal.Admin<Vertex, Edge> edgeTraversal) {
             PureTraversal.storeState(this.configuration, EDGE_TRAVERSAL, edgeTraversal);
             return this;
@@ -265,6 +304,11 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
     public Features getFeatures() {
         return new Features() {
             @Override
+            public boolean requiresGlobalMessageScopes() {
+                return false;
+            }
+
+            @Override
             public boolean requiresLocalMessageScopes() {
                 return true;
             }
@@ -274,5 +318,9 @@ public class PageRankVertexProgram implements VertexProgram<Double> {
                 return true;
             }
         };
+    }
+
+    private boolean hasTemporalWindow() {
+        return null != this.startTime;
     }
 }

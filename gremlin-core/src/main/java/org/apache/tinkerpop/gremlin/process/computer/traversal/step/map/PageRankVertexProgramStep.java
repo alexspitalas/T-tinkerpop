@@ -25,19 +25,25 @@ import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankVe
 import org.apache.tinkerpop.gremlin.process.computer.traversal.lambda.HaltedTraversersCountTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.step.Configuring;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
+import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.LambdaFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Parameters;
+import org.apache.tinkerpop.gremlin.process.traversal.step.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.process.traversal.util.PureTraversal;
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.Set;
 
 /**
@@ -51,6 +57,8 @@ public final class PageRankVertexProgramStep extends VertexProgramStep implement
     private String pageRankProperty = PageRankVertexProgram.PAGE_RANK;
     private int times = 20;
     private final double alpha;
+    private String startTime;
+    private String endTime;
 
     public PageRankVertexProgramStep(final Traversal.Admin traversal, final double alpha) {
         super(traversal);
@@ -73,6 +81,23 @@ public final class PageRankVertexProgramStep extends VertexProgramStep implement
             if (!(keyValues[1] instanceof Integer))
                 throw new IllegalArgumentException("PageRank.times requires an Integer as its argument");
             this.times = (int) keyValues[1];
+        } else if (keyValues[0].equals(PageRank.startTime)) {
+            if (!(keyValues[1] instanceof String))
+                throw new IllegalArgumentException("PageRank.startTime requires a String as its argument");
+            final String candidateStartTime = (String) keyValues[1];
+            LifetimeHelper.validateTimeWindow(candidateStartTime, LifetimeHelper.getEndTimeOrDefault(this.endTime));
+            this.startTime = candidateStartTime;
+            this.endTime = LifetimeHelper.getEndTimeOrDefault(this.endTime);
+            this.applyTemporalComputerFilters();
+        } else if (keyValues[0].equals(PageRank.endTime)) {
+            if (!(keyValues[1] instanceof String))
+                throw new IllegalArgumentException("PageRank.endTime requires a String as its argument");
+            final String candidateEndTime = (String) keyValues[1];
+            if (null == this.startTime)
+                throw new IllegalArgumentException("PageRank.endTime requires PageRank.startTime to be configured first");
+            LifetimeHelper.validateTimeWindow(this.startTime, candidateEndTime);
+            this.endTime = candidateEndTime;
+            this.applyTemporalComputerFilters();
         } else {
             this.parameters.set(this, keyValues);
         }
@@ -90,18 +115,25 @@ public final class PageRankVertexProgramStep extends VertexProgramStep implement
 
     @Override
     public String toString() {
-        return StringFactory.stepString(this, this.edgeTraversal.get(), this.pageRankProperty, this.times, new GraphFilter(this.computer));
+        return null == this.startTime ?
+                StringFactory.stepString(this, this.edgeTraversal.get(), this.pageRankProperty, this.times, new GraphFilter(this.computer)) :
+                StringFactory.stepString(this, this.edgeTraversal.get(), this.pageRankProperty, this.times,
+                        this.startTime, LifetimeHelper.getEndTimeOrDefault(this.endTime), new GraphFilter(this.computer));
     }
 
     @Override
     public PageRankVertexProgram generateProgram(final Graph graph, final Memory memory) {
-        final Traversal.Admin<Vertex, Edge> detachedTraversal = this.edgeTraversal.getPure();
+        final Traversal.Admin<Vertex, Edge> detachedTraversal = this.getProgramEdgeTraversal();
         detachedTraversal.setStrategies(TraversalStrategies.GlobalCache.getStrategies(graph.getClass()));
         final PageRankVertexProgram.Builder builder = PageRankVertexProgram.build()
                 .property(this.pageRankProperty)
                 .iterations(this.times + 1)
                 .alpha(this.alpha)
                 .edges(detachedTraversal);
+        if (null != this.startTime) {
+            builder.startTime(this.startTime);
+            builder.endTime(LifetimeHelper.getEndTimeOrDefault(this.endTime));
+        }
         if (this.previousTraversalVertexProgram())
             builder.initialRank(new HaltedTraversersCountTraversal());
         return builder.create(graph);
@@ -127,7 +159,76 @@ public final class PageRankVertexProgramStep extends VertexProgramStep implement
 
     @Override
     public int hashCode() {
-        return super.hashCode() ^ this.edgeTraversal.hashCode() ^ this.pageRankProperty.hashCode() ^ this.times;
+        int result = super.hashCode() ^ this.edgeTraversal.hashCode() ^ this.pageRankProperty.hashCode() ^ this.times;
+        result = result ^ (null == this.startTime ? 0 : this.startTime.hashCode());
+        result = result ^ (null == this.endTime ? 0 : this.endTime.hashCode());
+        return result;
     }
 
+    String getStartTime() {
+        return this.startTime;
+    }
+
+    String getEndTime() {
+        return this.endTime;
+    }
+
+    private void applyTemporalComputerFilters() {
+        if (null == this.startTime) {
+            return;
+        }
+
+        final String effectiveEndTime = LifetimeHelper.getEndTimeOrDefault(this.endTime);
+        final Traversal.Admin<Vertex, Edge> temporalEdgeFilter = this.createTemporalEdgeTraversal(this.startTime, effectiveEndTime);
+        this.computer = this.computer
+                .vertices(__.<Vertex>filter(new ActiveTemporalElementPredicate<>(this.startTime, effectiveEndTime)))
+                .edges(temporalEdgeFilter);
+    }
+
+    private Traversal.Admin<Vertex, Edge> getProgramEdgeTraversal() {
+        return null == this.startTime ?
+                this.edgeTraversal.getPure() :
+                this.createTemporalEdgeTraversal(this.startTime, LifetimeHelper.getEndTimeOrDefault(this.endTime));
+    }
+
+    private Traversal.Admin<Vertex, Edge> createTemporalEdgeTraversal(final String startTime, final String endTime) {
+        final Traversal.Admin<Vertex, Edge> temporalEdgeTraversal = this.edgeTraversal.getPure();
+        temporalEdgeTraversal.addStep(new LambdaFilterStep<>(temporalEdgeTraversal, new ActiveTemporalEdgePredicate(startTime, endTime)));
+        return temporalEdgeTraversal;
+    }
+
+    private static final class ActiveTemporalElementPredicate<E extends Element> implements Predicate<Traverser<E>>, Serializable {
+
+        private final String startTime;
+        private final String endTime;
+
+        private ActiveTemporalElementPredicate(final String startTime, final String endTime) {
+            this.startTime = startTime;
+            this.endTime = endTime;
+        }
+
+        @Override
+        public boolean test(final Traverser<E> traverser) {
+            return LifetimeHelper.isActive(traverser.get(), this.startTime, this.endTime);
+        }
+    }
+
+    private static final class ActiveTemporalEdgePredicate implements Predicate<Traverser<Edge>>, Serializable {
+
+        private final String startTime;
+        private final String endTime;
+
+        private ActiveTemporalEdgePredicate(final String startTime, final String endTime) {
+            this.startTime = startTime;
+            this.endTime = endTime;
+        }
+
+        @Override
+        public boolean test(final Traverser<Edge> traverser) {
+            final Edge edge = traverser.get();
+            return LifetimeHelper.isActive(edge, this.startTime, this.endTime) &&
+                    LifetimeHelper.isActive(edge.outVertex(), this.startTime, this.endTime) &&
+                    LifetimeHelper.isActive(edge.inVertex(), this.startTime, this.endTime);
+        }
+    }
 }

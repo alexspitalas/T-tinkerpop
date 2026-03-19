@@ -1308,6 +1308,8 @@ pageRankConstants
     : pageRankConstants_edges
     | pageRankConstants_times
     | pageRankConstants_propertyName
+    | pageRankConstants_startTime
+    | pageRankConstants_endTime
     ;
 
 peerPressureConstants
@@ -1369,6 +1371,14 @@ pageRankConstants_times
 
 pageRankConstants_propertyName
     : pageRankStringConstant DOT 'propertyName'
+    ;
+
+pageRankConstants_startTime
+    : pageRankStringConstant DOT 'startTime'
+    ;
+
+pageRankConstants_endTime
+    : pageRankStringConstant DOT 'endTime'
     ;
 
 peerPressureConstants_edges

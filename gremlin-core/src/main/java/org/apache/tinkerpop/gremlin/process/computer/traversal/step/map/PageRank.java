@@ -40,4 +40,14 @@ public final class PageRank {
      * Configures the name of the property within which to store the pagerank value.
      */
     public static final String propertyName = Graph.Hidden.hide("tinkerpop.pageRank.propertyName");
+
+    /**
+     * Configures the inclusive start of the lifetime window over which PageRank should be computed.
+     */
+    public static final String startTime = Graph.Hidden.hide("tinkerpop.pageRank.startTime");
+
+    /**
+     * Configures the inclusive end of the lifetime window over which PageRank should be computed.
+     */
+    public static final String endTime = Graph.Hidden.hide("tinkerpop.pageRank.endTime");
 }

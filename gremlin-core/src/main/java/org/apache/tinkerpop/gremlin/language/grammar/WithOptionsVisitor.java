@@ -112,6 +112,16 @@ public class WithOptionsVisitor extends DefaultGremlinBaseVisitor<Object> {
     }
 
     @Override
+    public Object visitPageRankConstants_startTime(final GremlinParser.PageRankConstants_startTimeContext ctx) {
+        return PageRank.startTime;
+    }
+
+    @Override
+    public Object visitPageRankConstants_endTime(final GremlinParser.PageRankConstants_endTimeContext ctx) {
+        return PageRank.endTime;
+    }
+
+    @Override
     public Object visitPeerPressureConstants_edges(final GremlinParser.PeerPressureConstants_edgesContext ctx) {
         return PeerPressure.edges;
     }
