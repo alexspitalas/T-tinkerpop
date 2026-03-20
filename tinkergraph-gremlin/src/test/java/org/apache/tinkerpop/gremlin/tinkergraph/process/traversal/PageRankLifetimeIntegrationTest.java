@@ -175,6 +175,34 @@ public class PageRankLifetimeIntegrationTest {
     }
 
     @Test
+    public void shouldProduceSameTemporalRanksRegardlessOfWhenCustomEdgesAreConfigured() {
+        final Vertex a = addVertex("a", "2020-01-01", "2020-12-31");
+        final Vertex b = addVertex("b", "2020-01-01", "2020-12-31");
+        final Vertex c = addVertex("c", "2020-01-01", "2020-12-31");
+        final Vertex future = addVertex("future", "2021-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+
+        addEdge(a, b, "link", "2020-01-01", "2020-12-31");
+        addEdge(a, c, "link", "2020-01-01", "2020-12-31");
+        addEdge(b, c, "link", "2020-01-01", "2020-12-31");
+        addEdge(c, a, "link", "2020-01-01", "2020-12-31");
+        addEdge(future, a, "link", "2020-01-01", "2020-12-31");
+        addEdge(a, future, "link", "2020-01-01", "2020-12-31");
+
+        final Traversal.Admin<Vertex, Edge> inboundLinks = __.<Vertex>inE("link").asAdmin();
+
+        final Map<String, Double> edgesBeforeTime = computeRanks(
+                "rankEdgesBeforeTime", "2020-01-01", "2020-12-31", inboundLinks, true);
+        final Map<String, Double> edgesAfterTime = computeRanks(
+                "rankEdgesAfterTime", "2020-01-01", "2020-12-31", inboundLinks, false);
+
+        assertEquals(3, edgesBeforeTime.size());
+        assertFalse(edgesBeforeTime.containsKey("future"));
+        assertRankMass(edgesBeforeTime);
+        assertEquals(edgesBeforeTime.keySet(), edgesAfterTime.keySet());
+        assertMatchingRanks(edgesBeforeTime, edgesAfterTime, 0.000001d);
+    }
+
+    @Test
     public void shouldReturnNoRanksWhenNoVerticesAreActiveInWindow() {
         final Vertex a = addVertex("a", "2020-01-01", "2020-12-31");
         final Vertex b = addVertex("b", "2020-01-01", "2020-12-31");
@@ -209,17 +237,35 @@ public class PageRankLifetimeIntegrationTest {
 
     private Map<String, Double> computeRanks(final String propertyName, final String startTime, final String endTime,
                                              final Traversal.Admin<Vertex, Edge> edgeTraversal) {
+        return computeRanks(propertyName, startTime, endTime, edgeTraversal, true);
+    }
+
+    private Map<String, Double> computeRanks(final String propertyName, final String startTime, final String endTime,
+                                             final Traversal.Admin<Vertex, Edge> edgeTraversal,
+                                             final boolean configureEdgesBeforeTemporalOptions) {
         GraphTraversal<Vertex, Vertex> traversal = this.g.withComputer().V().pageRank()
                 .with(PageRank.propertyName, propertyName)
                 .with(PageRank.times, PAGE_RANK_ITERATIONS);
-        if (null != edgeTraversal) {
-            traversal = traversal.with(PageRank.edges, edgeTraversal.clone());
-        }
-        if (null != startTime) {
-            traversal = traversal.with(PageRank.startTime, startTime);
-        }
-        if (null != endTime) {
-            traversal = traversal.with(PageRank.endTime, endTime);
+        if (configureEdgesBeforeTemporalOptions) {
+            if (null != edgeTraversal) {
+                traversal = traversal.with(PageRank.edges, edgeTraversal.clone());
+            }
+            if (null != startTime) {
+                traversal = traversal.with(PageRank.startTime, startTime);
+            }
+            if (null != endTime) {
+                traversal = traversal.with(PageRank.endTime, endTime);
+            }
+        } else {
+            if (null != startTime) {
+                traversal = traversal.with(PageRank.startTime, startTime);
+            }
+            if (null != endTime) {
+                traversal = traversal.with(PageRank.endTime, endTime);
+            }
+            if (null != edgeTraversal) {
+                traversal = traversal.with(PageRank.edges, edgeTraversal.clone());
+            }
         }
 
         final Map<String, Double> ranks = new LinkedHashMap<>();
