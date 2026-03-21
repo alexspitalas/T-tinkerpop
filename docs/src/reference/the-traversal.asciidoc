@@ -3390,6 +3390,26 @@ g.V().hasLabel('person').
 Note the use of the `with()` modulating step which provides configuration options to the algorithm. It takes
 configuration keys from the `PageRank` and is automatically imported to the Gremlin Console.
 
+In addition to `PageRank.edges`, `PageRank.propertyName`, and `PageRank.times`, the `pageRank()`-step also accepts
+`PageRank.startTime` and `PageRank.endTime` to restrict the computation to elements that are active within a temporal
+window.
+
+[gremlin-groovy,modern]
+----
+g = traversal().withEmbedded(graph).withComputer()
+g.V().
+  pageRank().
+    with(PageRank.startTime, '2020-01-01').
+    with(PageRank.endTime, '2020-12-31').
+    with(PageRank.propertyName, 'rank2020').
+  elementMap('name','rank2020')
+----
+
+The temporal options accept string values that are parsed as epoch-millisecond numbers or several common date/time
+formats such as `yyyy-MM-dd` and ISO-8601 timestamps. `PageRank.endTime` requires `PageRank.startTime` to be
+configured first. Temporal comparisons are inclusive at both boundaries when checking whether elements are active in
+the window, but `PageRank.startTime` must still be strictly before `PageRank.endTime`.
+
 The <<explain-step,`explain()`>>-step can be used to understand how the traversal is compiled into multiple
 `GraphComputer` jobs.
 
