@@ -93,11 +93,13 @@ public final class PageRankVertexProgramStep extends VertexProgramStep implement
             if (!(keyValues[1] instanceof String))
                 throw new IllegalArgumentException("PageRank.endTime requires a String as its argument");
             final String candidateEndTime = (String) keyValues[1];
-            if (null == this.startTime)
-                throw new IllegalArgumentException("PageRank.endTime requires PageRank.startTime to be configured first");
-            LifetimeHelper.validateTimeWindow(this.startTime, candidateEndTime);
+            if (null != this.startTime) {
+                LifetimeHelper.validateTimeWindow(this.startTime, candidateEndTime);
+            }
             this.endTime = candidateEndTime;
-            this.applyTemporalComputerFilters();
+            if (null != this.startTime) {
+                this.applyTemporalComputerFilters();
+            }
         } else {
             this.parameters.set(this, keyValues);
         }
@@ -123,6 +125,10 @@ public final class PageRankVertexProgramStep extends VertexProgramStep implement
 
     @Override
     public PageRankVertexProgram generateProgram(final Graph graph, final Memory memory) {
+        if (null == this.startTime && null != this.endTime) {
+            throw new IllegalArgumentException("PageRank.endTime requires PageRank.startTime to also be configured");
+        }
+
         final Traversal.Admin<Vertex, Edge> detachedTraversal = this.getProgramEdgeTraversal();
         detachedTraversal.setStrategies(TraversalStrategies.GlobalCache.getStrategies(graph.getClass()));
         final PageRankVertexProgram.Builder builder = PageRankVertexProgram.build()

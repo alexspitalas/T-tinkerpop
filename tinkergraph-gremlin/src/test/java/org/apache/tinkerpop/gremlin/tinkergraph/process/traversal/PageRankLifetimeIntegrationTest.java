@@ -35,6 +35,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class PageRankLifetimeIntegrationTest {
@@ -200,6 +201,51 @@ public class PageRankLifetimeIntegrationTest {
         assertRankMass(edgesBeforeTime);
         assertEquals(edgesBeforeTime.keySet(), edgesAfterTime.keySet());
         assertMatchingRanks(edgesBeforeTime, edgesAfterTime, 0.000001d);
+    }
+
+    @Test
+    public void shouldProduceSameTemporalRanksRegardlessOfTemporalOptionOrder() {
+        final Vertex a = addVertex("a", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+        final Vertex b = addVertex("b", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+        final Vertex future = addVertex("future", "2021-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+
+        addEdge(a, b, "link", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+        addEdge(b, a, "link", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+        addEdge(future, a, "link", "2021-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+
+        final Map<String, Double> startThenEnd = computeRanks("rankStartThenEnd", "2020-01-01", "2020-12-31", null);
+
+        final Map<String, Double> endThenStart = new LinkedHashMap<>();
+        this.g.withComputer().V().pageRank()
+                .with(PageRank.propertyName, "rankEndThenStart")
+                .with(PageRank.times, PAGE_RANK_ITERATIONS)
+                .with(PageRank.endTime, "2020-12-31")
+                .with(PageRank.startTime, "2020-01-01")
+                .has("rankEndThenStart")
+                .forEachRemaining(vertex -> endThenStart.put(vertex.value("name"), vertex.<Double>value("rankEndThenStart")));
+
+        assertEquals(startThenEnd.keySet(), endThenStart.keySet());
+        assertRankMass(endThenStart);
+        assertMatchingRanks(startThenEnd, endThenStart, 0.000001d);
+    }
+
+    @Test
+    public void shouldRequireStartTimeWhenOnlyEndTimeIsConfigured() {
+        final Vertex a = addVertex("a", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+        final Vertex b = addVertex("b", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+
+        addEdge(a, b, "link", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+        addEdge(b, a, "link", "2020-01-01", LifetimeHelper.DEFAULT_ENDTIME);
+
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                this.g.withComputer().V().pageRank()
+                        .with(PageRank.propertyName, "rankEndOnly")
+                        .with(PageRank.times, PAGE_RANK_ITERATIONS)
+                        .with(PageRank.endTime, "2020-12-31")
+                        .has("rankEndOnly")
+                        .iterate());
+
+        assertEquals("PageRank.endTime requires PageRank.startTime to also be configured", exception.getMessage());
     }
 
     @Test
