@@ -1156,6 +1156,18 @@ public class TraversalMethodVisitorTest {
     }
 
     @Test
+    public void shouldParseTraversalMethod_pageRank_withStartTime() throws Exception {
+        compare(g.V().pageRank().with(PageRank.startTime, "2020-01-01"),
+                eval("g.V().pageRank().with(PageRank.startTime, '2020-01-01')"));
+    }
+
+    @Test
+    public void shouldParseTraversalMethod_pageRank_withEndTime() throws Exception {
+        compare(g.V().pageRank().with(PageRank.startTime, "2020-01-01").with(PageRank.endTime, "2020-12-31"),
+                eval("g.V().pageRank().with(PageRank.startTime, '2020-01-01').with(PageRank.endTime, '2020-12-31')"));
+    }
+
+    @Test
     public void shouldParseTraversalMethod_shortestPath_withEdges() throws Exception {
         compare(g.V().shortestPath().with(ShortestPath.edges, outE("knows")),
                 eval("g.V().shortestPath().with(ShortestPath.edges, __.outE('knows'))"));
