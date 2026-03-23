@@ -74,6 +74,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.ReadTest;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ShortestPathTest;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SelectTest;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumTest;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRankTest;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.UnfoldTest;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ValueMapTest;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexTest;
@@ -174,6 +175,7 @@ public class ProcessComputerSuite extends AbstractGremlinSuite {
             ShortestPathTest.Traversals.class,
             SelectTest.Traversals.class,
             UnfoldTest.Traversals.class,
+            TemporalPageRankTest.Traversals.class,
             ValueMapTest.Traversals.class,
             VertexTest.Traversals.class,
             WriteTest.Traversals.class,
@@ -267,6 +269,7 @@ public class ProcessComputerSuite extends AbstractGremlinSuite {
             PropertiesTest.class,
             ShortestPathTest.class,
             SelectTest.class,
+            TemporalPageRankTest.class,
             UnfoldTest.class,
             ValueMapTest.class,
             VertexTest.class,

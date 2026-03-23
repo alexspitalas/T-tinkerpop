@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.PageRank
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.PeerPressureVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ProgramVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPathVertexProgramStep;
+import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalPageRankVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.traversal.DT;
 import org.apache.tinkerpop.gremlin.process.traversal.Failure;
 import org.apache.tinkerpop.gremlin.process.traversal.Merge;
@@ -3825,6 +3826,63 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     }
 
     /**
+     * Execute a temporal variant of {@link #pageRank()} against the subgraph that intersects the supplied query
+     * window. The effective window is normalized by applying {@link #lifetime(String, String)} to a reference
+     * element before the Allen-based graph filters are built.
+     *
+     * @param startTime the query window start time
+     * @param endTime the query window end time
+     * @return the traversal with the appended {@link TemporalPageRankVertexProgramStep}
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, E> temporalPageRank(final String startTime, final String endTime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalPageRank, startTime, endTime);
+        return this.asAdmin().addStep((Step<E, E>) new TemporalPageRankVertexProgramStep(this.asAdmin(), 0.85d, startTime, endTime));
+    }
+
+    /**
+     * Execute a temporal variant of {@link #pageRank(double)} against an open-ended window that starts at the
+     * supplied time.
+     *
+     * @param startTime the query window start time
+     * @return the traversal with the appended {@link TemporalPageRankVertexProgramStep}
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, E> temporalPageRank(final String startTime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalPageRank, startTime);
+        return this.asAdmin().addStep((Step<E, E>) new TemporalPageRankVertexProgramStep(this.asAdmin(), 0.85d, startTime, null));
+    }
+
+    /**
+     * Execute a temporal variant of {@link #pageRank(double)} against the subgraph that intersects the supplied
+     * query window.
+     *
+     * @param alpha the damping factor
+     * @param startTime the query window start time
+     * @param endTime the query window end time
+     * @return the traversal with the appended {@link TemporalPageRankVertexProgramStep}
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, E> temporalPageRank(final double alpha, final String startTime, final String endTime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalPageRank, alpha, startTime, endTime);
+        return this.asAdmin().addStep((Step<E, E>) new TemporalPageRankVertexProgramStep(this.asAdmin(), alpha, startTime, endTime));
+    }
+
+    /**
+     * Execute a temporal variant of {@link #pageRank(double)} against an open-ended window that starts at the
+     * supplied time.
+     *
+     * @param alpha the damping factor
+     * @param startTime the query window start time
+     * @return the traversal with the appended {@link TemporalPageRankVertexProgramStep}
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, E> temporalPageRank(final double alpha, final String startTime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalPageRank, alpha, startTime);
+        return this.asAdmin().addStep((Step<E, E>) new TemporalPageRankVertexProgramStep(this.asAdmin(), alpha, startTime, null));
+    }
+
+    /**
      * Executes a Peer Pressure community detection algorithm over the graph.
      *
      * @return the traversal with the appended {@link PeerPressureVertexProgramStep}
@@ -4541,6 +4599,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
 
         public static final String pageRank = "pageRank";
+        public static final String temporalPageRank = "temporalPageRank";
         public static final String peerPressure = "peerPressure";
         public static final String connectedComponent = "connectedComponent";
         public static final String shortestPath = "shortestPath";
