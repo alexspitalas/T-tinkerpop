@@ -42,6 +42,7 @@ public class TemporalPageRankIntegrationTest {
 
     private static final int PAGE_RANK_ITERATIONS = 30;
     private static final String FAR_FUTURE_END_TIME = "9999-12-31";
+    private static final String FAR_FUTURE_END_DATE_TIME = "9999-12-31T23:59:59";
 
     private TinkerGraph graph;
     private GraphTraversalSource g;
@@ -79,6 +80,44 @@ public class TemporalPageRankIntegrationTest {
 
         final Map<String, Double> ranksByName = mapRanksByName(computerG.V()
                 .temporalPageRank("2021-01-01")
+                .with(PageRank.propertyName, "windowRank")
+                .project("name", "windowRank")
+                .by("name")
+                .by(__.values("windowRank"))
+                .toList());
+
+        assertEquals(2, ranksByName.size());
+        assertTrue(ranksByName.containsKey("carol"));
+        assertTrue(ranksByName.containsKey("dave"));
+        assertTrue(ranksByName.get("carol") > 0.0d);
+        assertEquals(ranksByName.get("carol"), ranksByName.get("dave"), 0.00001d);
+    }
+
+    @Test
+    public void testTemporalPageRankWithinClosedDateTimeWindow() {
+        loadTemporalPageRankDateTimeFixture();
+
+        final Map<String, Double> ranksByName = mapRanksByName(computerG.V()
+                .temporalPageRank("2020-01-01T09:30:00", "2020-01-01T10:30:00")
+                .with(PageRank.propertyName, "windowRank")
+                .project("name", "windowRank")
+                .by("name")
+                .by(__.values("windowRank"))
+                .toList());
+
+        assertEquals(2, ranksByName.size());
+        assertTrue(ranksByName.containsKey("alice"));
+        assertTrue(ranksByName.containsKey("bob"));
+        assertTrue(ranksByName.get("alice") > 0.0d);
+        assertEquals(ranksByName.get("alice"), ranksByName.get("bob"), 0.00001d);
+    }
+
+    @Test
+    public void testTemporalPageRankWithinOpenEndedDateTimeWindow() {
+        loadTemporalPageRankDateTimeFixture();
+
+        final Map<String, Double> ranksByName = mapRanksByName(computerG.V()
+                .temporalPageRank("2020-01-01T11:15:00")
                 .with(PageRank.propertyName, "windowRank")
                 .project("name", "windowRank")
                 .by("name")
@@ -182,6 +221,29 @@ public class TemporalPageRankIntegrationTest {
     }
 
     @Test
+    public void shouldTreatDateTimeLifetimeBoundariesAsInclusive() {
+        final Vertex a = addVertex("a", "2020-01-01T09:00:00", FAR_FUTURE_END_DATE_TIME);
+        final Vertex b = addVertex("b", "2020-01-01T08:45:00", "2020-01-01T10:30:00");
+        final Vertex c = addVertex("c", "2020-01-01T10:30:00", "2020-01-01T10:30:00");
+
+        addEdge(a, b, "link", "2020-01-01T09:00:00", FAR_FUTURE_END_DATE_TIME);
+        addEdge(b, a, "link", "2020-01-01T08:45:00", "2020-01-01T10:30:00");
+        addEdge(a, c, "link", "2020-01-01T10:30:00", "2020-01-01T10:30:00");
+        addEdge(c, a, "link", "2020-01-01T10:30:00", "2020-01-01T10:30:00");
+
+        final Map<String, Double> temporal = computeRanks(
+                "boundaryDateTimeRank", "2020-01-01T09:00:00", "2020-01-01T10:30:00", null);
+
+        assertEquals(3, temporal.size());
+        assertTrue(temporal.containsKey("a"));
+        assertTrue(temporal.containsKey("b"));
+        assertTrue(temporal.containsKey("c"));
+
+        assertPositiveRanks(temporal);
+        assertTrue(temporal.get("c") > 0.0d);
+    }
+
+    @Test
     public void shouldFilterInactiveEdgesAndVerticesWhenUsingCustomEdgesTraversal() {
         final Vertex a = addVertex("a", "2020-01-01", "2020-12-31");
         final Vertex b = addVertex("b", "2020-01-01", "2020-12-31");
@@ -269,6 +331,22 @@ public class TemporalPageRankIntegrationTest {
         g.addE("knows").from(bob).to(alice).lifetime("2020-01-01", "2020-12-31").iterate();
         g.addE("knows").from(carol).to(dave).lifetime("2022-01-01", "2022-12-31").iterate();
         g.addE("knows").from(dave).to(carol).lifetime("2022-01-01", "2022-12-31").iterate();
+    }
+
+    private void loadTemporalPageRankDateTimeFixture() {
+        final Vertex alice = g.addV("person").property("name", "alice")
+                .lifetime("2020-01-01T09:15:00", "2020-01-01T10:45:00").next();
+        final Vertex bob = g.addV("person").property("name", "bob")
+                .lifetime("2020-01-01T09:15:00", "2020-01-01T10:45:00").next();
+        final Vertex carol = g.addV("person").property("name", "carol")
+                .lifetime("2020-01-01T11:00:00", "2020-01-01T12:30:00").next();
+        final Vertex dave = g.addV("person").property("name", "dave")
+                .lifetime("2020-01-01T11:00:00", "2020-01-01T12:30:00").next();
+
+        g.addE("knows").from(alice).to(bob).lifetime("2020-01-01T09:15:00", "2020-01-01T10:45:00").iterate();
+        g.addE("knows").from(bob).to(alice).lifetime("2020-01-01T09:15:00", "2020-01-01T10:45:00").iterate();
+        g.addE("knows").from(carol).to(dave).lifetime("2020-01-01T11:00:00", "2020-01-01T12:30:00").iterate();
+        g.addE("knows").from(dave).to(carol).lifetime("2020-01-01T11:00:00", "2020-01-01T12:30:00").iterate();
     }
 
     private Vertex addVertex(final String name) {
