@@ -171,7 +171,7 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
                                                                   final Element referenceElement) {
         final Traversal<Vertex, Edge> existingTraversal = baseComputer.getEdges();
         final Traversal.Admin<Vertex, Edge> baseTraversal = null == existingTraversal ?
-                this.edgeTraversal.getPure() :
+                __.<Vertex>bothE().asAdmin() :
                 existingTraversal.asAdmin().clone();
         return this.appendActiveWindowFilters(baseTraversal, referenceElement);
     }
