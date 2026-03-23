@@ -3409,6 +3409,49 @@ g.V().hasLabel('person').
 link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#pageRank()++[`pageRank()`],
 link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#pageRank(double)++[`pageRank(double)`]
 
+[[temporal-pagerank-step]]
+=== Temporal PageRank Step
+
+The `temporalPageRank()`-step (*map*/*sideEffect*) calculates <<pagerank-step,`pageRank()`>> over the subgraph whose
+vertices and edges intersect the supplied query window. The window is normalized with `lifetime()` semantics before the
+step builds its temporal filters, so bounded and open-ended queries use the same inclusive boundary handling as the
+rest of the temporal model.
+
+IMPORTANT: The `temporalPageRank()`-step is a `VertexComputing`-step and as such, can only be used against a graph
+that supports `GraphComputer` (OLAP).
+
+A query `startTime` is required. Elements without temporal properties are treated as always active, which allows
+`temporalPageRank()` to be mixed with non-temporal data while still excluding vertices and edges that fall completely
+outside the requested window.
+
+[gremlin-groovy]
+----
+g = traversal().withEmbedded(graph).withComputer()
+g.V().hasLabel('person').
+  temporalPageRank("2020-01-01", "2020-12-31").
+    with(PageRank.edges, __.outE('knows')).
+    with(PageRank.propertyName, 'windowRank').
+    with(PageRank.times, 30).
+  order().by('windowRank', desc).
+  elementMap('name', 'windowRank')
+
+g.V().temporalPageRank(0.90d, "2021-01-01").
+  with(PageRank.propertyName, 'recentRank').
+  values('recentRank')
+----
+
+As with `pageRank()`, the `with()` modulator accepts configuration keys from `PageRank`. Custom `PageRank.edges`
+traversals are intersected with the active temporal window before the `PageRankVertexProgram` is generated, so the
+temporal filter remains in effect regardless of the order in which `with(PageRank.edges, ...)`,
+`with(PageRank.propertyName, ...)`, and `with(PageRank.times, ...)` are configured.
+
+*Additional References*
+
+link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#temporalPageRank(java.lang.String,java.lang.String)++[`temporalPageRank(String,String)`],
+link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#temporalPageRank(java.lang.String)++[`temporalPageRank(String)`],
+link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#temporalPageRank(double,java.lang.String,java.lang.String)++[`temporalPageRank(double,String,String)`],
+link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#temporalPageRank(double,java.lang.String)++[`temporalPageRank(double,String)`]
+
 [[path-step]]
 === Path Step
 
