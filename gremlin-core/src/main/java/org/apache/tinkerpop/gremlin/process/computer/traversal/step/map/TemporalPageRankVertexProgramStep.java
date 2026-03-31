@@ -20,6 +20,7 @@
 package org.apache.tinkerpop.gremlin.process.computer.traversal.step.map;
 
 import org.apache.tinkerpop.gremlin.process.computer.Computer;
+import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
 import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
 import org.apache.tinkerpop.gremlin.process.computer.Memory;
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankVertexProgram;
@@ -104,10 +105,11 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
     @Override
     public Computer getComputer() {
         final TemporalWindowReference windowReference = this.createWindowReference();
-        final Computer baseComputer = super.getComputer();
-        return baseComputer
-                .vertices(this.buildComputerVertexFilter(baseComputer, windowReference.referenceElement))
-                .edges(this.buildComputerEdgeFilter(baseComputer, windowReference.referenceElement));
+        Computer baseComputer = this.computer;
+        if (!this.isEndStep() && null == baseComputer.getResultGraph()) {
+            baseComputer = baseComputer.result(GraphComputer.ResultGraph.NEW);
+        }
+        return baseComputer.vertices(this.buildComputerVertexFilter(baseComputer, windowReference.referenceElement));
     }
 
     @Override
@@ -163,15 +165,6 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
         final Traversal<Vertex, Vertex> existingTraversal = baseComputer.getVertices();
         final Traversal.Admin<Vertex, Vertex> baseTraversal = null == existingTraversal ?
                 __.<Vertex>start().asAdmin() :
-                existingTraversal.asAdmin().clone();
-        return this.appendActiveWindowFilters(baseTraversal, referenceElement);
-    }
-
-    private Traversal.Admin<Vertex, Edge> buildComputerEdgeFilter(final Computer baseComputer,
-                                                                  final Element referenceElement) {
-        final Traversal<Vertex, Edge> existingTraversal = baseComputer.getEdges();
-        final Traversal.Admin<Vertex, Edge> baseTraversal = null == existingTraversal ?
-                __.<Vertex>bothE().asAdmin() :
                 existingTraversal.asAdmin().clone();
         return this.appendActiveWindowFilters(baseTraversal, referenceElement);
     }
