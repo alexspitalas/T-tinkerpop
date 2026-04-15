@@ -21,6 +21,8 @@ package org.apache.tinkerpop.gremlin.tinkergraph.process.computer.ranking.pagera
 import org.apache.tinkerpop.gremlin.process.computer.ComputerResult;
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.TemporalPageRankVertexProgram;
+import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalPageRank;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TemporalPathFilterStep;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
@@ -68,6 +70,45 @@ public class TemporalPageRankVertexProgramTest {
         assertVertexRankEquals(normalResult, temporalResult, "v4");
     }
 
+    @Test
+    public void shouldAllowSelectingPairwiseContinuousFilterViaTraversal() {
+        final TinkerGraph sequentialGraph = createOverlappingGraph();
+        sequentialGraph.traversal().withComputer().V().temporalPageRank(1.0d)
+                .with(TemporalPageRank.propertyName, "sequentialRank")
+                .with(TemporalPageRank.times, 4)
+                .iterate();
+
+        final TinkerGraph pairwiseGraph = createOverlappingGraph();
+        pairwiseGraph.traversal().withComputer().V().temporalPageRank(1.0d)
+                .with(TemporalPageRank.propertyName, "pairwiseRank")
+                .with(TemporalPageRank.times, 4)
+                .with(TemporalPageRank.filter, TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS)
+                .iterate();
+
+        assertTrue("Pairwise-continuous should allow overlapping edges that sequential blocks",
+                rankOf(pairwiseGraph, "target", "pairwiseRank") > rankOf(sequentialGraph, "target", "sequentialRank"));
+    }
+
+    @Test
+    public void shouldAllowSelectingContinuousFilterViaTraversal() {
+        final TinkerGraph pairwiseGraph = createPairwiseButNotContinuousGraph();
+        pairwiseGraph.traversal().withComputer().V().temporalPageRank(1.0d)
+                .with(TemporalPageRank.propertyName, "pairwiseRank")
+                .with(TemporalPageRank.times, 5)
+                .with(TemporalPageRank.filter, "pairwise_continuous")
+                .iterate();
+
+        final TinkerGraph continuousGraph = createPairwiseButNotContinuousGraph();
+        continuousGraph.traversal().withComputer().V().temporalPageRank(1.0d)
+                .with(TemporalPageRank.propertyName, "continuousRank")
+                .with(TemporalPageRank.times, 5)
+                .with(TemporalPageRank.filter, TemporalPathFilterStep.TemporalPathType.CONTINUOUS)
+                .iterate();
+
+        assertTrue("Continuous should require a shared intersection across the whole walk",
+                rankOf(pairwiseGraph, "target", "pairwiseRank") > rankOf(continuousGraph, "target", "continuousRank"));
+    }
+
     private static TinkerGraph createTemporalGraph() {
         final TinkerGraph graph = TinkerGraph.open();
 
@@ -98,10 +139,42 @@ public class TemporalPageRankVertexProgramTest {
         return graph;
     }
 
+    private static TinkerGraph createOverlappingGraph() {
+        final TinkerGraph graph = TinkerGraph.open();
+
+        final Vertex source = graph.addVertex(T.id, 21, T.label, "vertex", "name", "source");
+        final Vertex middle = graph.addVertex(T.id, 22, T.label, "vertex", "name", "middle");
+        final Vertex target = graph.addVertex(T.id, 23, T.label, "vertex", "name", "target");
+
+        source.addEdge("link", middle, "startTime", "2024-01-01T10:00:00", "endTime", "2024-01-01T12:00:00");
+        middle.addEdge("link", target, "startTime", "2024-01-01T11:00:00", "endTime", "2024-01-01T13:00:00");
+
+        return graph;
+    }
+
+    private static TinkerGraph createPairwiseButNotContinuousGraph() {
+        final TinkerGraph graph = TinkerGraph.open();
+
+        final Vertex source = graph.addVertex(T.id, 31, T.label, "vertex", "name", "source");
+        final Vertex middle = graph.addVertex(T.id, 32, T.label, "vertex", "name", "middle");
+        final Vertex bridge = graph.addVertex(T.id, 33, T.label, "vertex", "name", "bridge");
+        final Vertex target = graph.addVertex(T.id, 34, T.label, "vertex", "name", "target");
+
+        source.addEdge("link", middle, "startTime", "2024-01-01T10:00:00", "endTime", "2024-01-01T12:00:00");
+        middle.addEdge("link", bridge, "startTime", "2024-01-01T11:00:00", "endTime", "2024-01-01T13:00:00");
+        bridge.addEdge("link", target, "startTime", "2024-01-01T12:30:00", "endTime", "2024-01-01T14:00:00");
+
+        return graph;
+    }
+
     private static void assertVertexRankEquals(final ComputerResult normalResult, final ComputerResult temporalResult,
                                                final String vertexName) {
         final double plainRank = normalResult.graph().traversal().V().has("name", vertexName).<Double>values("plainRank").next();
         final double temporalRank = temporalResult.graph().traversal().V().has("name", vertexName).<Double>values("temporalRank").next();
         assertEquals("Expected temporal PageRank to match normal PageRank for " + vertexName, plainRank, temporalRank, 0.0d);
+    }
+
+    private static double rankOf(final TinkerGraph graph, final String vertexName, final String propertyName) {
+        return graph.traversal().V().has("name", vertexName).<Double>values(propertyName).next();
     }
 }

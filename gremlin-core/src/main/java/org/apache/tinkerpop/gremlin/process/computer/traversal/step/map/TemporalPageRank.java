@@ -19,17 +19,20 @@
 package org.apache.tinkerpop.gremlin.process.computer.traversal.step.map;
 
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TemporalPathFilterStep;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 
 /**
  * Configuration options to be passed to the {@link GraphTraversal#with(String, Object)} step on
- * {@link GraphTraversal#temporalPageRank()}.
+ * {@link GraphTraversal#temporalPageRank()}. The {@link #filter} value accepts
+ * {@link TemporalPathFilterStep.TemporalPathType} or its enum name as a {@link String}.
  */
 public final class TemporalPageRank {
 
     public static final String times = Graph.Hidden.hide("tinkerpop.temporalPageRank.times");
     public static final String edges = Graph.Hidden.hide("tinkerpop.temporalPageRank.edges");
     public static final String propertyName = Graph.Hidden.hide("tinkerpop.temporalPageRank.propertyName");
+    public static final String filter = Graph.Hidden.hide("tinkerpop.temporalPageRank.filter");
     public static final String minDelay = Graph.Hidden.hide("tinkerpop.temporalPageRank.minDelay");
     public static final String maxDelay = Graph.Hidden.hide("tinkerpop.temporalPageRank.maxDelay");
 

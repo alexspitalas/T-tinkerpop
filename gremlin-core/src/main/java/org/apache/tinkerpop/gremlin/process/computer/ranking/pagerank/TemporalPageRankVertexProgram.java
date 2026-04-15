@@ -31,6 +31,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Operator;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TemporalPathFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.util.PureTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -50,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -68,6 +70,7 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
     private static final String INITIAL_RANK_TRAVERSAL = "gremlin.temporalPageRankVertexProgram.initialRankTraversal";
     private static final String TELEPORTATION_ENERGY = "gremlin.temporalPageRankVertexProgram.teleportationEnergy";
     private static final String CONVERGENCE_ERROR = "gremlin.temporalPageRankVertexProgram.convergenceError";
+    private static final String FILTER = "gremlin.temporalPageRankVertexProgram.filter";
     private static final String MIN_DELAY = "gremlin.temporalPageRankVertexProgram.minDelay";
     private static final String MAX_DELAY = "gremlin.temporalPageRankVertexProgram.maxDelay";
 
@@ -83,6 +86,7 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
     private double alpha = 0.85d;
     private double epsilon = 0.00001d;
     private int maxIterations = 20;
+    private TemporalPathFilterStep.TemporalPathType filter = TemporalPathFilterStep.TemporalPathType.SEQUENTIAL;
     private long minDelay = 0L;
     private long maxDelay = Long.MAX_VALUE;
     private String property = PAGE_RANK;
@@ -101,6 +105,7 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
         this.alpha = configuration.getDouble(ALPHA, this.alpha);
         this.epsilon = configuration.getDouble(EPSILON, this.epsilon);
         this.maxIterations = configuration.getInt(MAX_ITERATIONS, this.maxIterations);
+        this.filter = parseFilter(configuration.getString(FILTER, this.filter.name()));
         this.minDelay = configuration.getLong(MIN_DELAY, this.minDelay);
         this.maxDelay = configuration.getLong(MAX_DELAY, this.maxDelay);
         this.property = configuration.getString(PROPERTY, PAGE_RANK);
@@ -118,6 +123,7 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
         configuration.setProperty(EPSILON, this.epsilon);
         configuration.setProperty(PROPERTY, this.property);
         configuration.setProperty(MAX_ITERATIONS, this.maxIterations);
+        configuration.setProperty(FILTER, this.filter.name());
         configuration.setProperty(MIN_DELAY, this.minDelay);
         configuration.setProperty(MAX_DELAY, this.maxDelay);
         this.edgeTraversal.storeState(configuration, EDGE_TRAVERSAL);
@@ -208,8 +214,8 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
             this.distributeRank(vertex, contextFreeRank * this.alpha, null, null, messenger, memory);
 
         for (final TemporalRankMessage message : incomingMessages) {
-            this.distributeRank(vertex, message.getRank() * this.alpha, message.getPreviousStartTime(),
-                    message.getPreviousEndTime(), messenger, memory);
+            this.distributeRank(vertex, message.getRank() * this.alpha, message.getContextStartTime(),
+                    message.getContextEndTime(), messenger, memory);
         }
     }
 
@@ -223,77 +229,73 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
     @Override
     public String toString() {
         return StringFactory.vertexProgramString(this,
-                "alpha=" + this.alpha + ", epsilon=" + this.epsilon + ", iterations=" + this.maxIterations);
+                "alpha=" + this.alpha + ", epsilon=" + this.epsilon + ", iterations=" + this.maxIterations + ", filter=" + this.filter);
     }
 
-    private void distributeRank(final Vertex vertex, final double rank, final String previousStartTime,
-                                final String previousEndTime, final Messenger<TemporalRankMessage> messenger,
+    private void distributeRank(final Vertex vertex, final double rank, final String contextStartTime,
+                                final String contextEndTime, final Messenger<TemporalRankMessage> messenger,
                                 final Memory memory) {
         if (rank <= 0.0d)
             return;
 
-        final List<Edge> allowedEdges = new ArrayList<>();
+        final List<OutgoingMessage> allowedMessages = new ArrayList<>();
         final Traversal.Admin<Vertex, Edge> candidateEdges = this.edgeTraversal.getPure();
         candidateEdges.addStart(candidateEdges.getTraverserGenerator().generate(vertex, candidateEdges.getStartStep(), 1L));
         try {
             while (candidateEdges.hasNext()) {
                 final Edge edge = candidateEdges.next();
-                if (this.isAllowedEdge(previousStartTime, previousEndTime, edge))
-                    allowedEdges.add(edge);
+                final OutgoingMessage outgoingMessage = this.createOutgoingMessage(contextStartTime, contextEndTime, edge, vertex);
+                if (null != outgoingMessage)
+                    allowedMessages.add(outgoingMessage);
             }
         } finally {
             CloseableIterator.closeIterator(candidateEdges);
         }
 
-        if (allowedEdges.isEmpty()) {
+        if (allowedMessages.isEmpty()) {
             memory.add(TELEPORTATION_ENERGY, rank);
             return;
         }
 
-        final double share = rank / allowedEdges.size();
-        for (final Edge edge : allowedEdges) {
-            Vertex otherVertex = edge.inVertex();
-            if (otherVertex.equals(vertex))
-                otherVertex = edge.outVertex();
-
-            messenger.sendMessage(MessageScope.Global.of(otherVertex),
-                    new TemporalRankMessage(share, this.getStartTime(edge), this.getEndTime(edge)));
+        final double share = rank / allowedMessages.size();
+        for (final OutgoingMessage outgoingMessage : allowedMessages) {
+            messenger.sendMessage(MessageScope.Global.of(outgoingMessage.vertex),
+                    new TemporalRankMessage(share, outgoingMessage.contextStartTime, outgoingMessage.contextEndTime));
         }
     }
 
-    private boolean isAllowedEdge(final String previousStartTime, final String previousEndTime, final Edge edge) {
+    private OutgoingMessage createOutgoingMessage(final String contextStartTime, final String contextEndTime,
+                                                  final Edge edge, final Vertex sourceVertex) {
         final String edgeStartTime = this.getStartTime(edge);
         if (null == edgeStartTime)
-            return false;
+            return null;
 
-        if (null == previousStartTime)
-            return true;
-
-        final LocalDateTime previousStart = this.parseDateTime(previousStartTime);
-        final LocalDateTime previousEnd = null == previousEndTime ? LocalDateTime.MAX : this.parseDateTime(previousEndTime);
-        final LocalDateTime edgeStart = this.parseDateTime(edgeStartTime);
         final String edgeEndTime = this.getEndTime(edge);
+        final Vertex otherVertex = this.getOtherVertex(edge, sourceVertex);
+        if (null == otherVertex)
+            return null;
+
+        if (null == contextStartTime)
+            return new OutgoingMessage(otherVertex, edgeStartTime, edgeEndTime);
+
+        final LocalDateTime previousStart = this.parseDateTime(contextStartTime);
+        final LocalDateTime previousEnd = null == contextEndTime ? LocalDateTime.MAX : this.parseDateTime(contextEndTime);
+        final LocalDateTime edgeStart = this.parseDateTime(edgeStartTime);
         final LocalDateTime edgeEnd = null == edgeEndTime ? LocalDateTime.MAX : this.parseDateTime(edgeEndTime);
 
         if (null == previousStart || null == previousEnd || null == edgeStart || null == edgeEnd)
-            return false;
+            return null;
 
-        final boolean isSequential = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.BEFORE, previousStart,
-                previousEnd, edgeStart, edgeEnd) || AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.MEETS,
-                previousStart, previousEnd, edgeStart, edgeEnd);
-        if (!isSequential)
-            return false;
-
-        if (this.minDelay > 0 || this.maxDelay < Long.MAX_VALUE) {
-            try {
-                final long delay = ChronoUnit.MILLIS.between(previousEnd, edgeStart);
-                return delay >= this.minDelay && delay <= this.maxDelay;
-            } catch (final Exception ignored) {
-                return true;
-            }
+        switch (this.filter) {
+            case CONTINUOUS:
+                return this.createContinuousMessage(otherVertex, previousStart, previousEnd, edgeStart, edgeEnd);
+            case PAIRWISE_CONTINUOUS:
+                return this.createPairwiseContinuousMessage(otherVertex, previousStart, previousEnd, edgeStart, edgeEnd);
+            case SEQUENTIAL:
+                return this.createSequentialMessage(otherVertex, previousStart, previousEnd, edgeStart, edgeEnd, edgeStartTime, edgeEndTime);
+            default:
+                return null;
         }
-
-        return true;
     }
 
     private String getStartTime(final Edge edge) {
@@ -357,6 +359,11 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
             return this;
         }
 
+        public Builder filter(final TemporalPathFilterStep.TemporalPathType filter) {
+            this.configuration.setProperty(FILTER, filter.name());
+            return this;
+        }
+
         public Builder edges(final Traversal.Admin<Vertex, Edge> edgeTraversal) {
             PureTraversal.storeState(this.configuration, EDGE_TRAVERSAL, edgeTraversal);
             return this;
@@ -395,25 +402,103 @@ public class TemporalPageRankVertexProgram implements VertexProgram<TemporalPage
 
     public static final class TemporalRankMessage implements Serializable {
         private final double rank;
-        private final String previousStartTime;
-        private final String previousEndTime;
+        private final String contextStartTime;
+        private final String contextEndTime;
 
-        public TemporalRankMessage(final double rank, final String previousStartTime, final String previousEndTime) {
+        public TemporalRankMessage(final double rank, final String contextStartTime, final String contextEndTime) {
             this.rank = rank;
-            this.previousStartTime = previousStartTime;
-            this.previousEndTime = previousEndTime;
+            this.contextStartTime = contextStartTime;
+            this.contextEndTime = contextEndTime;
         }
 
         public double getRank() {
             return this.rank;
         }
 
-        public String getPreviousStartTime() {
-            return this.previousStartTime;
+        public String getContextStartTime() {
+            return this.contextStartTime;
         }
 
-        public String getPreviousEndTime() {
-            return this.previousEndTime;
+        public String getContextEndTime() {
+            return this.contextEndTime;
+        }
+    }
+
+    private static TemporalPathFilterStep.TemporalPathType parseFilter(final String filter) {
+        try {
+            return TemporalPathFilterStep.TemporalPathType.valueOf(filter.trim().toUpperCase(Locale.ENGLISH));
+        } catch (final IllegalArgumentException ignored) {
+            throw new IllegalArgumentException("Unsupported temporal PageRank filter: " + filter);
+        }
+    }
+
+    private OutgoingMessage createSequentialMessage(final Vertex otherVertex, final LocalDateTime previousStart,
+                                                    final LocalDateTime previousEnd, final LocalDateTime edgeStart,
+                                                    final LocalDateTime edgeEnd, final String edgeStartTime,
+                                                    final String edgeEndTime) {
+        final boolean isSequential = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.BEFORE, previousStart,
+                previousEnd, edgeStart, edgeEnd) || AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.MEETS,
+                previousStart, previousEnd, edgeStart, edgeEnd);
+        if (!isSequential)
+            return null;
+
+        if (this.minDelay > 0 || this.maxDelay < Long.MAX_VALUE) {
+            try {
+                final long delay = ChronoUnit.MILLIS.between(previousEnd, edgeStart);
+                if (delay < this.minDelay || delay > this.maxDelay)
+                    return null;
+            } catch (final Exception ignored) {
+                return new OutgoingMessage(otherVertex, edgeStartTime, edgeEndTime);
+            }
+        }
+
+        return new OutgoingMessage(otherVertex, edgeStartTime, edgeEndTime);
+    }
+
+    private OutgoingMessage createPairwiseContinuousMessage(final Vertex otherVertex, final LocalDateTime previousStart,
+                                                            final LocalDateTime previousEnd, final LocalDateTime edgeStart,
+                                                            final LocalDateTime edgeEnd) {
+        final boolean isBefore = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.BEFORE, previousStart,
+                previousEnd, edgeStart, edgeEnd);
+        final boolean isAfter = AllenFilterStep.evaluate(AllenFilterStep.AllenRelation.AFTER, previousStart,
+                previousEnd, edgeStart, edgeEnd);
+        if (isBefore || isAfter)
+            return null;
+
+        return new OutgoingMessage(otherVertex, formatDateTime(edgeStart), formatDateTime(edgeEnd));
+    }
+
+    private OutgoingMessage createContinuousMessage(final Vertex otherVertex, final LocalDateTime previousStart,
+                                                    final LocalDateTime previousEnd, final LocalDateTime edgeStart,
+                                                    final LocalDateTime edgeEnd) {
+        final LocalDateTime intersectionStart = previousStart.isAfter(edgeStart) ? previousStart : edgeStart;
+        final LocalDateTime intersectionEnd = previousEnd.isBefore(edgeEnd) ? previousEnd : edgeEnd;
+        if (intersectionStart.isAfter(intersectionEnd))
+            return null;
+
+        return new OutgoingMessage(otherVertex, formatDateTime(intersectionStart), formatDateTime(intersectionEnd));
+    }
+
+    private Vertex getOtherVertex(final Edge edge, final Vertex sourceVertex) {
+        Vertex otherVertex = edge.inVertex();
+        if (otherVertex.equals(sourceVertex))
+            otherVertex = edge.outVertex();
+        return otherVertex;
+    }
+
+    private static String formatDateTime(final LocalDateTime dateTime) {
+        return LocalDateTime.MAX.equals(dateTime) ? null : DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(dateTime);
+    }
+
+    private static final class OutgoingMessage {
+        private final Vertex vertex;
+        private final String contextStartTime;
+        private final String contextEndTime;
+
+        private OutgoingMessage(final Vertex vertex, final String contextStartTime, final String contextEndTime) {
+            this.vertex = vertex;
+            this.contextStartTime = contextStartTime;
+            this.contextEndTime = contextEndTime;
         }
     }
 }

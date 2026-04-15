@@ -27,6 +27,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategies;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.step.Configuring;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TemporalPathFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Parameters;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.process.traversal.util.PureTraversal;
@@ -37,6 +38,7 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 public final class TemporalPageRankVertexProgramStep extends VertexProgramStep implements TraversalParent, Configuring {
@@ -45,6 +47,7 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
     private PureTraversal<Vertex, Edge> edgeTraversal;
     private String pageRankProperty = TemporalPageRankVertexProgram.PAGE_RANK;
     private int times = 20;
+    private TemporalPathFilterStep.TemporalPathType filter = TemporalPathFilterStep.TemporalPathType.SEQUENTIAL;
     private long minDelay = 0L;
     private long maxDelay = Long.MAX_VALUE;
     private final double alpha;
@@ -70,6 +73,8 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
             if (!(keyValues[1] instanceof Integer))
                 throw new IllegalArgumentException("TemporalPageRank.times requires an Integer as its argument");
             this.times = (int) keyValues[1];
+        } else if (keyValues[0].equals(TemporalPageRank.filter)) {
+            this.filter = parseFilter(keyValues[1]);
         } else if (keyValues[0].equals(TemporalPageRank.minDelay)) {
             if (!(keyValues[1] instanceof Number))
                 throw new IllegalArgumentException("TemporalPageRank.minDelay requires a Number as its argument");
@@ -95,7 +100,7 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
 
     @Override
     public String toString() {
-        return StringFactory.stepString(this, this.edgeTraversal.get(), this.pageRankProperty, this.times,
+        return StringFactory.stepString(this, this.edgeTraversal.get(), this.pageRankProperty, this.times, this.filter,
                 new GraphFilter(this.computer));
     }
 
@@ -107,6 +112,7 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
                 .property(this.pageRankProperty)
                 .iterations(this.times + 1)
                 .alpha(this.alpha)
+                .filter(this.filter)
                 .minDelay(this.minDelay)
                 .maxDelay(this.maxDelay)
                 .edges(detachedTraversal);
@@ -136,6 +142,20 @@ public final class TemporalPageRankVertexProgramStep extends VertexProgramStep i
     @Override
     public int hashCode() {
         return super.hashCode() ^ this.edgeTraversal.hashCode() ^ this.pageRankProperty.hashCode() ^ this.times
-                ^ Long.hashCode(this.minDelay) ^ Long.hashCode(this.maxDelay);
+                ^ this.filter.hashCode() ^ Long.hashCode(this.minDelay) ^ Long.hashCode(this.maxDelay);
+    }
+
+    private static TemporalPathFilterStep.TemporalPathType parseFilter(final Object filter) {
+        if (filter instanceof TemporalPathFilterStep.TemporalPathType)
+            return (TemporalPathFilterStep.TemporalPathType) filter;
+        if (filter instanceof String) {
+            try {
+                return TemporalPathFilterStep.TemporalPathType.valueOf(((String) filter).trim().toUpperCase(Locale.ENGLISH));
+            } catch (final IllegalArgumentException ignored) {
+                throw new IllegalArgumentException("Unsupported TemporalPageRank.filter value: " + filter);
+            }
+        }
+
+        throw new IllegalArgumentException("TemporalPageRank.filter requires a TemporalPathType or String as its argument");
     }
 }
