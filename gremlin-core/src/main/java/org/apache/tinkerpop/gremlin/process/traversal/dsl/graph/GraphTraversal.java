@@ -161,6 +161,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.SubstringLocalSte
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TailLocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRankStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToUpperGlobalStep;
@@ -3798,6 +3799,18 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LocalStep<>(this.asAdmin(), localTraversal.asAdmin()));
     }
 
+    /////////////////// GRAPH ALGORITHM STEPS ////////////////
+
+    /**
+     * Calculates Temporal PageRank over the graph using a chronological edge-stream scan.
+     *
+     * @return the traversal with the appended {@link TemporalPageRankStep}
+     */
+    public default GraphTraversal<S, E> temporalPageRank() {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalPageRank);
+        return this.asAdmin().addStep((Step<E, E>) new TemporalPageRankStep<>(this.asAdmin()));
+    }
+
     /////////////////// VERTEX PROGRAM STEPS ////////////////
 
     /**
@@ -4541,6 +4554,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
 
         public static final String pageRank = "pageRank";
+        public static final String temporalPageRank = "temporalPageRank";
         public static final String peerPressure = "peerPressure";
         public static final String connectedComponent = "connectedComponent";
         public static final String shortestPath = "shortestPath";
