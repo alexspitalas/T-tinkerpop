@@ -22,8 +22,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 
 /**
- * Configuration options to be passed to the {@link GraphTraversal#with(String, Object)} step on
- * {@link GraphTraversal#temporalPageRank()}.
+ * Configuration options to be passed to the {@link GraphTraversal#with(String, Object)} step on the graph-wide
+ * {@link GraphTraversal#temporalPageRank()} step.
  */
 public final class TemporalPageRank {
 

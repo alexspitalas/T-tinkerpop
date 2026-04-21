@@ -25,6 +25,8 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.junit.Test;
 
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -65,6 +67,37 @@ public class TemporalPageRankIntegrationTest {
         assertEquals(0.3316875000d / sum, rank(c, "temporalRank"), TOLERANCE);
         assertEquals(0.3959671875d / sum, rank(d, "temporalRank"), TOLERANCE);
         assertEquals(0.0d, rank(e, "temporalRank"), TOLERANCE);
+    }
+
+    @Test
+    public void shouldComputeAndWriteRanksGraphWideWhenTraversalStartsFromSubset() {
+        final TinkerGraph graph = TinkerGraph.open();
+        final GraphTraversalSource g = graph.traversal();
+        final Vertex a = graph.addVertex(T.id, "A");
+        final Vertex b = graph.addVertex(T.id, "B");
+        final Vertex c = graph.addVertex(T.id, "C");
+        final Vertex d = graph.addVertex(T.id, "D");
+        a.addEdge("link", b, T.id, "e1",
+                "startTime", "2024-01-01T09:00:00", "endTime", "2024-01-01T09:01:00");
+        b.addEdge("link", c, T.id, "e2",
+                "startTime", "2024-01-01T09:05:00", "endTime", "2024-01-01T09:06:00");
+        c.addEdge("link", d, T.id, "e3",
+                "startTime", "2024-01-01T09:07:00", "endTime", "2024-01-01T09:08:00");
+
+        final List<Vertex> starts = g.V("A", "B").temporalPageRank().
+                with(TemporalPageRank.alpha, 0.85d).
+                with(TemporalPageRank.beta, 0.5d).
+                with(TemporalPageRank.normalize, false).
+                with(TemporalPageRank.propertyName, "rank").
+                toList();
+
+        assertEquals(2, starts.size());
+        assertTrue(starts.stream().anyMatch(vertex -> vertex.id().equals("A")));
+        assertTrue(starts.stream().anyMatch(vertex -> vertex.id().equals("B")));
+        assertEquals(0.15d, rank(a, "rank"), TOLERANCE);
+        assertEquals(0.2775d, rank(b, "rank"), TOLERANCE);
+        assertEquals(0.3316875d, rank(c, "rank"), TOLERANCE);
+        assertEquals(0.2047171875d, rank(d, "rank"), TOLERANCE);
     }
 
     @Test

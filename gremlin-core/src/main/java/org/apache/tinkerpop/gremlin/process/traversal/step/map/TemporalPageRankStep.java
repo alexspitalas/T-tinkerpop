@@ -50,9 +50,10 @@ import java.util.Set;
 /**
  * Traversal integration for Rozenshtein-Gionis Temporal PageRank.
  * <p>
- * The step gathers temporal edges from the graph, parses their {@code startTime}/{@code endTime} lifetime,
- * delegates the chronological lifetime-start scan to {@link TemporalPageRankAlgorithm}, and writes the resulting
- * rank to each vertex.
+ * The step gathers temporal edges from the entire attached graph, parses their {@code startTime}/{@code endTime}
+ * lifetime, delegates the chronological lifetime-start scan to {@link TemporalPageRankAlgorithm}, and writes the
+ * resulting rank to every vertex. Incoming vertex traversers are preserved for downstream traversal semantics, but
+ * they do not scope the graph-wide temporal edge stream.
  */
 public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements Configuring {
 

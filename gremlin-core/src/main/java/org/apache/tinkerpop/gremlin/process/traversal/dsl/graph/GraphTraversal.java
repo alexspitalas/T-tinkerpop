@@ -3802,7 +3802,9 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     /////////////////// GRAPH ALGORITHM STEPS ////////////////
 
     /**
-     * Calculates Temporal PageRank over the graph using a chronological edge-stream scan.
+     * Calculates Temporal PageRank over the entire attached graph using a chronological edge-stream scan. Incoming
+     * vertex traversers are preserved as the downstream result set, but do not scope the graph-wide computation or
+     * the vertices that receive rank properties.
      *
      * @return the traversal with the appended {@link TemporalPageRankStep}
      */
