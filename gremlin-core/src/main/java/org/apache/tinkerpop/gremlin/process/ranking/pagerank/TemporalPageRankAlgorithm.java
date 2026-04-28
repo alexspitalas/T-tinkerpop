@@ -38,38 +38,28 @@ import java.util.Queue;
  * across an edge lifetime becomes active at the target only at the edge {@code endTime}, so walks follow the
  * sequential lifetime rule where a previous edge must end before or meet the next edge's start. The {@code alpha}
  * parameter controls continuation versus new walk injection, and {@code beta} controls how active mass is retained
- * at the source versus moved to the target. Final {@code r} values are normalized by default.
+ * at the source versus moved to the target. Final {@code r} values may be normalized by the caller.
  * <p>
  * This is not static PageRank power iteration and does not use a convergence loop.
  */
 public final class TemporalPageRankAlgorithm {
 
-    public static final String TEMPORAL_PAGE_RANK = "gremlin.temporalPageRank.pageRank";
-    public static final String DEFAULT_START_TIME_PROPERTY = "startTime";
-    public static final String DEFAULT_END_TIME_PROPERTY = "endTime";
     public static final double DEFAULT_ALPHA = 0.85d;
     public static final double DEFAULT_BETA = 0.5d;
     public static final boolean DEFAULT_NORMALIZE = true;
 
-    private final Config config;
-
-    public TemporalPageRankAlgorithm() {
-        this(new Config());
+    private TemporalPageRankAlgorithm() {
     }
 
-    public TemporalPageRankAlgorithm(final Config config) {
-        this.config = config;
-    }
-
-    public Map<Object, Double> execute(final Collection<TemporalEdge> temporalEdges) {
+    public static Map<Object, Double> execute(final Collection<TemporalEdge> temporalEdges,
+                                              final double alpha, final double beta, final boolean normalize) {
+        validate(alpha, beta);
         final List<TemporalEdge> sortedTemporalEdges = new ArrayList<>(temporalEdges);
         sortedTemporalEdges.sort(TemporalEdge.chronological());
 
         final Map<Object, Double> r = new LinkedHashMap<>();
         final Map<Object, Double> s = new LinkedHashMap<>();
         final Map<Object, Queue<ScheduledMass>> pending = new HashMap<>();
-        final double alpha = config.getAlpha();
-        final double beta = config.getBeta();
         final double injected = 1.0d - alpha;
 
         for (final TemporalEdge temporalEdge : sortedTemporalEdges) {
@@ -96,7 +86,7 @@ public final class TemporalPageRankAlgorithm {
             }
         }
 
-        if (config.isNormalize()) {
+        if (normalize) {
             final double total = r.values().stream().mapToDouble(Double::doubleValue).sum();
             if (total != 0.0d)
                 r.replaceAll((vertexId, rank) -> rank / total);
@@ -105,8 +95,15 @@ public final class TemporalPageRankAlgorithm {
         return r;
     }
 
-    private void releaseAvailableMass(final Map<Object, Queue<ScheduledMass>> pending, final Map<Object, Double> s,
-                                      final Object vertexId, final Instant startTime) {
+    private static void validate(final double alpha, final double beta) {
+        if (!(alpha > 0.0d && alpha < 1.0d))
+            throw new IllegalArgumentException("Temporal PageRank alpha must be greater than 0.0 and less than 1.0");
+        if (!(beta > 0.0d && beta <= 1.0d))
+            throw new IllegalArgumentException("Temporal PageRank beta must be greater than 0.0 and less than or equal to 1.0");
+    }
+
+    private static void releaseAvailableMass(final Map<Object, Queue<ScheduledMass>> pending, final Map<Object, Double> s,
+                                             final Object vertexId, final Instant startTime) {
         final Queue<ScheduledMass> scheduled = pending.get(vertexId);
         if (null == scheduled)
             return;
@@ -116,8 +113,8 @@ public final class TemporalPageRankAlgorithm {
         }
     }
 
-    private void scheduleMass(final Map<Object, Queue<ScheduledMass>> pending, final Object vertexId, final double mass,
-                              final Instant availableAt) {
+    private static void scheduleMass(final Map<Object, Queue<ScheduledMass>> pending, final Object vertexId,
+                                     final double mass, final Instant availableAt) {
         if (mass == 0.0d)
             return;
 
@@ -180,69 +177,6 @@ public final class TemporalPageRankAlgorithm {
 
         public static Comparator<TemporalEdge> chronological() {
             return CHRONOLOGICAL;
-        }
-    }
-
-    public Config getConfig() {
-        return config;
-    }
-
-    public static final class Config {
-        private final double alpha;
-        private final double beta;
-        private final String startTimeProperty;
-        private final String endTimeProperty;
-        private final String propertyName;
-        private final boolean normalize;
-
-        public Config() {
-            this(DEFAULT_ALPHA, DEFAULT_BETA, DEFAULT_START_TIME_PROPERTY, DEFAULT_END_TIME_PROPERTY,
-                    TEMPORAL_PAGE_RANK, DEFAULT_NORMALIZE);
-        }
-
-        public Config(final double alpha, final double beta, final String startTimeProperty, final String endTimeProperty,
-                      final String propertyName, final boolean normalize) {
-            if (!(alpha > 0.0d && alpha < 1.0d))
-                throw new IllegalArgumentException("Temporal PageRank alpha must be greater than 0.0 and less than 1.0");
-            if (!(beta > 0.0d && beta <= 1.0d))
-                throw new IllegalArgumentException("Temporal PageRank beta must be greater than 0.0 and less than or equal to 1.0");
-            if (null == startTimeProperty || startTimeProperty.trim().isEmpty())
-                throw new IllegalArgumentException("Temporal PageRank startTimeProperty must be a non-empty String");
-            if (null == endTimeProperty || endTimeProperty.trim().isEmpty())
-                throw new IllegalArgumentException("Temporal PageRank endTimeProperty must be a non-empty String");
-            if (null == propertyName || propertyName.trim().isEmpty())
-                throw new IllegalArgumentException("Temporal PageRank propertyName must be a non-empty String");
-
-            this.alpha = alpha;
-            this.beta = beta;
-            this.startTimeProperty = startTimeProperty;
-            this.endTimeProperty = endTimeProperty;
-            this.propertyName = propertyName;
-            this.normalize = normalize;
-        }
-
-        public double getAlpha() {
-            return alpha;
-        }
-
-        public double getBeta() {
-            return beta;
-        }
-
-        public String getStartTimeProperty() {
-            return startTimeProperty;
-        }
-
-        public String getEndTimeProperty() {
-            return endTimeProperty;
-        }
-
-        public String getPropertyName() {
-            return propertyName;
-        }
-
-        public boolean isNormalize() {
-            return normalize;
         }
     }
 }

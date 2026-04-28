@@ -57,6 +57,9 @@ import java.util.Set;
  */
 public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements Configuring {
 
+    private static final String TEMPORAL_PAGE_RANK = "gremlin.temporalPageRank.pageRank";
+    private static final String DEFAULT_START_TIME_PROPERTY = "startTime";
+    private static final String DEFAULT_END_TIME_PROPERTY = "endTime";
     private static final String[] LIFETIME_DATE_FORMATS = {
             "yyyy-MM-dd HH:mm:ss",
             "yyyy-MM-dd",
@@ -79,9 +82,9 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     private boolean computed = false;
     private double alpha = TemporalPageRankAlgorithm.DEFAULT_ALPHA;
     private double beta = TemporalPageRankAlgorithm.DEFAULT_BETA;
-    private String startTimeProperty = TemporalPageRankAlgorithm.DEFAULT_START_TIME_PROPERTY;
-    private String endTimeProperty = TemporalPageRankAlgorithm.DEFAULT_END_TIME_PROPERTY;
-    private String propertyName = TemporalPageRankAlgorithm.TEMPORAL_PAGE_RANK;
+    private String startTimeProperty = DEFAULT_START_TIME_PROPERTY;
+    private String endTimeProperty = DEFAULT_END_TIME_PROPERTY;
+    private String propertyName = TEMPORAL_PAGE_RANK;
     private boolean normalize = TemporalPageRankAlgorithm.DEFAULT_NORMALIZE;
 
     public TemporalPageRankStep(final Traversal.Admin traversal) {
@@ -149,15 +152,22 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
         if (this.barrier.isEmpty())
             return;
 
+        validateConfiguration();
         final Graph graph = this.getTraversal().getGraph().orElseThrow(
                 () -> new IllegalStateException("temporalPageRank() requires a traversal with an attached graph"));
-        final TemporalPageRankAlgorithm.Config config =
-                new TemporalPageRankAlgorithm.Config(alpha, beta, startTimeProperty, endTimeProperty, propertyName, normalize);
-        final List<TemporalPageRankAlgorithm.TemporalEdge> edges = readTemporalEdges(
-                graph, config.getStartTimeProperty(), config.getEndTimeProperty());
+        final List<TemporalPageRankAlgorithm.TemporalEdge> edges = readTemporalEdges(graph, startTimeProperty, endTimeProperty);
 
-        final Map<Object, Double> ranks = new TemporalPageRankAlgorithm(config).execute(edges);
-        writeRanks(graph, config.getPropertyName(), ranks);
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(edges, alpha, beta, normalize);
+        writeRanks(graph, propertyName, ranks);
+    }
+
+    private void validateConfiguration() {
+        if (null == startTimeProperty || startTimeProperty.trim().isEmpty())
+            throw new IllegalArgumentException("Temporal PageRank startTimeProperty must be a non-empty String");
+        if (null == endTimeProperty || endTimeProperty.trim().isEmpty())
+            throw new IllegalArgumentException("Temporal PageRank endTimeProperty must be a non-empty String");
+        if (null == propertyName || propertyName.trim().isEmpty())
+            throw new IllegalArgumentException("Temporal PageRank propertyName must be a non-empty String");
     }
 
     private List<TemporalPageRankAlgorithm.TemporalEdge> readTemporalEdges(final Graph graph,

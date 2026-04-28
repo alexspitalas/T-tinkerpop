@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -41,14 +40,12 @@ public class TemporalPageRankAlgorithmTest {
 
     @Test
     public void shouldComputePaperAlgorithmRanksForChronologicalStream() {
-        final TemporalPageRankAlgorithm algorithm = new TemporalPageRankAlgorithm(
-                new TemporalPageRankAlgorithm.Config(0.85d, 0.5d, "startTime", "endTime", "rank", true));
-
-        final Map<Object, Double> ranks = algorithm.execute(Arrays.asList(
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(Arrays.asList(
                 edge("A", "B", "e1", "2024-01-01T09:00:00Z", "2024-01-01T09:01:00Z"),
                 edge("B", "C", "e2", "2024-01-01T09:05:00Z", "2024-01-01T09:06:00Z"),
                 edge("C", "D", "e3", "2024-01-01T09:07:00Z", "2024-01-01T09:08:00Z"),
-                edge("A", "D", "e4", "2024-01-01T09:10:00Z", "2024-01-01T09:11:00Z")));
+                edge("A", "D", "e4", "2024-01-01T09:10:00Z", "2024-01-01T09:11:00Z")),
+                0.85d, 0.5d, true);
 
         final double sum = 1.3051546875d;
         assertEquals(0.3000000000d / sum, ranks.get("A"), TOLERANCE);
@@ -59,12 +56,10 @@ public class TemporalPageRankAlgorithmTest {
 
     @Test
     public void shouldMoveMassWhenBetaEqualsOne() {
-        final TemporalPageRankAlgorithm algorithm = new TemporalPageRankAlgorithm(
-                new TemporalPageRankAlgorithm.Config(0.85d, 1.0d, "startTime", "endTime", "rank", false));
-
-        final Map<Object, Double> ranks = algorithm.execute(Arrays.asList(
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(Arrays.asList(
                 edge("A", "B", "e1", "2024-01-01T09:00:00Z", "2024-01-01T09:01:00Z"),
-                edge("B", "C", "e2", "2024-01-01T09:05:00Z", "2024-01-01T09:06:00Z")));
+                edge("B", "C", "e2", "2024-01-01T09:05:00Z", "2024-01-01T09:06:00Z")),
+                0.85d, 1.0d, false);
 
         assertEquals(0.15d, ranks.get("A"), TOLERANCE);
         assertEquals(0.2775d, ranks.get("B"), TOLERANCE);
@@ -76,10 +71,8 @@ public class TemporalPageRankAlgorithmTest {
         final List<TemporalPageRankAlgorithm.TemporalEdge> stream = timestampStyleStream();
 
         for (final double beta : Arrays.asList(0.5d, 1.0d)) {
-            final TemporalPageRankAlgorithm algorithm = new TemporalPageRankAlgorithm(
-                    new TemporalPageRankAlgorithm.Config(ALPHA, beta, "startTime", "endTime", "rank", false));
-
-            assertRanksEqual(flowPrOracle(stream, ALPHA, beta), algorithm.execute(stream));
+            assertRanksEqual(flowPrOracle(stream, ALPHA, beta),
+                    TemporalPageRankAlgorithm.execute(stream, ALPHA, beta, false));
         }
     }
 
@@ -111,9 +104,8 @@ public class TemporalPageRankAlgorithmTest {
                 weightedEdge("C", "A", 1));
         final Map<Object, Double> staticRanks = staticPageRank(weightedGraph, ALPHA);
 
-        final Map<Object, Double> temporalRanks = new TemporalPageRankAlgorithm(
-                new TemporalPageRankAlgorithm.Config(ALPHA, 1.0d, "startTime", "endTime", "rank", true)).
-                execute(repeatedStream(weightedGraph, 100));
+        final Map<Object, Double> temporalRanks =
+                TemporalPageRankAlgorithm.execute(repeatedStream(weightedGraph, 100), ALPHA, 1.0d, true);
 
         assertEquals(rankedVertices(staticRanks), rankedVertices(temporalRanks));
         assertEquals(staticRanks.get("A"), temporalRanks.get("A"), 0.002d);
@@ -147,12 +139,10 @@ public class TemporalPageRankAlgorithmTest {
 
     @Test
     public void shouldOnlyMoveMassAcrossSequentialLifetimes() {
-        final TemporalPageRankAlgorithm algorithm = new TemporalPageRankAlgorithm(
-                new TemporalPageRankAlgorithm.Config(0.85d, 0.5d, "startTime", "endTime", "rank", false));
-
-        final Map<Object, Double> ranks = algorithm.execute(Arrays.asList(
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(Arrays.asList(
                 edge("A", "B", "e1", "2024-01-01T09:00:00Z", "2024-01-01T10:00:00Z"),
-                edge("B", "C", "e2", "2024-01-01T09:05:00Z", "2024-01-01T11:00:00Z")));
+                edge("B", "C", "e2", "2024-01-01T09:05:00Z", "2024-01-01T11:00:00Z")),
+                0.85d, 0.5d, false);
 
         assertEquals(0.15d, ranks.get("A"), TOLERANCE);
         assertEquals(0.2775d, ranks.get("B"), TOLERANCE);
@@ -161,12 +151,10 @@ public class TemporalPageRankAlgorithmTest {
 
     @Test
     public void shouldReleaseMassWhenPriorLifetimeEndsAtNextStart() {
-        final TemporalPageRankAlgorithm algorithm = new TemporalPageRankAlgorithm(
-                new TemporalPageRankAlgorithm.Config(0.85d, 0.5d, "startTime", "endTime", "rank", false));
-
-        final Map<Object, Double> ranks = algorithm.execute(Arrays.asList(
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(Arrays.asList(
                 edge("A", "B", "e1", "2024-01-01T09:00:00Z", "2024-01-01T10:00:00Z"),
-                edge("B", "C", "e2", "2024-01-01T10:00:00Z", "2024-01-01T11:00:00Z")));
+                edge("B", "C", "e2", "2024-01-01T10:00:00Z", "2024-01-01T11:00:00Z")),
+                0.85d, 0.5d, false);
 
         assertEquals(0.15d, ranks.get("A"), TOLERANCE);
         assertEquals(0.2775d, ranks.get("B"), TOLERANCE);
@@ -174,27 +162,22 @@ public class TemporalPageRankAlgorithmTest {
     }
 
     @Test
-    public void shouldRejectInvalidConfiguration() {
-        final List<Runnable> invalidConfigs = Arrays.asList(
-                () -> new TemporalPageRankAlgorithm.Config(0.0d, 0.5d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(-0.1d, 0.5d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(1.0d, 0.5d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(1.1d, 0.5d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(0.85d, 0.0d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(0.85d, -0.1d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(0.85d, 1.1d, "startTime", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(0.85d, 0.5d, "", "endTime", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(0.85d, 0.5d, "startTime", "", "rank", true),
-                () -> new TemporalPageRankAlgorithm.Config(0.85d, 0.5d, "startTime", "endTime", "", true));
+    public void shouldRejectInvalidParameters() {
+        final List<Runnable> invalidExecutions = Arrays.asList(
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 0.0d, 0.5d, true),
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), -0.1d, 0.5d, true),
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 1.0d, 0.5d, true),
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 1.1d, 0.5d, true),
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 0.85d, 0.0d, true),
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 0.85d, -0.1d, true),
+                () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 0.85d, 1.1d, true));
 
-        invalidConfigs.forEach(config -> assertThrows(IllegalArgumentException.class, config::run));
+        invalidExecutions.forEach(execution -> assertThrows(IllegalArgumentException.class, execution::run));
     }
 
     private static Map<Object, Double> execute(final List<TemporalPageRankAlgorithm.TemporalEdge> stream,
                                                final double beta, final boolean normalize) {
-        return new TemporalPageRankAlgorithm(
-                new TemporalPageRankAlgorithm.Config(ALPHA, beta, "startTime", "endTime", "rank", normalize)).
-                execute(stream);
+        return TemporalPageRankAlgorithm.execute(stream, ALPHA, beta, normalize);
     }
 
     private static List<TemporalPageRankAlgorithm.TemporalEdge> timestampStyleStream() {
