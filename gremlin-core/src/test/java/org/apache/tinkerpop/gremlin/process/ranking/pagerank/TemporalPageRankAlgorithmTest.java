@@ -18,6 +18,12 @@
  */
 package org.apache.tinkerpop.gremlin.process.ranking.pagerank;
 
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRank;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
+import org.apache.tinkerpop.gremlin.util.CollectionUtil;
 import org.junit.Test;
 
 import java.time.Instant;
@@ -29,14 +35,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.tinkerpop.gremlin.process.traversal.AnonymousTraversalSource.traversal;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TemporalPageRankAlgorithmTest {
 
     private static final double TOLERANCE = 0.0000000001d;
     private static final double ALPHA = 0.85d;
+    private static final String TRAVERSAL_RANK = "scopedTemporalRank";
 
     @Test
     public void shouldComputePaperAlgorithmRanksForChronologicalStream() {
@@ -173,6 +186,44 @@ public class TemporalPageRankAlgorithmTest {
                 () -> TemporalPageRankAlgorithm.execute(timestampStyleStream(), 0.85d, 1.1d, true));
 
         invalidExecutions.forEach(execution -> assertThrows(IllegalArgumentException.class, execution::run));
+    }
+
+    @Test
+    public void shouldRespectIncomingVertexScopeInTraversalStep() {
+        final Map<Object, Double> writtenRanks = new LinkedHashMap<>();
+        final Vertex a = vertex("a", true, writtenRanks);
+        final Vertex b = vertex("b", true, writtenRanks);
+        final Vertex c = vertex("c", false, writtenRanks);
+        final TemporalPageRankAlgorithm.TemporalEdge internalEdge = sequentialEdge("a", "b", "ab", 0);
+        final TemporalPageRankAlgorithm.TemporalEdge crossingEdge = sequentialEdge("b", "c", "bc", 1);
+        final TemporalPageRankAlgorithm.TemporalEdge incomingCrossingEdge = sequentialEdge("c", "a", "ca", 2);
+        final Graph graph = mock(Graph.class);
+
+        when(graph.vertices()).thenAnswer(invocation -> Arrays.asList(a, b, c).iterator());
+        when(graph.vertices(eq("a"))).thenAnswer(invocation -> Arrays.asList(a).iterator());
+        when(graph.vertices(eq("b"))).thenAnswer(invocation -> Arrays.asList(b).iterator());
+        when(graph.edges()).thenAnswer(invocation -> Arrays.asList(
+                detachedEdge(internalEdge), detachedEdge(crossingEdge), detachedEdge(incomingCrossingEdge)).iterator());
+
+        final List<Vertex> result = traversal().withEmbedded(graph).V().has("selected", true).temporalPageRank().
+                with(TemporalPageRank.propertyName, TRAVERSAL_RANK).
+                toList();
+
+        assertEquals(Arrays.asList(a, b), result);
+        assertTrue(writtenRanks.containsKey("a"));
+        assertTrue(writtenRanks.containsKey("b"));
+        assertFalse(writtenRanks.containsKey("c"));
+
+        final Map<Object, Double> scopedRanks = TemporalPageRankAlgorithm.execute(Arrays.asList(internalEdge),
+                ALPHA, TemporalPageRankAlgorithm.DEFAULT_BETA, TemporalPageRankAlgorithm.DEFAULT_NORMALIZE);
+        final Map<Object, Double> graphWideRanks = TemporalPageRankAlgorithm.execute(
+                Arrays.asList(internalEdge, crossingEdge, incomingCrossingEdge),
+                ALPHA, TemporalPageRankAlgorithm.DEFAULT_BETA, TemporalPageRankAlgorithm.DEFAULT_NORMALIZE);
+
+        assertEquals(scopedRanks.get("a"), writtenRanks.get("a"), TOLERANCE);
+        assertEquals(scopedRanks.get("b"), writtenRanks.get("b"), TOLERANCE);
+        assertFalse(Math.abs(graphWideRanks.get("a") - writtenRanks.get("a")) < TOLERANCE);
+        assertFalse(Math.abs(graphWideRanks.get("b") - writtenRanks.get("b")) < TOLERANCE);
     }
 
     private static Map<Object, Double> execute(final List<TemporalPageRankAlgorithm.TemporalEdge> stream,
@@ -323,6 +374,27 @@ public class TemporalPageRankAlgorithmTest {
                                                                final String endTime) {
         return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId, Instant.parse(startTime),
                 Instant.parse(endTime));
+    }
+
+    private static Vertex vertex(final String id, final boolean selected, final Map<Object, Double> writtenRanks) {
+        final Vertex vertex = mock(Vertex.class);
+        final VertexProperty<Boolean> selectedProperty = mock(VertexProperty.class);
+
+        when(vertex.id()).thenReturn(id);
+        when(selectedProperty.value()).thenReturn(selected);
+        when(vertex.properties("selected")).thenAnswer(invocation -> Arrays.asList(selectedProperty).iterator());
+        when(vertex.property(eq(VertexProperty.Cardinality.single), eq(TRAVERSAL_RANK), any())).
+                thenAnswer(invocation -> {
+                    writtenRanks.put(id, invocation.getArgument(2));
+                    return mock(VertexProperty.class);
+                });
+        return vertex;
+    }
+
+    private static DetachedEdge detachedEdge(final TemporalPageRankAlgorithm.TemporalEdge edge) {
+        return new DetachedEdge(edge.getEdgeId(), "temporal",
+                CollectionUtil.asMap("startTime", edge.getStartTime(), "endTime", edge.getEndTime()),
+                edge.getOutVertexId(), Vertex.DEFAULT_LABEL, edge.getInVertexId(), Vertex.DEFAULT_LABEL);
     }
 
     private static WeightedEdge weightedEdge(final String outVertexId, final String inVertexId, final int weight) {

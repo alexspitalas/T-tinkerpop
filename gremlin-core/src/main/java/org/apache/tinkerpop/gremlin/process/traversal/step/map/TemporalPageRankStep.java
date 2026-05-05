@@ -42,6 +42,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -50,10 +51,10 @@ import java.util.Set;
 /**
  * Traversal integration for Rozenshtein-Gionis Temporal PageRank.
  * <p>
- * The step gathers temporal edges from the entire attached graph, parses their {@code startTime}/{@code endTime}
- * lifetime, delegates the chronological lifetime-start scan to {@link TemporalPageRankAlgorithm}, and writes the
- * resulting rank to every vertex. Incoming vertex traversers are preserved for downstream traversal semantics, but
- * they do not scope the graph-wide temporal edge stream.
+ * The step uses incoming vertex traversers to select temporal edges whose out and in vertices are both within that
+ * incoming vertex set. It parses each selected edge's {@code startTime}/{@code endTime} lifetime, delegates the
+ * chronological lifetime-start scan to {@link TemporalPageRankAlgorithm}, and writes the resulting rank to the selected
+ * vertices. Incoming vertex traversers are preserved for downstream traversal semantics.
  */
 public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements Configuring {
 
@@ -140,11 +141,13 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
 
     private void processAllStarts() {
         computed = true;
+        final Set<Object> scopedVertexIds = new HashSet<>();
 
         while (this.starts.hasNext()) {
             final Traverser.Admin<S> traverser = this.starts.next();
             if (!(traverser.get() instanceof Vertex))
                 throw new IllegalArgumentException("temporalPageRank() can only be applied to vertex traversers");
+            scopedVertexIds.add(((Vertex) traverser.get()).id());
             traverser.setStepId(this.getNextStep().getId());
             this.barrier.add(traverser);
         }
@@ -155,10 +158,11 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
         validateConfiguration();
         final Graph graph = this.getTraversal().getGraph().orElseThrow(
                 () -> new IllegalStateException("temporalPageRank() requires a traversal with an attached graph"));
-        final List<TemporalPageRankAlgorithm.TemporalEdge> edges = readTemporalEdges(graph, startTimeProperty, endTimeProperty);
+        final List<TemporalPageRankAlgorithm.TemporalEdge> edges =
+                readTemporalEdges(graph, scopedVertexIds, startTimeProperty, endTimeProperty);
 
         final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(edges, alpha, beta, normalize);
-        writeRanks(graph, propertyName, ranks);
+        writeRanks(graph, scopedVertexIds, propertyName, ranks);
     }
 
     private void validateConfiguration() {
@@ -171,6 +175,7 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     }
 
     private List<TemporalPageRankAlgorithm.TemporalEdge> readTemporalEdges(final Graph graph,
+                                                                           final Set<Object> scopedVertexIds,
                                                                            final String startTimeProperty,
                                                                            final String endTimeProperty) {
         final List<TemporalPageRankAlgorithm.TemporalEdge> temporalEdges = new ArrayList<>();
@@ -178,7 +183,9 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
 
         try {
             while (edges.hasNext()) {
-                temporalEdges.add(toTemporalEdge(edges.next(), startTimeProperty, endTimeProperty));
+                final Edge edge = edges.next();
+                if (scopedVertexIds.contains(edge.outVertex().id()) && scopedVertexIds.contains(edge.inVertex().id()))
+                    temporalEdges.add(toTemporalEdge(edge, startTimeProperty, endTimeProperty));
             }
         } finally {
             CloseableIterator.closeIterator(edges);
@@ -258,16 +265,19 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
         return null;
     }
 
-    private void writeRanks(final Graph graph, final String propertyName, final Map<Object, Double> ranks) {
-        final Iterator<Vertex> vertices = graph.vertices();
-
-        try {
-            while (vertices.hasNext()) {
-                final Vertex vertex = vertices.next();
-                vertex.property(VertexProperty.Cardinality.single, propertyName, ranks.getOrDefault(vertex.id(), 0.0d));
+    private void writeRanks(final Graph graph, final Set<Object> scopedVertexIds, final String propertyName,
+                            final Map<Object, Double> ranks) {
+        for (final Object vertexId : scopedVertexIds) {
+            final Iterator<Vertex> vertices = graph.vertices(vertexId);
+            try {
+                if (vertices.hasNext()) {
+                    final Vertex vertex = vertices.next();
+                    vertex.property(VertexProperty.Cardinality.single, propertyName,
+                            ranks.getOrDefault(vertex.id(), 0.0d));
+                }
+            } finally {
+                CloseableIterator.closeIterator(vertices);
             }
-        } finally {
-            CloseableIterator.closeIterator(vertices);
         }
     }
 
