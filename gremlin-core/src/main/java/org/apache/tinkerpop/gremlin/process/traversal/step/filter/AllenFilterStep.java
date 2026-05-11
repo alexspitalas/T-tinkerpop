@@ -21,10 +21,9 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.util.Date;
 
 /**
  * A filter step that implements all of Allen's temporal relationships.
@@ -33,7 +32,7 @@ import java.time.format.DateTimeParseException;
  * Optimizations applied:
  * 1. Lazy property access with caching for reference element
  * 2. Pre-parsed reference element temporal values
- * 3. Reusable DateTimeFormatter instances
+ * 3. Centralized lifetime value normalization
  * 
  * Note: When AllenDecompositionStrategy is active, this step will be rewritten
  * into primitive where().by() chains for better performance.
@@ -80,20 +79,11 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
     private final AllenRelation relation;
     private final Element referenceElement;
     
-    // Reusable formatter instances (thread-safe in Java 8+)
-    private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-    private static final DateTimeFormatter[] FALLBACK_FORMATTERS = {
-        DateTimeFormatter.ISO_LOCAL_DATE_TIME,
-        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"),
-        DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")
-    };
-    
     // Lazy caching of reference element temporal properties
-    private transient String cachedRefStartTime = null;
-    private transient String cachedRefEndTime = null;
-    private transient LocalDateTime cachedRefStart = null;
-    private transient LocalDateTime cachedRefEnd = null;
+    private transient Object cachedRefStartTime = null;
+    private transient Object cachedRefEndTime = null;
+    private transient Date cachedRefStart = null;
+    private transient Date cachedRefEnd = null;
     private transient boolean refPropertiesInitialized = false;
 
     public AllenFilterStep(final Traversal.Admin<S, E> traversal, 
@@ -125,23 +115,17 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         }
         
         // Get temporal properties from current element
-        final String currentStartTime = getTemporalProperty(currentElement, "startTime");
-        final String currentEndTime = getTemporalProperty(currentElement, "endTime");
+        final Object currentStartTime = getTemporalProperty(currentElement, "startTime");
+        final Object currentEndTime = getTemporalProperty(currentElement, "endTime");
         
         if (currentStartTime == null) {
             return false;
         }
         
-        try {
-            final LocalDateTime currentStart = parseDateTime(currentStartTime);
-            final LocalDateTime currentEnd = currentEndTime != null ? 
-                parseDateTime(currentEndTime) : LocalDateTime.MAX;
-            
-            return evaluate(relation, currentStart, currentEnd, cachedRefStart, cachedRefEnd);
-            
-        } catch (DateTimeParseException e) {
-            return false;
-        }
+        final Date currentStart = LifetimeHelper.toStartDate(currentStartTime);
+        final Date currentEnd = LifetimeHelper.toEndDate(currentEndTime);
+
+        return evaluate(relation, currentStart, currentEnd, cachedRefStart, cachedRefEnd);
     }
 
     /**
@@ -152,15 +136,8 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         cachedRefEndTime = getTemporalProperty(referenceElement, "endTime");
         
         if (cachedRefStartTime != null) {
-            try {
-                cachedRefStart = parseDateTime(cachedRefStartTime);
-                cachedRefEnd = cachedRefEndTime != null ? 
-                    parseDateTime(cachedRefEndTime) : LocalDateTime.MAX;
-            } catch (DateTimeParseException e) {
-                cachedRefStartTime = null;
-                cachedRefStart = null;
-                cachedRefEnd = null;
-            }
+            cachedRefStart = LifetimeHelper.toStartDate(cachedRefStartTime);
+            cachedRefEnd = LifetimeHelper.toEndDate(cachedRefEndTime);
         }
         
         refPropertiesInitialized = true;
@@ -170,33 +147,33 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
      * Static evaluation method for Allen relations.
      */
     public static boolean evaluate(final AllenRelation relation, 
-                                   final LocalDateTime start1, final LocalDateTime end1,
-                                   final LocalDateTime start2, final LocalDateTime end2) {
+                                   final Date start1, final Date end1,
+                                   final Date start2, final Date end2) {
         switch (relation) {
             case BEFORE:
-                return end1.isBefore(start2);
+                return end1.before(start2);
             case AFTER:
-                return start1.isAfter(end2);
+                return start1.after(end2);
             case MEETS:
                 return end1.equals(start2);
             case MET_BY:
                 return start1.equals(end2);
             case OVERLAPS:
-                return start1.isBefore(start2) && end1.isAfter(start2) && end1.isBefore(end2);
+                return start1.before(start2) && end1.after(start2) && end1.before(end2);
             case OVERLAPPED_BY:
-                return start2.isBefore(start1) && end2.isAfter(start1) && end2.isBefore(end1);
+                return start2.before(start1) && end2.after(start1) && end2.before(end1);
             case STARTS:
-                return start1.equals(start2) && end1.isBefore(end2);
+                return start1.equals(start2) && end1.before(end2);
             case STARTED_BY:
-                return start1.equals(start2) && end1.isAfter(end2);
+                return start1.equals(start2) && end1.after(end2);
             case FINISHES:
-                return start1.isAfter(start2) && end1.equals(end2);
+                return start1.after(start2) && end1.equals(end2);
             case FINISHED_BY:
-                return start1.isBefore(start2) && end1.equals(end2);
+                return start1.before(start2) && end1.equals(end2);
             case DURING:
-                return start1.isAfter(start2) && end1.isBefore(end2);
+                return start1.after(start2) && end1.before(end2);
             case CONTAINS:
-                return start1.isBefore(start2) && end1.isAfter(end2);
+                return start1.before(start2) && end1.after(end2);
             case EQUALS:
                 return start1.equals(start2) && end1.equals(end2);
             default:
@@ -204,29 +181,13 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         }
     }
 
-    private String getTemporalProperty(final Element element, final String propertyKey) {
+    private Object getTemporalProperty(final Element element, final String propertyKey) {
         try {
             return element.property(propertyKey).isPresent() ? 
-                element.property(propertyKey).value().toString() : null;
+                element.property(propertyKey).value() : null;
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private LocalDateTime parseDateTime(final String dateTimeStr) throws DateTimeParseException {
-        if (dateTimeStr == null || dateTimeStr.isEmpty()) {
-            throw new DateTimeParseException("Empty datetime string", dateTimeStr, 0);
-        }
-        
-        for (DateTimeFormatter formatter : FALLBACK_FORMATTERS) {
-            try {
-                return LocalDateTime.parse(dateTimeStr, formatter);
-            } catch (DateTimeParseException e) {
-                // Try next formatter
-            }
-        }
-        
-        return LocalDateTime.parse(dateTimeStr);
     }
 
     @Override

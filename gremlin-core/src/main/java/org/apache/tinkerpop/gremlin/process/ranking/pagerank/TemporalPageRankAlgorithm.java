@@ -18,10 +18,10 @@
  */
 package org.apache.tinkerpop.gremlin.process.ranking.pagerank;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,7 +65,7 @@ public final class TemporalPageRankAlgorithm {
         for (final TemporalEdge temporalEdge : sortedTemporalEdges) {
             final Object u = temporalEdge.getOutVertexId();
             final Object v = temporalEdge.getInVertexId();
-            releaseAvailableMass(pending, s, u, temporalEdge.getStartTime());
+            releaseAvailableMass(pending, s, u, temporalEdge.startTime);
             r.putIfAbsent(u, 0.0d);
             r.putIfAbsent(v, 0.0d);
             s.putIfAbsent(u, 0.0d);
@@ -78,10 +78,10 @@ public final class TemporalPageRankAlgorithm {
             r.put(v, r.get(v) + activeSourceMass * alpha);
 
             if (Double.compare(beta, 1.0d) == 0) {
-                scheduleMass(pending, v, activeSourceMass * alpha, temporalEdge.getEndTime());
+                scheduleMass(pending, v, activeSourceMass * alpha, temporalEdge.endTime);
                 s.put(u, 0.0d);
             } else {
-                scheduleMass(pending, v, activeSourceMass * (1.0d - beta) * alpha, temporalEdge.getEndTime());
+                scheduleMass(pending, v, activeSourceMass * (1.0d - beta) * alpha, temporalEdge.endTime);
                 s.put(u, activeSourceMass * beta);
             }
         }
@@ -103,18 +103,18 @@ public final class TemporalPageRankAlgorithm {
     }
 
     private static void releaseAvailableMass(final Map<Object, Queue<ScheduledMass>> pending, final Map<Object, Double> s,
-                                             final Object vertexId, final Instant startTime) {
+                                             final Object vertexId, final Date startTime) {
         final Queue<ScheduledMass> scheduled = pending.get(vertexId);
         if (null == scheduled)
             return;
 
-        while (!scheduled.isEmpty() && !scheduled.peek().availableAt.isAfter(startTime)) {
+        while (!scheduled.isEmpty() && !scheduled.peek().availableAt.after(startTime)) {
             s.put(vertexId, s.getOrDefault(vertexId, 0.0d) + scheduled.remove().mass);
         }
     }
 
     private static void scheduleMass(final Map<Object, Queue<ScheduledMass>> pending, final Object vertexId,
-                                     final double mass, final Instant availableAt) {
+                                     final double mass, final Date availableAt) {
         if (mass == 0.0d)
             return;
 
@@ -124,11 +124,11 @@ public final class TemporalPageRankAlgorithm {
     }
 
     private static final class ScheduledMass {
-        private final Instant availableAt;
+        private final Date availableAt;
         private final double mass;
 
-        private ScheduledMass(final Instant availableAt, final double mass) {
-            this.availableAt = availableAt;
+        private ScheduledMass(final Date availableAt, final double mass) {
+            this.availableAt = new Date(Objects.requireNonNull(availableAt, "availableAt cannot be null").getTime());
             this.mass = mass;
         }
     }
@@ -141,17 +141,17 @@ public final class TemporalPageRankAlgorithm {
         private final Object outVertexId;
         private final Object inVertexId;
         private final Object edgeId;
-        private final Instant startTime;
-        private final Instant endTime;
+        private final Date startTime;
+        private final Date endTime;
 
         public TemporalEdge(final Object outVertexId, final Object inVertexId, final Object edgeId,
-                            final Instant startTime, final Instant endTime) {
+                            final Date startTime, final Date endTime) {
             this.outVertexId = Objects.requireNonNull(outVertexId, "outVertexId cannot be null");
             this.inVertexId = Objects.requireNonNull(inVertexId, "inVertexId cannot be null");
             this.edgeId = Objects.requireNonNull(edgeId, "edgeId cannot be null");
-            this.startTime = Objects.requireNonNull(startTime, "startTime cannot be null");
-            this.endTime = Objects.requireNonNull(endTime, "endTime cannot be null");
-            if (!startTime.isBefore(endTime))
+            this.startTime = new Date(Objects.requireNonNull(startTime, "startTime cannot be null").getTime());
+            this.endTime = new Date(Objects.requireNonNull(endTime, "endTime cannot be null").getTime());
+            if (!this.startTime.before(this.endTime))
                 throw new IllegalArgumentException("Temporal edge startTime must be before endTime");
         }
 
@@ -167,12 +167,12 @@ public final class TemporalPageRankAlgorithm {
             return edgeId;
         }
 
-        public Instant getStartTime() {
-            return startTime;
+        public Date getStartTime() {
+            return new Date(startTime.getTime());
         }
 
-        public Instant getEndTime() {
-            return endTime;
+        public Date getEndTime() {
+            return new Date(endTime.getTime());
         }
 
         public static Comparator<TemporalEdge> chronological() {

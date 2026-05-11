@@ -34,11 +34,8 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
-import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
-import java.math.BigInteger;
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -61,22 +58,6 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     private static final String TEMPORAL_PAGE_RANK = "gremlin.temporalPageRank.pageRank";
     private static final String DEFAULT_START_TIME_PROPERTY = "startTime";
     private static final String DEFAULT_END_TIME_PROPERTY = "endTime";
-    private static final String[] LIFETIME_DATE_FORMATS = {
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-dd",
-            "yyyy/MM/dd HH:mm:ss",
-            "yyyy/MM/dd",
-            "dd/MM/yyyy HH:mm:ss",
-            "dd/MM/yyyy",
-            "dd-MM-yyyy HH:mm:ss",
-            "dd-MM-yyyy",
-            "MM/dd/yyyy HH:mm:ss",
-            "MM/dd/yyyy",
-            "yyyy-MM-dd'T'HH:mm:ss",
-            "yyyy-MM-dd'T'HH:mm:ss.SSS",
-            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-            "yyyy-MM-dd'T'HH:mm:ss'Z'"
-    };
 
     private Parameters parameters = new Parameters();
     private TraverserSet<S> barrier;
@@ -207,62 +188,26 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
                     " is missing end time property '" + endTimeProperty + "'");
 
         return new TemporalPageRankAlgorithm.TemporalEdge(edge.outVertex().id(), edge.inVertex().id(), edge.id(),
-                parseLifetimeValue(edge, startTimeProperty, startTime.value()),
-                parseLifetimeValue(edge, endTimeProperty, endTime.value()));
+                toStartDate(edge, startTimeProperty, startTime.value()),
+                toEndDate(edge, endTimeProperty, endTime.value()));
     }
 
-    private Instant parseLifetimeValue(final Edge edge, final String propertyName, final Object value) {
-        if (null == value)
-            throw new IllegalArgumentException("Temporal edge " + edge.id() + " has a null '" + propertyName + "' value");
-        if (value instanceof Instant)
-            return (Instant) value;
-        if (value instanceof Date)
-            return ((Date) value).toInstant();
-        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long)
-            return Instant.ofEpochMilli(((Number) value).longValue());
-        if (value instanceof BigInteger) {
-            try {
-                return Instant.ofEpochMilli(((BigInteger) value).longValueExact());
-            } catch (final ArithmeticException e) {
-                throw new IllegalArgumentException("Temporal edge " + edge.id() +
-                        " has an unparseable '" + propertyName + "' value: " + value, e);
-            }
+    private Date toStartDate(final Edge edge, final String propertyName, final Object value) {
+        try {
+            return LifetimeHelper.toStartDate(value);
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgumentException("Temporal edge " + edge.id() +
+                    " has an invalid '" + propertyName + "' value: " + value, e);
         }
-        if (value instanceof String) {
-            if (LifetimeStep.DEFAULT_ENDTIME.equals(value))
-                return Instant.ofEpochMilli(Long.MAX_VALUE);
-            try {
-                return Instant.ofEpochMilli(Long.parseLong((String) value));
-            } catch (final NumberFormatException ignored) {
-                // try date/time parsing next
-            }
-            try {
-                return DatetimeHelper.parse((String) value).toInstant();
-            } catch (final DateTimeParseException e) {
-                final Instant parsed = parseLifetimeStepDate((String) value);
-                if (null != parsed)
-                    return parsed;
-                throw new IllegalArgumentException("Temporal edge " + edge.id() +
-                        " has an unparseable '" + propertyName + "' value: " + value, e);
-            }
-        }
-
-        throw new IllegalArgumentException("Temporal edge " + edge.id() + " has an unparseable '" + propertyName +
-                "' value of type " + value.getClass().getName());
     }
 
-    private Instant parseLifetimeStepDate(final String value) {
-        for (final String format : LIFETIME_DATE_FORMATS) {
-            try {
-                final java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat(format);
-                sdf.setLenient(false);
-                return sdf.parse(value).toInstant();
-            } catch (final java.text.ParseException ignored) {
-                // try next format
-            }
+    private Date toEndDate(final Edge edge, final String propertyName, final Object value) {
+        try {
+            return LifetimeHelper.toEndDate(value);
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgumentException("Temporal edge " + edge.id() +
+                    " has an invalid '" + propertyName + "' value: " + value, e);
         }
-
-        return null;
     }
 
     private void writeRanks(final Graph graph, final Set<Object> scopedVertexIds, final String propertyName,
