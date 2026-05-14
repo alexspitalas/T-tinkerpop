@@ -80,8 +80,6 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
     private final Element referenceElement;
     
     // Lazy caching of reference element temporal properties
-    private transient Object cachedRefStartTime = null;
-    private transient Object cachedRefEndTime = null;
     private transient Date cachedRefStart = null;
     private transient Date cachedRefEnd = null;
     private transient boolean refPropertiesInitialized = false;
@@ -110,20 +108,17 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         }
         
         // Early exit if reference element has no temporal properties
-        if (cachedRefStartTime == null) {
+        if (cachedRefStart == null) {
             return false;
         }
         
         // Get temporal properties from current element
-        final Object currentStartTime = getTemporalProperty(currentElement, "startTime");
-        final Object currentEndTime = getTemporalProperty(currentElement, "endTime");
-        
-        if (currentStartTime == null) {
+        final Date currentStart = LifetimeHelper.getStartDateProperty(currentElement);
+        if (currentStart == null) {
             return false;
         }
         
-        final Date currentStart = LifetimeHelper.toStartDate(currentStartTime);
-        final Date currentEnd = LifetimeHelper.toEndDate(currentEndTime);
+        final Date currentEnd = LifetimeHelper.getEndDateProperty(currentElement);
 
         return evaluate(relation, currentStart, currentEnd, cachedRefStart, cachedRefEnd);
     }
@@ -132,12 +127,9 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
      * Initialize and cache reference element temporal properties once.
      */
     private void initializeReferenceProperties() {
-        cachedRefStartTime = getTemporalProperty(referenceElement, "startTime");
-        cachedRefEndTime = getTemporalProperty(referenceElement, "endTime");
-        
-        if (cachedRefStartTime != null) {
-            cachedRefStart = LifetimeHelper.toStartDate(cachedRefStartTime);
-            cachedRefEnd = LifetimeHelper.toEndDate(cachedRefEndTime);
+        cachedRefStart = LifetimeHelper.getStartDateProperty(referenceElement);
+        if (cachedRefStart != null) {
+            cachedRefEnd = LifetimeHelper.getEndDateProperty(referenceElement);
         }
         
         refPropertiesInitialized = true;
@@ -178,15 +170,6 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
                 return start1.equals(start2) && end1.equals(end2);
             default:
                 return false;
-        }
-    }
-
-    private Object getTemporalProperty(final Element element, final String propertyKey) {
-        try {
-            return element.property(propertyKey).isPresent() ? 
-                element.property(propertyKey).value() : null;
-        } catch (Exception e) {
-            return null;
         }
     }
 

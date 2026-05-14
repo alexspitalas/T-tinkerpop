@@ -21,46 +21,29 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.map;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+
+import java.util.Date;
 
 /**
  * A step that extracts the endTime property value from an element.
  * Works with vertices, edges, and vertex properties.
  * Returns null for elements that don't have endTime properties.
  */
-public class GetEndTimeStep<S extends Element> extends ScalarMapStep<S, String> {
+public class GetEndTimeStep<S extends Element> extends ScalarMapStep<S, Date> {
 
     public GetEndTimeStep(final Traversal.Admin traversal) {
         super(traversal);
     }
 
     @Override
-    protected String map(final Traverser.Admin<S> traverser) {
+    protected Date map(final Traverser.Admin<S> traverser) {
         final S element = traverser.get();
-        
-        String endTime = null;
-        
-        if (element instanceof Vertex) {
-            VertexProperty<Object> property = ((Vertex) element).property("endTime");
-            if (property.isPresent()) {
-                endTime = String.valueOf(property.value());
-            }
-        } else if (element instanceof Edge) {
-            org.apache.tinkerpop.gremlin.structure.Property<Object> property = ((Edge) element).property("endTime");
-            if (property.isPresent()) {
-                endTime = String.valueOf(property.value());
-            }
-        } else if (element instanceof VertexProperty) {
-            org.apache.tinkerpop.gremlin.structure.Property<Object> property = ((VertexProperty) element).property("endTime");
-            if (property.isPresent()) {
-                endTime = String.valueOf(property.value());
-            }
-        } else {
-            throw new IllegalStateException("GetEndTimeStep does not support element type: " + element.getClass().getSimpleName());
-        }
-        
-        return endTime;
+        final Property<Object> endTime = element.property("endTime");
+        if (!endTime.isPresent())
+            return null;
+
+        return LifetimeHelper.getEndDateProperty(element);
     }
 } 

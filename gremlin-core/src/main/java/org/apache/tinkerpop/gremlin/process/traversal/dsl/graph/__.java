@@ -1387,7 +1387,7 @@ public class __ {
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime, final String endTime) {
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, ?> startTime, final String endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
 
@@ -1401,8 +1401,8 @@ public class __ {
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime,
-            final Traversal<?, String> endTime) {
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, ?> startTime,
+                                                    final Traversal<?, ?> endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
 
@@ -1416,21 +1416,21 @@ public class __ {
     /**
      * @see GraphTraversal#lifetime(Map)
      */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, String> startTime) {
+    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, ?> startTime) {
         return __.<A>start().lifetime(startTime);
     }
 
     /**
      * @see GraphTraversal#getStartTime()
      */
-    public static <A extends Element> GraphTraversal<A, String> getStartTime() {
+    public static <A extends Element> GraphTraversal<A, Date> getStartTime() {
         return __.<A>start().getStartTime();
     }
 
     /**
      * @see GraphTraversal#getEndTime()
      */
-    public static <A extends Element> GraphTraversal<A, String> getEndTime() {
+    public static <A extends Element> GraphTraversal<A, Date> getEndTime() {
         return __.<A>start().getEndTime();
     }
     ///////////////////// BRANCH STEPS /////////////////////

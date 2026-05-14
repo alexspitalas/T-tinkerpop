@@ -32,11 +32,13 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -113,13 +115,13 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
 
 
 
-    public abstract Traversal<Vertex, String> get_g_V_getStartTime();
+    public abstract Traversal<Vertex, Date> get_g_V_getStartTime();
 
-    public abstract Traversal<Vertex, String> get_g_V_getEndTime();
+    public abstract Traversal<Vertex, Date> get_g_V_getEndTime();
 
-    public abstract Traversal<Vertex, String> get_g_V_propertiesXnameX_getStartTime();
+    public abstract Traversal<Vertex, Date> get_g_V_propertiesXnameX_getStartTime();
 
-    public abstract Traversal<Vertex, String> get_g_V_propertiesXnameX_getEndTime();
+    public abstract Traversal<Vertex, Date> get_g_V_propertiesXnameX_getEndTime();
 
     public abstract Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXgetStartTimeXendTime_2024_12_31X_propertyXname_sarahX();
 
@@ -138,8 +140,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("animal", vertex.label());
         assertEquals(29, vertex.<Integer>value("age").intValue());
         assertEquals("puppy", vertex.<String>value("name"));
-        assertEquals("01-07-2025", vertex.<String>value("startTime"));
-        assertEquals("01-07-3025", vertex.<String>value("endTime"));
+        assertEquals("2025-07-01", vertex.<String>value("startTime"));
+        assertEquals("3025-07-01", vertex.<String>value("endTime"));
         assertFalse(traversal.hasNext());
         assertEquals(7, IteratorUtils.count(g.V()));
     }
@@ -199,8 +201,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("person", chris.label());
-        assertEquals("24-08-2004", chris.value("startTime"));
-        assertEquals("24-08-3004", chris.value("endTime"));
+        assertEquals("2004-08-24", chris.value("startTime"));
+        assertEquals("3004-08-24", chris.value("endTime"));
         assertEquals("chris", chris.value("name"));
         assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
         assertEquals(7, IteratorUtils.count(g.V()));
@@ -216,7 +218,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("person", chris.label());
-        assertEquals("24-08-2004", chris.value("startTime"));
+        assertEquals("2004-08-24", chris.value("startTime"));
         assertEquals("1e10", chris.value("endTime"));
         assertEquals("chris", chris.value("name"));
         assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
@@ -234,8 +236,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("chris", chris.value("name"));
-        assertEquals("04-04-2006", chris.property("name").property("startTime").value()); //4-04-2006"
-        assertEquals("05-04-2006", chris.property("name").property("endTime").value()); //5-04-2006"
+        assertEquals("2006-04-04", chris.property("name").property("startTime").value());
+        assertEquals("2006-04-05", chris.property("name").property("endTime").value());
     }
     
     @Test
@@ -250,8 +252,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("chris", chris.value("name"));
-        assertEquals("04-04-2006", chris.property("name").property("startTime").value());
-        assertEquals("05-04-2006", chris.property("name").property("endTime").value());
+        assertEquals("2006-04-04", chris.property("name").property("startTime").value());
+        assertEquals("2006-04-05", chris.property("name").property("endTime").value());
     }
 
 
@@ -450,8 +452,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertFalse(traversal.hasNext());
         assertEquals("person", alice.label());
         assertEquals("alice", alice.value("name"));
-        assertEquals("2023-01-01", alice.value("startTime"));
-        assertEquals("2025-12-31", alice.value("endTime"));
+        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), LifetimeHelper.toStartDate(alice.value("startTime")));
+        assertEquals(LifetimeHelper.toEndDate("2025-12-31"), LifetimeHelper.toEndDate(alice.value("endTime")));
         assertEquals(3, IteratorUtils.count(alice.properties())); // name, startTime, endTime
     }
 
@@ -571,8 +573,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertFalse(traversal.hasNext());
         assertEquals("person", grace.label());
         assertEquals("grace", grace.value("name"));
-        assertEquals("1640995200000", grace.value("startTime"));
-        assertEquals("1704067199999", grace.value("endTime"));
+        assertEquals("2022-01-01", grace.value("startTime"));
+        assertEquals("2023-12-31", grace.value("endTime"));
         assertEquals(3, IteratorUtils.count(grace.properties())); // name, startTime, endTime
     }
     @Test
@@ -584,16 +586,16 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         g.addV("person").lifetime("2023-02-01", "2023-12-31").property("name", "bob").next();
         g.addV("person").lifetime("2023-03-01", "2023-12-31").property("name", "charlie").next();
         
-        final Traversal<Vertex, String> traversal = get_g_V_getStartTime();
+        final Traversal<Vertex, Date> traversal = get_g_V_getStartTime();
         printTraversalForm(traversal);
         
-        List<String> startTimes = IteratorUtils.list(traversal);
+        List<Date> startTimes = IteratorUtils.list(traversal);
         // Filter out null values since not all vertices have startTime properties
         startTimes.removeIf(time -> time == null);
         assertEquals(3, startTimes.size());
-        assertTrue(startTimes.contains("2023-01-01"));
-        assertTrue(startTimes.contains("2023-02-01"));
-        assertTrue(startTimes.contains("2023-03-01"));
+        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-01-01")));
+        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-02-01")));
+        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-03-01")));
     }
 
     @Test
@@ -605,16 +607,16 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         g.addV("person").lifetime("2023-01-01", "2024-01-31").property("name", "bob").next();
         g.addV("person").lifetime("2023-01-01", "2024-02-28").property("name", "charlie").next();
         
-        final Traversal<Vertex, String> traversal = get_g_V_getEndTime();
+        final Traversal<Vertex, Date> traversal = get_g_V_getEndTime();
         printTraversalForm(traversal);
         
-        List<String> endTimes = IteratorUtils.list(traversal);
+        List<Date> endTimes = IteratorUtils.list(traversal);
         // Filter out null values since not all vertices have endTime properties
         endTimes.removeIf(time -> time == null);
         assertEquals(3, endTimes.size());
-        assertTrue(endTimes.contains("2023-12-31"));
-        assertTrue(endTimes.contains("2024-01-31"));
-        assertTrue(endTimes.contains("2024-02-28"));
+        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2023-12-31")));
+        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-01-31")));
+        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-02-28")));
     }
 
     @Test
@@ -627,16 +629,16 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         g.addV("person").lifetimeProperty("name", "bob", "2023-02-01", "2023-12-31").next();
         g.addV("person").lifetimeProperty("name", "charlie", "2023-03-01", "2023-12-31").next();
         
-        final Traversal<Vertex, String> traversal = get_g_V_propertiesXnameX_getStartTime();
+        final Traversal<Vertex, Date> traversal = get_g_V_propertiesXnameX_getStartTime();
         printTraversalForm(traversal);
         
-        List<String> startTimes = IteratorUtils.list(traversal);
+        List<Date> startTimes = IteratorUtils.list(traversal);
         // Filter out null values since not all properties have startTime metadata
         startTimes.removeIf(time -> time == null);
         assertEquals(3, startTimes.size());
-        assertTrue(startTimes.contains("2023-01-01"));
-        assertTrue(startTimes.contains("2023-02-01"));
-        assertTrue(startTimes.contains("2023-03-01"));
+        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-01-01")));
+        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-02-01")));
+        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-03-01")));
     }
 
     @Test
@@ -649,16 +651,16 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         g.addV("person").lifetimeProperty("name", "bob", "2023-01-01", "2024-01-31").next();
         g.addV("person").lifetimeProperty("name", "charlie", "2023-01-01", "2024-02-28").next();
         
-        final Traversal<Vertex, String> traversal = get_g_V_propertiesXnameX_getEndTime();
+        final Traversal<Vertex, Date> traversal = get_g_V_propertiesXnameX_getEndTime();
         printTraversalForm(traversal);
         
-        List<String> endTimes = IteratorUtils.list(traversal);
+        List<Date> endTimes = IteratorUtils.list(traversal);
         // Filter out null values since not all properties have endTime metadata
         endTimes.removeIf(time -> time == null);
         assertEquals(3, endTimes.size());
-        assertTrue(endTimes.contains("2023-12-31"));
-        assertTrue(endTimes.contains("2024-01-31"));
-        assertTrue(endTimes.contains("2024-02-28"));
+        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2023-12-31")));
+        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-01-31")));
+        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-02-28")));
     }
 
 
@@ -667,7 +669,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
 
         @Override
         public Traversal<Vertex, Vertex> get_g_VX1X_addVXanimalX_propertyXage_selectXaX_byXageXX_propertyXname_puppyX_lifetimeXstartTime_1XendTime2X(final Object v1Id) {
-            return g.V(v1Id).as("a").addV("animal").property("age", select("a").by("age")).property("name", "puppy").lifetime("01-07-2025", "01-07-3025");
+            return g.V(v1Id).as("a").addV("animal").property("age", select("a").by("age")).property("name", "puppy").lifetime("2025-07-01", "3025-07-01");
         }
 
         @Override
@@ -682,21 +684,21 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
 
         @Override
         public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDateXendTime_deathDateX_propertyXname_chrisX() {
-            return g.addV("person").lifetime("24-08-2004", "24-08-3004").property("name", "chris");
+            return g.addV("person").lifetime("2004-08-24", "3004-08-24").property("name", "chris");
         }
 
         @Override
         public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX() {
-            return g.addV("person").lifetime("24-08-2004").property("name", "chris");
+            return g.addV("person").lifetime("2004-08-24").property("name", "chris");
         }
 
         @Override
         public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime() {
-          return g.addV("person").lifetimeProperty("name", "chris", "04-04-2006", "05-04-2006");
+          return g.addV("person").lifetimeProperty("name", "chris", "2006-04-04", "2006-04-05");
         }
         @Override
         public Traversal<Vertex, Vertex> get_g_V_addVpersonX_lifetimeXstartTime_birthDate_propertyXname_chrisX_propertyXname_nameDayDate_startTime_endTime() {
-          return g.addV("person").lifetimeProperty("name", "chris", "04-04-2006", "05-04-2006");
+          return g.addV("person").lifetimeProperty("name", "chris", "2006-04-04", "2006-04-05");
         }
         @Override
         public Traversal<Vertex, Vertex> get_g_V_hasLabelXpersonX_propertyXname_nullX() {
@@ -795,28 +797,28 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
 
         @Override
         public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimeXstartTime_1640995200000XendTime_1704067199999X_propertyXname_graceX() {
-            return g.addV("person").lifetime("1640995200000", "1704067199999").property("name", "grace");
+            return g.addV("person").lifetime("2022-01-01", "2023-12-31").property("name", "grace");
         }
 
 
 
         @Override
-        public Traversal<Vertex, String> get_g_V_getStartTime() {
+        public Traversal<Vertex, Date> get_g_V_getStartTime() {
             return g.V().getStartTime();
         }
 
         @Override
-        public Traversal<Vertex, String> get_g_V_getEndTime() {
+        public Traversal<Vertex, Date> get_g_V_getEndTime() {
             return g.V().getEndTime();
         }
 
         @Override
-        public Traversal<Vertex, String> get_g_V_propertiesXnameX_getStartTime() {
+        public Traversal<Vertex, Date> get_g_V_propertiesXnameX_getStartTime() {
             return g.V().properties("name").getStartTime();
         }
 
         @Override
-        public Traversal<Vertex, String> get_g_V_propertiesXnameX_getEndTime() {
+        public Traversal<Vertex, Date> get_g_V_propertiesXnameX_getEndTime() {
             return g.V().properties("name").getEndTime();
         }
 

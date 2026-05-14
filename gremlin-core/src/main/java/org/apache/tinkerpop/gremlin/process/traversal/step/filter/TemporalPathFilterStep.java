@@ -71,14 +71,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         final Edge edge = (Edge) object;
         final Path path = traverser.path();
 
-        final Object edgeStartValue = getProperty(edge, "startTime");
-        final Object edgeEndValue = getProperty(edge, "endTime");
-
-        if (edgeStartValue == null)
+        final Date edgeStart = LifetimeHelper.getStartDateProperty(edge);
+        if (edgeStart == null)
             return false;
 
-        final Date edgeStart = LifetimeHelper.toStartDate(edgeStartValue);
-        final Date edgeEnd = LifetimeHelper.toEndDate(edgeEndValue);
+        final Date edgeEnd = LifetimeHelper.getEndDateProperty(edge);
 
         switch (type) {
             case CONTINUOUS:
@@ -104,12 +101,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             if (obj instanceof Edge && obj != currentEdge) {
                 foundOtherEdge = true;
                 final Edge prevEdge = (Edge) obj;
-                final Object prevStartValue = getProperty(prevEdge, "startTime");
-                if (prevStartValue == null)
+                final Date prevStart = LifetimeHelper.getStartDateProperty(prevEdge);
+                if (prevStart == null)
                     continue;
 
-                final Date prevStart = LifetimeHelper.toStartDate(prevStartValue);
-                final Date prevEnd = LifetimeHelper.toEndDate(getProperty(prevEdge, "endTime"));
+                final Date prevEnd = LifetimeHelper.getEndDateProperty(prevEdge);
 
                 // Update intersection
                 intersectStart = intersectStart.after(prevStart) ? intersectStart : prevStart;
@@ -154,11 +150,10 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (prevEdge == null)
             return true;
 
-        final Object prevStartValue = getProperty(prevEdge, "startTime");
-        if (prevStartValue == null) return true;
+        final Date prevStart = LifetimeHelper.getStartDateProperty(prevEdge);
+        if (prevStart == null) return true;
         
-        final Date prevEnd = LifetimeHelper.toEndDate(getProperty(prevEdge, "endTime"));
-        final Date prevStart = LifetimeHelper.toStartDate(prevStartValue);
+        final Date prevEnd = LifetimeHelper.getEndDateProperty(prevEdge);
 
         // Previous edge must be BEFORE or MEET current edge.
         // Equivalent to: prevEnd <= edgeStart
@@ -193,12 +188,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (prevEdge == null)
             return true;
 
-        final Object prevStartValue = getProperty(prevEdge, "startTime");
-        if (prevStartValue == null)
+        final Date prevStart = LifetimeHelper.getStartDateProperty(prevEdge);
+        if (prevStart == null)
             return true;
 
-        final Date prevStart = LifetimeHelper.toStartDate(prevStartValue);
-        final Date prevEnd = LifetimeHelper.toEndDate(getProperty(prevEdge, "endTime"));
+        final Date prevEnd = LifetimeHelper.getEndDateProperty(prevEdge);
 
         // "Work together" / "Overlap" means they are NOT Disjoint.
         // Disjoint = BEFORE or AFTER.
@@ -214,14 +208,6 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         }
 
         return true;
-    }
-
-    private Object getProperty(final Edge edge, final String key) {
-        try {
-            return edge.property(key).isPresent() ? edge.property(key).value() : null;
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     @Override

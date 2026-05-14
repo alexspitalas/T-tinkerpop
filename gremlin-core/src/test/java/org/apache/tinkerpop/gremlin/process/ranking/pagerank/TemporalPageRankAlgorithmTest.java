@@ -24,12 +24,13 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
 import org.apache.tinkerpop.gremlin.util.CollectionUtil;
+import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 import org.junit.Test;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -172,6 +173,28 @@ public class TemporalPageRankAlgorithmTest {
         assertEquals(0.15d, ranks.get("A"), TOLERANCE);
         assertEquals(0.2775d, ranks.get("B"), TOLERANCE);
         assertEquals(0.1816875d, ranks.get("C"), TOLERANCE);
+    }
+
+    @Test
+    public void shouldDefensivelyCopyTemporalEdgeDates() {
+        final Date start = DatetimeHelper.parse("2024-01-01T09:00:00Z");
+        final Date end = DatetimeHelper.parse("2024-01-01T10:00:00Z");
+        final TemporalPageRankAlgorithm.TemporalEdge edge =
+                new TemporalPageRankAlgorithm.TemporalEdge("A", "B", "e1", start, end);
+        final Date expectedStart = new Date(start.getTime());
+        final Date expectedEnd = new Date(end.getTime());
+
+        start.setTime(end.getTime() + 1_000L);
+        end.setTime(start.getTime() + 1_000L);
+
+        assertEquals(expectedStart, edge.getStartTime());
+        assertEquals(expectedEnd, edge.getEndTime());
+
+        edge.getStartTime().setTime(expectedEnd.getTime());
+        edge.getEndTime().setTime(expectedStart.getTime());
+
+        assertEquals(expectedStart, edge.getStartTime());
+        assertEquals(expectedEnd, edge.getEndTime());
     }
 
     @Test
@@ -365,15 +388,16 @@ public class TemporalPageRankAlgorithmTest {
                                                                          final String inVertexId,
                                                                          final String edgeId,
                                                                          final int sequence) {
-        final Instant start = Instant.parse("2024-01-01T00:00:00Z").plusSeconds(sequence * 2L);
-        return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId, start, start.plusSeconds(1));
+        final Date start = new Date(DatetimeHelper.parse("2024-01-01T00:00:00Z").getTime() + sequence * 2_000L);
+        return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId,
+                start, new Date(start.getTime() + 1_000L));
     }
 
     private static TemporalPageRankAlgorithm.TemporalEdge edge(final String outVertexId, final String inVertexId,
                                                                final String edgeId, final String startTime,
                                                                final String endTime) {
-        return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId, Instant.parse(startTime),
-                Instant.parse(endTime));
+        return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId,
+                DatetimeHelper.parse(startTime), DatetimeHelper.parse(endTime));
     }
 
     private static Vertex vertex(final String id, final boolean selected, final Map<Object, Double> writtenRanks) {

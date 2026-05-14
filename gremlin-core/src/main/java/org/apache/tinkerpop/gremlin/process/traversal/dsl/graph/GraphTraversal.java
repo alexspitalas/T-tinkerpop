@@ -3290,7 +3290,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
     
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime, final String endTime)
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime, final String endTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
@@ -3304,7 +3304,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
     
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime, final Traversal<?, String> endTime)
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
@@ -3318,7 +3318,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
     }
     
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime)
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
@@ -3332,7 +3332,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getstarttime-step" target="_blank">Reference Documentation - GetStartTime Step</a>
      * @since 3.0.0-incubating
      */
-    public default GraphTraversal<S, String> getStartTime() {
+    public default GraphTraversal<S, Date> getStartTime() {
         this.asAdmin().getBytecode().addStep(Symbols.getStartTime);
         return this.asAdmin().addStep(new GetStartTimeStep<>(this.asAdmin()));
     }
@@ -3344,7 +3344,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getendtime-step" target="_blank">Reference Documentation - GetEndTime Step</a>
      * @since 3.0.0-incubating
      */
-    public default GraphTraversal<S, String> getEndTime() {
+    public default GraphTraversal<S, Date> getEndTime() {
         this.asAdmin().getBytecode().addStep(Symbols.getEndTime);
         return this.asAdmin().addStep(new GetEndTimeStep<>(this.asAdmin()));
     }

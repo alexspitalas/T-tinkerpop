@@ -18,6 +18,9 @@
  */
 package org.apache.tinkerpop.gremlin.util;
 
+import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.Property;
+
 import java.time.Instant;
 import java.util.Date;
 
@@ -26,6 +29,15 @@ public final class LifetimeHelper {
     public static final String DEFAULT_ENDTIME = "1e10";
 
     private LifetimeHelper() {
+    }
+
+    public static Date getStartDateProperty(final Element element) {
+        final Object value = getPropertyValue(element, "startTime");
+        return null == value ? null : toStartDate(value);
+    }
+
+    public static Date getEndDateProperty(final Element element) {
+        return toEndDate(getPropertyValue(element, "endTime"));
     }
 
     public static Date toStartDate(final Object value) {
@@ -69,5 +81,14 @@ public final class LifetimeHelper {
 
         throw new IllegalArgumentException(label + " value of type " + value.getClass().getName() +
                 " is not a supported temporal value. Supported types are Date, Instant, Number, and String.");
+    }
+
+    private static Object getPropertyValue(final Element element, final String key) {
+        try {
+            final Property<Object> property = element.property(key);
+            return property.isPresent() ? property.value() : null;
+        } catch (final RuntimeException e) {
+            return null;
+        }
     }
 }

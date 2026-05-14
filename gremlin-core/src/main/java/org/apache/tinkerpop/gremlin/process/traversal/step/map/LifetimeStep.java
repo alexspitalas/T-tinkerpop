@@ -29,7 +29,6 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;        
-import org.apache.tinkerpop.gremlin.structure.Property;        
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import java.util.ArrayList;
@@ -173,10 +172,10 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         }
         
         // Get vertex lifetimes
-        Date inVertexStartTime = LifetimeHelper.toStartDate(getVertexStartTime(inVertex));
-        Date inVertexEndTime = LifetimeHelper.toEndDate(getVertexEndTime(inVertex));
-        Date outVertexStartTime = LifetimeHelper.toStartDate(getVertexStartTime(outVertex));
-        Date outVertexEndTime = LifetimeHelper.toEndDate(getVertexEndTime(outVertex));
+        Date inVertexStartTime = LifetimeHelper.getStartDateProperty(inVertex);
+        Date inVertexEndTime = LifetimeHelper.getEndDateProperty(inVertex);
+        Date outVertexStartTime = LifetimeHelper.getStartDateProperty(outVertex);
+        Date outVertexEndTime = LifetimeHelper.getEndDateProperty(outVertex);
         
         // Check if edge lifetime overlaps with both vertex lifetimes
         return timeRangesOverlap(edgeStartTime, edgeEndTime, inVertexStartTime, inVertexEndTime) &&
@@ -186,16 +185,6 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
     private boolean hasLifetimeProperty(Vertex vertex) {
         return vertex.property("startTime").isPresent() && vertex.property("endTime").isPresent();
-    }
-    
-    private Object getVertexStartTime(Vertex vertex) {
-        Property<Object> prop = vertex.property("startTime");
-        return prop.isPresent() ? prop.value() : null;
-    }
-    
-    private Object getVertexEndTime(Vertex vertex) {
-        Property<Object> prop = vertex.property("endTime");
-        return prop.isPresent() ? prop.value() : null;
     }
     
     private boolean timeRangesOverlap(Date start1, Date end1, Date start2, Date end2) {
@@ -215,22 +204,19 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                 if (step instanceof GetStartTimeStep) {
                     if (traverser.get() instanceof Element) {
                         Element element = (Element) traverser.get();
-                        Property<Object> prop = element.property("startTime");
-                        if (prop.isPresent()) {
-                            return prop.value();
-                        } else {
+                        final Date startDate = LifetimeHelper.getStartDateProperty(element);
+                        if (startDate == null) {
                             throw new IllegalArgumentException("Cannot use getStartTime() when the element does not have a startTime property. Please provide an explicit startTime value.");
                         }
+                        return startDate;
                     }
                 } else if (step instanceof GetEndTimeStep) {
                     if (traverser.get() instanceof Element) {
                         Element element = (Element) traverser.get();
-                        Property<Object> prop = element.property("endTime");
-                        if (prop.isPresent()) {
-                            return prop.value();
-                        } else {
+                        if (!element.property("endTime").isPresent()) {
                             throw new IllegalArgumentException("Cannot use getEndTime() when the element does not have an endTime property. Please provide an explicit endTime value.");
                         }
+                        return LifetimeHelper.getEndDateProperty(element);
                     }
                 }
             }
