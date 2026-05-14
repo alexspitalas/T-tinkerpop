@@ -118,7 +118,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         final Vertex vertex = (Vertex) traverser.get();
 
         if (this.propertyKey != null && this.propertyValue != null){
-            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", actualStartTime , "endTime", actualEndTime);
+            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", actualStartDate , "endTime", actualEndDate);
         }else if (this.propertyKey != null){
             
           // Step 1: Store Previous metaProperties 
@@ -131,8 +131,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
           vertex.property(this.propertyKey).remove();
 
           // Step 3: Recreate with extra meta-property
-          metaProperties.put("startTime", actualStartTime);
-          metaProperties.put("endTime", actualEndTime); // Add new meta-property
+          metaProperties.put("startTime", actualStartDate);
+          metaProperties.put("endTime", actualEndDate); // Add new meta-property
           List<Object> args = new ArrayList<>();
           metaProperties.forEach((key, value) -> {
               args.add(key);
@@ -140,8 +140,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
           });
           vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue, args.toArray(new Object[0]));
           }else{
-            vertex.property("startTime", actualStartTime);
-            vertex.property("endTime", actualEndTime);
+            vertex.property("startTime", actualStartDate);
+            vertex.property("endTime", actualEndDate);
           }
       } else if (traverser.get() instanceof Edge) {
           final Edge edge = (Edge) traverser.get();
