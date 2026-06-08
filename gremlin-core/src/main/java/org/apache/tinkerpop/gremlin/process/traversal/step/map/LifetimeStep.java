@@ -29,42 +29,21 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;        
-import org.apache.tinkerpop.gremlin.structure.Property;        
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Arrays;
 
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
-    private Object startTime; // Can be String or Traversal
-    private Object endTime;   // Can be String or Traversal
+    private Object startTime; // Can be date-like Object or Traversal
+    private Object endTime;   // Can be date-like Object or Traversal
     private final String propertyKey;
     private final String propertyValue;
-    public static final String DEFAULT_ENDTIME = "1e10";
-    
-    // Common date formats to try
-    private static final String[] DATE_FORMATS = {
-        "yyyy-MM-dd HH:mm:ss",
-        "yyyy-MM-dd",
-        "yyyy/MM/dd HH:mm:ss",
-        "yyyy/MM/dd",
-        "dd/MM/yyyy HH:mm:ss",
-        "dd/MM/yyyy",
-        "dd-MM-yyyy HH:mm:ss",
-        "dd-MM-yyyy",
-        "MM/dd/yyyy HH:mm:ss",
-        "MM/dd/yyyy",
-        "yyyy-MM-dd'T'HH:mm:ss",
-        "yyyy-MM-dd'T'HH:mm:ss.SSS",
-        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss'Z'"
-    };
+    public static final String DEFAULT_ENDTIME = LifetimeHelper.DEFAULT_ENDTIME;
 
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime, final String propertyKey, final String propertyValue) {
         super(traversal);
@@ -79,70 +58,29 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         this.propertyKey = propertyKey;
         this.propertyValue = propertyValue;
         
-        // Validate the time parameters only if they are strings
-        if (startTime instanceof String && this.endTime instanceof String) {
-            validateTimeParameters((String) startTime, (String) this.endTime);
+        // Traversal-backed parameters are validated when they are evaluated for a traverser.
+        if (!(startTime instanceof Traversal) && !(this.endTime instanceof Traversal)) {
+            validateTimeParameters(startTime, this.endTime);
         }
     }
 
-    private void validateTimeParameters(String startTime, String endTime) {
-        if (startTime == null || startTime.trim().isEmpty()) {
+    private void validateTimeParameters(final Object startTime, final Object endTime) {
+        if (startTime == null) {
             throw new IllegalArgumentException("Start time cannot be null or empty");
         }
         
-        if (endTime == null || endTime.trim().isEmpty()) {
-            throw new IllegalArgumentException("End time cannot be null or empty");
-        }
-        
-        Date startDate = parseDate(startTime);
-        Date endDate = parseDate(endTime);
-        
-        if (startDate == null) {
-            throw new IllegalArgumentException("Start time '" + startTime + "' is not in a valid date format. Supported formats: " + Arrays.toString(DATE_FORMATS));
-        }
-        
-        if (endDate == null) {
-            throw new IllegalArgumentException("End time '" + endTime + "' is not in a valid date format. Supported formats: " + Arrays.toString(DATE_FORMATS));
-        }
+        final Date startDate = LifetimeHelper.toStartDate(startTime);
+        final Date endDate = LifetimeHelper.toEndDate(endTime);
+        validateTimeParameters(startTime, endTime, startDate, endDate);
+    }
+
+    private void validateTimeParameters(final Object startTime, final Object endTime, final Date startDate, final Date endDate) {
         
         if (!startDate.before(endDate)) {
             throw new IllegalArgumentException("Start time (" + startTime + ") must be before end time (" + endTime + ")");
         }
     }
     
-    private Date parseDate(String dateString) {
-        if (DEFAULT_ENDTIME.equals(dateString)) {
-            return new Date(Long.MAX_VALUE);
-        }
-        
-        try {
-            long timestamp = Long.parseLong(dateString);
-            return new Date(timestamp);
-        } catch (NumberFormatException e) {
-        }
-        
-        // Try each date format
-        for (String format : DATE_FORMATS) {
-            try {
-                SimpleDateFormat sdf = new SimpleDateFormat(format);
-                sdf.setLenient(false); // Strict parsing
-                Date parsedDate = sdf.parse(dateString);
-                
-                // Additional validation: check if the parsed date matches the original string
-                // This prevents cases like "2023-01-01T25:00:00" from being parsed as valid
-                String formattedBack = sdf.format(parsedDate);
-                if (!dateString.equals(formattedBack)) {
-                    continue; // Try next format
-                }
-                
-                return parsedDate;
-            } catch (ParseException e) {
-            }
-        }
-        
-        return null; 
-    }
-
     @Override
     public int hashCode() {
         if (this.propertyKey == null) {
@@ -170,19 +108,22 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
       final Traverser.Admin<S> traverser = this.starts.next();
         
       // Evaluate traversal parameters at runtime
-      String actualStartTime = evaluateTimeParameter(this.startTime, traverser);
-      String actualEndTime = evaluateTimeParameter(this.endTime, traverser);
+      Object actualStartTime = evaluateTimeParameter(this.startTime, traverser);
+      Object actualEndTime = evaluateTimeParameter(this.endTime, traverser);
+      final Date actualStartDate = LifetimeHelper.toStartDate(actualStartTime);
+      final Date actualEndDate = LifetimeHelper.toEndDate(actualEndTime);
+      validateTimeParameters(actualStartTime, actualEndTime, actualStartDate, actualEndDate);
         
       if( traverser.get() instanceof Vertex){
         final Vertex vertex = (Vertex) traverser.get();
 
         if (this.propertyKey != null && this.propertyValue != null){
-            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", actualStartTime , "endTime", actualEndTime);
+            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", actualStartDate , "endTime", actualEndDate);
         }else if (this.propertyKey != null){
             
           // Step 1: Store Previous metaProperties 
           VertexProperty<Object> vp = vertex.property(propertyKey); 
-          String propertyValue = (String) vp.value(); 
+          Object propertyValue = vp.value();
           Map<String, Object> metaProperties = new HashMap<>();
           vp.properties().forEachRemaining(metaProp -> metaProperties.put(metaProp.key(), metaProp.value()));
 
@@ -190,8 +131,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
           vertex.property(this.propertyKey).remove();
 
           // Step 3: Recreate with extra meta-property
-          metaProperties.put("startTime", actualStartTime);
-          metaProperties.put("endTime", actualEndTime); // Add new meta-property
+          metaProperties.put("startTime", actualStartDate);
+          metaProperties.put("endTime", actualEndDate); // Add new meta-property
           List<Object> args = new ArrayList<>();
           metaProperties.forEach((key, value) -> {
               args.add(key);
@@ -199,16 +140,16 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
           });
           vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue, args.toArray(new Object[0]));
           }else{
-            vertex.property("startTime", actualStartTime);
-            vertex.property("endTime", actualEndTime);
+            vertex.property("startTime", actualStartDate);
+            vertex.property("endTime", actualEndDate);
           }
       } else if (traverser.get() instanceof Edge) {
           final Edge edge = (Edge) traverser.get();
           
           // For edges, validate that both vertices exist during the edge's lifetime
-          if (validateEdgeLifetime(edge, actualStartTime, actualEndTime)) {
-              edge.property("startTime", actualStartTime);
-              edge.property("endTime", actualEndTime);
+          if (validateEdgeLifetime(edge, actualStartDate, actualEndDate)) {
+              edge.property("startTime", actualStartDate);
+              edge.property("endTime", actualEndDate);
           } else {
               // If validation fails, throw an error
               throw new IllegalArgumentException("Cannot create edge with lifetime [" + actualStartTime + ", " + actualEndTime + 
@@ -220,7 +161,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     }
     
 
-    private boolean validateEdgeLifetime(Edge edge, String edgeStartTime, String edgeEndTime) {
+    private boolean validateEdgeLifetime(Edge edge, Date edgeStartTime, Date edgeEndTime) {
         Vertex inVertex = edge.inVertex();
         Vertex outVertex = edge.outVertex();
         
@@ -231,10 +172,10 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         }
         
         // Get vertex lifetimes
-        String inVertexStartTime = getVertexStartTime(inVertex);
-        String inVertexEndTime = getVertexEndTime(inVertex);
-        String outVertexStartTime = getVertexStartTime(outVertex);
-        String outVertexEndTime = getVertexEndTime(outVertex);
+        Date inVertexStartTime = LifetimeHelper.getStartDateProperty(inVertex);
+        Date inVertexEndTime = LifetimeHelper.getEndDateProperty(inVertex);
+        Date outVertexStartTime = LifetimeHelper.getStartDateProperty(outVertex);
+        Date outVertexEndTime = LifetimeHelper.getEndDateProperty(outVertex);
         
         // Check if edge lifetime overlaps with both vertex lifetimes
         return timeRangesOverlap(edgeStartTime, edgeEndTime, inVertexStartTime, inVertexEndTime) &&
@@ -246,67 +187,36 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         return vertex.property("startTime").isPresent() && vertex.property("endTime").isPresent();
     }
     
-    private String getVertexStartTime(Vertex vertex) {
-        Property<String> prop = vertex.property("startTime");
-        return prop.isPresent() ? prop.value() : null;
+    private boolean timeRangesOverlap(Date start1, Date end1, Date start2, Date end2) {
+        // Check if the ranges overlap: start1 <= end2 AND start2 <= end1
+        return !start1.after(end2) && !start2.after(end1);
     }
-    
-    private String getVertexEndTime(Vertex vertex) {
-        Property<String> prop = vertex.property("endTime");
-        return prop.isPresent() ? prop.value() : null;
-    }
-    
-    private boolean timeRangesOverlap(String start1, String end1, String start2, String end2) {
-        try {
-            Date start1Date = parseDate(start1);
-            Date end1Date = parseDate(end1);
-            Date start2Date = parseDate(start2);
-            Date end2Date = parseDate(end2);
-            
-            if (start1Date == null || end1Date == null || start2Date == null || end2Date == null) {
-                // If we can't parse the dates, assume they overlap
-                return true;
-            }
-            
-            // Check if the ranges overlap: start1 <= end2 AND start2 <= end1
-            return !start1Date.after(end2Date) && !start2Date.after(end1Date);
-            
-        } catch (Exception e) {
-            // If there's any error parsing dates, assume they overlap
-            return true;
-        }
-    }
-    
-    private String evaluateTimeParameter(Object timeParam, Traverser.Admin<S> traverser) {
-        if (timeParam instanceof String) {
-            return (String) timeParam;
-        } else if (timeParam instanceof Traversal) {
+
+    private Object evaluateTimeParameter(Object timeParam, Traverser.Admin<S> traverser) {
+        if (timeParam instanceof Traversal) {
             @SuppressWarnings("unchecked")
-            Traversal<?, String> traversal = (Traversal<?, String>) timeParam;
+            Traversal<?, Object> traversal = (Traversal<?, Object>) timeParam;
             
-            Traversal.Admin<?, String> adminTraversal = traversal.asAdmin();
+            Traversal.Admin<?, Object> adminTraversal = traversal.asAdmin();
             
             if (adminTraversal.getSteps().size() > 0) {
                 Object step = adminTraversal.getSteps().get(0);
                 if (step instanceof GetStartTimeStep) {
                     if (traverser.get() instanceof Element) {
                         Element element = (Element) traverser.get();
-                        Property<String> prop = element.property("startTime");
-                        if (prop.isPresent()) {
-                            return prop.value();
-                        } else {
+                        final Date startDate = LifetimeHelper.getStartDateProperty(element);
+                        if (startDate == null) {
                             throw new IllegalArgumentException("Cannot use getStartTime() when the element does not have a startTime property. Please provide an explicit startTime value.");
                         }
+                        return startDate;
                     }
                 } else if (step instanceof GetEndTimeStep) {
                     if (traverser.get() instanceof Element) {
                         Element element = (Element) traverser.get();
-                        Property<String> prop = element.property("endTime");
-                        if (prop.isPresent()) {
-                            return prop.value();
-                        } else {
+                        if (!element.property("endTime").isPresent()) {
                             throw new IllegalArgumentException("Cannot use getEndTime() when the element does not have an endTime property. Please provide an explicit endTime value.");
                         }
+                        return LifetimeHelper.getEndDateProperty(element);
                     }
                 }
             }
@@ -314,7 +224,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             // For other traversals, throw an error
             throw new IllegalArgumentException("Unsupported traversal type for time parameter. Only getStartTime() and getEndTime() are supported.");
         }
-        return DEFAULT_ENDTIME;
+        return timeParam;
     }
     
     public Object getStartTime() {

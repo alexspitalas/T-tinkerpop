@@ -55,7 +55,7 @@ public class GraphTraversalTest {
 
     private static Set<String> NO_GRAPH = new HashSet<>(Arrays.asList(
     "asAdmin", "by", "read", "write", "with", "option", "iterate", "to", "from", 
-    "profile", "pageRank", "connectedComponent", "peerPressure", "shortestPath", 
+    "profile", "pageRank", "temporalPageRank", "connectedComponent", "peerPressure", "shortestPath",
     "program", "none", 
     // existing temporal-lifetime methods
     "lifetime", "lifetimeProperty",

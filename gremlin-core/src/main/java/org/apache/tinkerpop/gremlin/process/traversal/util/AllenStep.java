@@ -21,6 +21,9 @@ package org.apache.tinkerpop.gremlin.process.traversal.util;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+
+import java.util.Date;
 
 /**
  * Utility class for applying Allen temporal relationship filters to graph traversals.
@@ -70,13 +73,14 @@ public final class AllenStep {
             final AllenRelation relation,
             final Element referenceElement) {
 
-        final Object refStartTime = getTemporalProperty(referenceElement, "startTime");
-        final Object refEndTime = getTemporalProperty(referenceElement, "endTime");
+        final Date refStartTime = LifetimeHelper.getStartDateProperty(referenceElement);
 
         // Early exit if reference has no temporal properties
         if (refStartTime == null) {
             return traversal.limit(0);
         }
+
+        final Date refEndTime = LifetimeHelper.getEndDateProperty(referenceElement);
 
         switch (relation) {
             case BEFORE:
@@ -295,12 +299,4 @@ public final class AllenStep {
      * @param propertyKey the property key
      * @return the property value or null if not present
      */
-    private static Object getTemporalProperty(final Element element, final String propertyKey) {
-        try {
-            return element.property(propertyKey).isPresent() ?
-                    element.property(propertyKey).value() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
 }

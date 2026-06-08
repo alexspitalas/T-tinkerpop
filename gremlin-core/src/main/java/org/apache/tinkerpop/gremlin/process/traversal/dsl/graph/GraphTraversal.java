@@ -161,6 +161,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.SubstringLocalSte
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TailLocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRankStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToUpperGlobalStep;
@@ -3289,7 +3290,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
     
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime, final String endTime)
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime, final String endTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
@@ -3303,7 +3304,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
     
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime, final Traversal<?, String> endTime)
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
@@ -3317,7 +3318,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
     }
     
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, String> startTime)
+    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime)
     {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
@@ -3331,7 +3332,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getstarttime-step" target="_blank">Reference Documentation - GetStartTime Step</a>
      * @since 3.0.0-incubating
      */
-    public default GraphTraversal<S, String> getStartTime() {
+    public default GraphTraversal<S, Date> getStartTime() {
         this.asAdmin().getBytecode().addStep(Symbols.getStartTime);
         return this.asAdmin().addStep(new GetStartTimeStep<>(this.asAdmin()));
     }
@@ -3343,7 +3344,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getendtime-step" target="_blank">Reference Documentation - GetEndTime Step</a>
      * @since 3.0.0-incubating
      */
-    public default GraphTraversal<S, String> getEndTime() {
+    public default GraphTraversal<S, Date> getEndTime() {
         this.asAdmin().getBytecode().addStep(Symbols.getEndTime);
         return this.asAdmin().addStep(new GetEndTimeStep<>(this.asAdmin()));
     }
@@ -3796,6 +3797,20 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default <E2> GraphTraversal<S, E2> local(final Traversal<?, E2> localTraversal) {
         this.asAdmin().getBytecode().addStep(Symbols.local, localTraversal);
         return this.asAdmin().addStep(new LocalStep<>(this.asAdmin(), localTraversal.asAdmin()));
+    }
+
+    /////////////////// GRAPH ALGORITHM STEPS ////////////////
+
+    /**
+     * Calculates Temporal PageRank over the entire attached graph using a chronological edge-stream scan. Incoming
+     * vertex traversers are preserved as the downstream result set, but do not scope the graph-wide computation or
+     * the vertices that receive rank properties.
+     *
+     * @return the traversal with the appended {@link TemporalPageRankStep}
+     */
+    public default GraphTraversal<S, E> temporalPageRank() {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalPageRank);
+        return this.asAdmin().addStep((Step<E, E>) new TemporalPageRankStep<>(this.asAdmin()));
     }
 
     /////////////////// VERTEX PROGRAM STEPS ////////////////
@@ -4541,6 +4556,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
 
 
         public static final String pageRank = "pageRank";
+        public static final String temporalPageRank = "temporalPageRank";
         public static final String peerPressure = "peerPressure";
         public static final String connectedComponent = "connectedComponent";
         public static final String shortestPath = "shortestPath";

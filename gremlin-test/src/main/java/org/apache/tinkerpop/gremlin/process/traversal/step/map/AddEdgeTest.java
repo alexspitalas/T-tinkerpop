@@ -28,6 +28,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -303,8 +304,8 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
         assertEquals(3, IteratorUtils.count(edge.properties()));
-        assertEquals("10-05-2022", edge.value("startTime"));
-        assertEquals("10-05-2222", edge.value("endTime"));
+        assertEquals(LifetimeHelper.toStartDate("2022-05-10"), edge.value("startTime"));
+        assertEquals(LifetimeHelper.toEndDate("2222-05-10"), edge.value("endTime"));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
         assertEquals(6L, g.V().count().next().longValue());
         assertEquals(7L, g.E().count().next().longValue());
@@ -323,8 +324,8 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
         assertEquals(3, IteratorUtils.count(edge.properties()));
-        assertEquals("10-05-2022", edge.value("startTime"));
-        assertEquals("1e10", edge.value("endTime"));
+        assertEquals(LifetimeHelper.toStartDate("2022-05-10"), edge.value("startTime"));
+        assertEquals(LifetimeHelper.toEndDate("1e10"), edge.value("endTime"));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
         assertEquals(6L, g.V().count().next().longValue());
         assertEquals(7L, g.E().count().next().longValue());
@@ -347,8 +348,8 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals("knows", edge.label());
         assertEquals(v1, edge.outVertex());
         assertEquals(v2, edge.inVertex());
-        assertEquals("2023-06-01", edge.value("startTime"));
-        assertEquals("2023-12-31", edge.value("endTime"));
+        assertEquals(LifetimeHelper.toStartDate("2023-06-01"), edge.value("startTime"));
+        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), edge.value("endTime"));
     }
 
     @Test
@@ -415,8 +416,8 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals("knows", edge.label());
         assertEquals(v1, edge.outVertex());
         assertEquals(v2, edge.inVertex());
-        assertEquals("2023-01-01", edge.value("startTime"));
-        assertEquals("2023-12-31", edge.value("endTime"));
+        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), edge.value("startTime"));
+        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), edge.value("endTime"));
     }
 
     @Test
@@ -503,12 +504,12 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
 
         @Override
         public Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022XendTime_10_05_2222X_propertyXweight_0_1X(final Vertex a, final Vertex b) {
-            return g.addE("knows").from(a).to(b).lifetime("10-05-2022", "10-05-2222").property("weight", 0.1d);
+            return g.addE("knows").from(a).to(b).lifetime("2022-05-10", "2222-05-10").property("weight", 0.1d);
         }
 
         @Override
         public Traversal<Edge, Edge> get_g_addEXknowsX_fromXaX_toXbX_lifetimeXstartTime_10_05_2022X_propertyXweight_0_1X(final Vertex a, final Vertex b) {
-            return g.addE("knows").from(a).to(b).lifetime("10-05-2022").property("weight", 0.1d);
+            return g.addE("knows").from(a).to(b).lifetime("2022-05-10").property("weight", 0.1d);
         }
 
         @Override

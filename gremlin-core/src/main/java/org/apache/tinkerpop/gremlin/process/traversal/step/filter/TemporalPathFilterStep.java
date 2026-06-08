@@ -24,11 +24,10 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
+import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Set;
 
 /**
@@ -46,7 +45,6 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
     }
 
     private final TemporalPathType type;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     private final long minDelay;
     private final long maxDelay;
     private final boolean monotone;
@@ -73,14 +71,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         final Edge edge = (Edge) object;
         final Path path = traverser.path();
 
-        final String edgeStartStr = getProperty(edge, "startTime");
-        final String edgeEndStr = getProperty(edge, "endTime");
-
-        if (edgeStartStr == null)
+        final Date edgeStart = LifetimeHelper.getStartDateProperty(edge);
+        if (edgeStart == null)
             return false;
 
-        final LocalDateTime edgeStart = parseDateTime(edgeStartStr);
-        final LocalDateTime edgeEnd = edgeEndStr != null ? parseDateTime(edgeEndStr) : LocalDateTime.MAX;
+        final Date edgeEnd = LifetimeHelper.getEndDateProperty(edge);
 
         switch (type) {
             case CONTINUOUS:
@@ -94,11 +89,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         }
     }
 
-    private boolean satisfiesContinuous(final Path path, final Edge currentEdge, final LocalDateTime edgeStart,
-            final LocalDateTime edgeEnd) {
+    private boolean satisfiesContinuous(final Path path, final Edge currentEdge, final Date edgeStart,
+            final Date edgeEnd) {
         // All edges in the path must overlap.
-        LocalDateTime intersectStart = LocalDateTime.MIN;
-        LocalDateTime intersectEnd = LocalDateTime.MAX;
+        Date intersectStart = new Date(Long.MIN_VALUE);
+        Date intersectEnd = new Date(Long.MAX_VALUE);
 
         boolean foundOtherEdge = false;
         for (int i = 0; i < path.size(); i++) {
@@ -106,17 +101,15 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             if (obj instanceof Edge && obj != currentEdge) {
                 foundOtherEdge = true;
                 final Edge prevEdge = (Edge) obj;
-                final String prevStartStr = getProperty(prevEdge, "startTime");
-                if (prevStartStr == null)
+                final Date prevStart = LifetimeHelper.getStartDateProperty(prevEdge);
+                if (prevStart == null)
                     continue;
 
-                final LocalDateTime prevStart = parseDateTime(prevStartStr);
-                final String prevEndStr = getProperty(prevEdge, "endTime");
-                final LocalDateTime prevEnd = prevEndStr != null ? parseDateTime(prevEndStr) : LocalDateTime.MAX;
+                final Date prevEnd = LifetimeHelper.getEndDateProperty(prevEdge);
 
                 // Update intersection
-                intersectStart = intersectStart.isAfter(prevStart) ? intersectStart : prevStart;
-                intersectEnd = intersectEnd.isBefore(prevEnd) ? intersectEnd : prevEnd;
+                intersectStart = intersectStart.after(prevStart) ? intersectStart : prevStart;
+                intersectEnd = intersectEnd.before(prevEnd) ? intersectEnd : prevEnd;
             }
         }
 
@@ -124,9 +117,9 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             return true;
 
         // First, check if the previous edges themselves have a valid intersection
-        if (intersectStart.isAfter(intersectEnd)) {
+        if (intersectStart.after(intersectEnd)) {
              // Depending on definition, single point intersection involves intersectStart == intersectEnd
-             // isAfter returns false if equal, so [12:00, 12:00] is valid.
+             // after returns false if equal, so [12:00, 12:00] is valid.
              return false;
         }
 
@@ -134,16 +127,16 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         // We define "Continuous" as maintaining a non-empty intersection across all edges.
         // So we just intersect current with the running intersection and see if it's valid.
         
-        LocalDateTime finalStart = intersectStart.isAfter(edgeStart) ? intersectStart : edgeStart;
-        LocalDateTime finalEnd = intersectEnd.isBefore(edgeEnd) ? intersectEnd : edgeEnd;
+        Date finalStart = intersectStart.after(edgeStart) ? intersectStart : edgeStart;
+        Date finalEnd = intersectEnd.before(edgeEnd) ? intersectEnd : edgeEnd;
 
         // If finalStart > finalEnd, intersection is empty (disjoint). 
         // If finalStart == finalEnd, it's a point intersection (allowed).
-        return !finalStart.isAfter(finalEnd);
+        return !finalStart.after(finalEnd);
     }
 
-    private boolean satisfiesSequential(final Path path, final Edge currentEdge, final LocalDateTime edgeStart,
-            final LocalDateTime edgeEnd) {
+    private boolean satisfiesSequential(final Path path, final Edge currentEdge, final Date edgeStart,
+            final Date edgeEnd) {
         // Strict temporal ordering.
         Edge prevEdge = null;
         for (int i = path.size() - 1; i >= 0; i--) {
@@ -157,13 +150,10 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (prevEdge == null)
             return true;
 
-        final String prevStartStr = getProperty(prevEdge, "startTime");
-        // Should maybe fail? But sticking to permissive
-        if (prevStartStr == null) return true; 
+        final Date prevStart = LifetimeHelper.getStartDateProperty(prevEdge);
+        if (prevStart == null) return true;
         
-        final String prevEndStr = getProperty(prevEdge, "endTime");
-        final LocalDateTime prevEnd = prevEndStr != null ? parseDateTime(prevEndStr) : LocalDateTime.MAX;
-        final LocalDateTime prevStart = parseDateTime(prevStartStr);
+        final Date prevEnd = LifetimeHelper.getEndDateProperty(prevEdge);
 
         // Previous edge must be BEFORE or MEET current edge.
         // Equivalent to: prevEnd <= edgeStart
@@ -175,21 +165,16 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
         // Check Min/Max delay
         if (minDelay > 0 || maxDelay < Long.MAX_VALUE) {
-            try {
-                long delay = ChronoUnit.MILLIS.between(prevEnd, edgeStart);
-                if (delay < minDelay) return false;
-                if (delay > maxDelay) return false;
-            } catch (Exception e) {
-                // If calculation fails (e.g. MAX LocalDateTime), assume valid or handle gracefully
-                return true; 
-            }
+            final long delay = edgeStart.getTime() - prevEnd.getTime();
+            if (delay < minDelay) return false;
+            if (delay > maxDelay) return false;
         }
 
         return true;
     }
 
-    private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final LocalDateTime edgeStart,
-            final LocalDateTime edgeEnd) {
+    private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final Date edgeStart,
+            final Date edgeEnd) {
         // Consecutive edges need to overlap (inclusive).
         Edge prevEdge = null;
         for (int i = path.size() - 1; i >= 0; i--) {
@@ -203,13 +188,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (prevEdge == null)
             return true;
 
-        final String prevStartStr = getProperty(prevEdge, "startTime");
-        if (prevStartStr == null)
+        final Date prevStart = LifetimeHelper.getStartDateProperty(prevEdge);
+        if (prevStart == null)
             return true;
 
-        final LocalDateTime prevStart = parseDateTime(prevStartStr);
-        final String prevEndStr = getProperty(prevEdge, "endTime");
-        final LocalDateTime prevEnd = prevEndStr != null ? parseDateTime(prevEndStr) : LocalDateTime.MAX;
+        final Date prevEnd = LifetimeHelper.getEndDateProperty(prevEdge);
 
         // "Work together" / "Overlap" means they are NOT Disjoint.
         // Disjoint = BEFORE or AFTER.
@@ -221,30 +204,10 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
         if (monotone) {
             // Monotone: current edge start >= previous edge start
-            if (edgeStart.isBefore(prevStart)) return false;
+            if (edgeStart.before(prevStart)) return false;
         }
 
         return true;
-    }
-
-    private String getProperty(final Edge edge, final String key) {
-        try {
-            return edge.property(key).isPresent() ? edge.property(key).value().toString() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private LocalDateTime parseDateTime(final String str) {
-        try {
-            return LocalDateTime.parse(str, formatter);
-        } catch (Exception e) {
-            try {
-                return LocalDateTime.parse(str);
-            } catch (Exception e2) {
-                return LocalDateTime.MIN;
-            }
-        }
     }
 
     @Override

@@ -140,6 +140,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.SubstringGlobalSt
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TailLocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRankStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToUpperGlobalStep;
@@ -338,6 +339,7 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.coalesce, Collections.singletonList(CoalesceStep.class));
             put(GraphTraversal.Symbols.choose, Collections.singletonList(ChooseStep.class));
             put(GraphTraversal.Symbols.optional, Collections.singletonList(OptionalStep.class));
+            put(GraphTraversal.Symbols.temporalPageRank, Collections.singletonList(TemporalPageRankStep.class));
             put(GraphTraversal.Symbols.pageRank, Collections.singletonList(PageRankVertexProgramStep.class));
             put(GraphTraversal.Symbols.peerPressure, Collections.singletonList(PeerPressureVertexProgramStep.class));
             put(GraphTraversal.Symbols.connectedComponent, Collections.singletonList(ConnectedComponentVertexProgramStep.class));
