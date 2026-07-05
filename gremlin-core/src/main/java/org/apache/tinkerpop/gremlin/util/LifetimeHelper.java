@@ -57,6 +57,68 @@ public final class LifetimeHelper {
         return toDate(value, "End time");
     }
 
+    /**
+     * Converts a temporal instant value to a {@link Date} for use with {@code atTime}.
+     * Accepts the same types as {@link #toStartDate}: {@link Date}, {@link java.time.Instant},
+     * {@link Number} (epoch millis), or {@link String} (ISO-8601 / parseable date string).
+     *
+     * @throws IllegalArgumentException if the value is null or of an unsupported type
+     */
+    public static Date toTemporalDate(final Object value) {
+        if (null == value)
+            throw new IllegalArgumentException("Temporal instant cannot be null");
+        return toDate(value, "Temporal instant");
+    }
+
+    /**
+     * Returns {@code true} if the element is alive at the given instant.
+     *
+     * <ul>
+     *   <li>If {@code startTime} is absent, the element is treated as always alive
+     *       (open-world assumption).</li>
+     *   <li>If {@code endTime} is absent, it defaults to {@link Long#MAX_VALUE}
+     *       (the element is still active).</li>
+     * </ul>
+     */
+    public static boolean isAliveAt(final Element element, final Date instant) {
+        final Date start = getStartDateProperty(element);
+        final Date end = getEndDateProperty(element);
+        
+        if (start != null && start.after(instant)) return false;
+        return !end.before(instant);
+    }
+
+    /**
+     * Convenience overload that converts the instant before checking.
+     *
+     * @throws IllegalArgumentException if instant is null or of an unsupported type
+     */
+    public static boolean isAliveAt(final Element element, final Object instant) {
+        return isAliveAt(element, toTemporalDate(instant));
+    }
+
+    /**
+     * Returns {@code true} if the element's lifetime intersects with the given window (inclusive).
+     */
+    public static boolean isAliveDuring(final Element element, final Date windowStart, final Date windowEnd) {
+        if (windowEnd == null)
+            return isAliveAt(element, windowStart);
+
+        final Date start = getStartDateProperty(element);
+        final Date end = getEndDateProperty(element);
+        
+        // elementStart <= windowEnd AND elementEnd >= windowStart
+        if (start != null && start.after(windowEnd)) return false;
+        return !end.before(windowStart);
+    }
+
+    /**
+     * Convenience overload that converts the bounds before checking.
+     */
+    public static boolean isAliveDuring(final Element element, final Object windowStart, final Object windowEnd) {
+        return isAliveDuring(element, toTemporalDate(windowStart), windowEnd == null ? null : toTemporalDate(windowEnd));
+    }
+
     private static Date toDate(final Object value, final String label) {
         if (value instanceof Date)
             return (Date) value;

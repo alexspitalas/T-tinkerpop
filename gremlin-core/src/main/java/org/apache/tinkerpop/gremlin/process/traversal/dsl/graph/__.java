@@ -1433,6 +1433,20 @@ public class __ {
     public static <A extends Element> GraphTraversal<A, Date> getEndTime() {
         return __.<A>start().getEndTime();
     }
+
+    /**
+     * @see GraphTraversal#atTime(Object)
+     */
+    public static <A> GraphTraversal<A, A> atTime(final Object instant) {
+        return __.<A>start().atTime(instant);
+    }
+
+    /**
+     * @see GraphTraversal#window(Object, Object)
+     */
+    public static <A> GraphTraversal<A, A> window(final Object start, final Object end) {
+        return __.<A>start().window(start, end);
+    }
     ///////////////////// BRANCH STEPS /////////////////////
 
     /**

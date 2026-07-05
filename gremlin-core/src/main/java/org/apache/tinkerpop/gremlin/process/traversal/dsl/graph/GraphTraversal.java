@@ -3349,6 +3349,39 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new GetEndTimeStep<>(this.asAdmin()));
     }
 
+    /**
+     * Filters elements so that only those alive at the given temporal instant remain
+     * in the traversal, and wraps passing elements so all subsequent graph navigation
+     * ({@code out()}, {@code in()}, {@code has()}, {@code values()}, etc.) is
+     * automatically restricted to the same snapshot.
+     *
+     * <p>Supported instant types: {@link java.util.Date}, {@link java.time.Instant},
+     * {@link Number} (epoch milliseconds), or {@link String} (ISO-8601).</p>
+     *
+     * @param instant the snapshot point in time
+     * @return the traversal with an appended {@link org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep}
+     */
+    public default GraphTraversal<S, E> atTime(final Object instant) {
+        if (null == instant) throw new IllegalArgumentException("Temporal instant cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.atTime, instant);
+        return this.asAdmin().addStep(new org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep<>(this.asAdmin(), instant));
+    }
+
+    /**
+     * Filters the traversal to elements whose lifetime intersects the given temporal window.
+     * All subsequent element navigation (vertices, edges, properties) will automatically
+     * remain within this temporal window.
+     *
+     * @param start the start of the temporal window
+     * @param end the end of the temporal window
+     * @return the traversal with an appended {@link org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep}
+     */
+    public default GraphTraversal<S, E> window(final Object start, final Object end) {
+        if (null == start || null == end) throw new IllegalArgumentException("Temporal window bounds cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.window, start, end);
+        return this.asAdmin().addStep(new org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep<>(this.asAdmin(), start, end));
+    }
+
 
     // =============================================================================
     // ALLEN TEMPORAL RELATIONSHIP METHODS
@@ -4515,6 +4548,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String lifetimeProperty = "lifetimeProperty";
         public static final String getStartTime = "getStartTime";
         public static final String getEndTime = "getEndTime";
+        public static final String atTime = "atTime";
+        public static final String window = "window";
 
         public static final String temporalAfter = "temporalAfter";
         public static final String temporalBefore = "temporalBefore";
