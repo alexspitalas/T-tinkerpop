@@ -32,7 +32,7 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.Property;
-import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -140,8 +140,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("animal", vertex.label());
         assertEquals(29, vertex.<Integer>value("age").intValue());
         assertEquals("puppy", vertex.<String>value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2025-07-01"), vertex.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("3025-07-01"), vertex.value("endTime"));
+        assertEquals(Lifetime.from("2025-07-01", "3025-07-01"), Lifetime.fromProperties(vertex));
         assertFalse(traversal.hasNext());
         assertEquals(7, IteratorUtils.count(g.V()));
     }
@@ -201,8 +200,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("person", chris.label());
-        assertEquals(LifetimeHelper.toStartDate("2004-08-24"), chris.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("3004-08-24"), chris.value("endTime"));
+        assertEquals(Lifetime.from("2004-08-24", "3004-08-24"), Lifetime.fromProperties(chris));
         assertEquals("chris", chris.value("name"));
         assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
         assertEquals(7, IteratorUtils.count(g.V()));
@@ -218,8 +216,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("person", chris.label());
-        assertEquals(LifetimeHelper.toStartDate("2004-08-24"), chris.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("1e10"), chris.value("endTime"));
+        assertEquals(Lifetime.from("2004-08-24", null), Lifetime.fromProperties(chris));
         assertEquals("chris", chris.value("name"));
         assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
         assertEquals(7, IteratorUtils.count(g.V()));
@@ -236,8 +233,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("chris", chris.value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2006-04-04"), chris.property("name").property("startTime").value());
-        assertEquals(LifetimeHelper.toEndDate("2006-04-05"), chris.property("name").property("endTime").value());
+        assertEquals(Lifetime.from(null, null), Lifetime.fromProperties(chris));
+        assertEquals(Lifetime.from("2006-04-04", "2006-04-05"), Lifetime.fromProperties(chris.property("name")));
     }
     
     @Test
@@ -252,8 +249,8 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         final Vertex chris = traversal.next();
         assertFalse(traversal.hasNext());
         assertEquals("chris", chris.value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2006-04-04"), chris.property("name").property("startTime").value());
-        assertEquals(LifetimeHelper.toEndDate("2006-04-05"), chris.property("name").property("endTime").value());
+        assertEquals(Lifetime.from(null, null), Lifetime.fromProperties(chris));
+        assertEquals(Lifetime.from("2006-04-04", "2006-04-05"), Lifetime.fromProperties(chris.property("name")));
     }
 
 
@@ -452,8 +449,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertFalse(traversal.hasNext());
         assertEquals("person", alice.label());
         assertEquals("alice", alice.value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), LifetimeHelper.toStartDate(alice.value("startTime")));
-        assertEquals(LifetimeHelper.toEndDate("2025-12-31"), LifetimeHelper.toEndDate(alice.value("endTime")));
+        assertEquals(Lifetime.from("2023-01-01", "2025-12-31"), Lifetime.fromProperties(alice));
         assertEquals(3, IteratorUtils.count(alice.properties())); // name, startTime, endTime
     }
 
@@ -467,8 +463,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertFalse(traversal.hasNext());
         assertEquals("person", bob.label());
         assertEquals("bob", bob.value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), bob.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("1e10"), bob.value("endTime")); // Default endTime when not specified
+        assertEquals(Lifetime.from("2023-01-01", null), Lifetime.fromProperties(bob)); // Default endTime when not specified
         assertEquals(3, IteratorUtils.count(bob.properties())); // name, startTime, endTime
     }
 
@@ -486,10 +481,9 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         
         // Verify meta-properties on the name property
         VertexProperty<Object> nameProperty = alice.property("name");
-        assertTrue(nameProperty.property("startTime").isPresent());
-        assertTrue(nameProperty.property("endTime").isPresent());
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), nameProperty.property("startTime").value());
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), nameProperty.property("endTime").value());
+        assertTrue(nameProperty.property(Lifetime.START_TIME).isPresent());
+        assertTrue(nameProperty.property(Lifetime.END_TIME).isPresent());
+        assertEquals(Lifetime.from("2023-01-01", "2023-12-31"), Lifetime.fromProperties(nameProperty));
     }
 
     @Test
@@ -506,10 +500,9 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         
         // Verify meta-properties on the name property
         VertexProperty<Object> nameProperty = bob.property("name");
-        assertTrue(nameProperty.property("startTime").isPresent());
-        assertTrue(nameProperty.property("endTime").isPresent());
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), nameProperty.property("startTime").value());
-        assertEquals(LifetimeHelper.toEndDate("1e10"), nameProperty.property("endTime").value()); // Default endTime
+        assertTrue(nameProperty.property(Lifetime.START_TIME).isPresent());
+        assertTrue(nameProperty.property(Lifetime.END_TIME).isPresent());
+        assertEquals(Lifetime.from("2023-01-01", null), Lifetime.fromProperties(nameProperty));
     }
 
     @Test
@@ -526,10 +519,9 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         
         // Verify meta-properties on the name property
         VertexProperty<Object> nameProperty = charlie.property("name");
-        assertTrue(nameProperty.property("startTime").isPresent());
-        assertTrue(nameProperty.property("endTime").isPresent());
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), nameProperty.property("startTime").value());
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), nameProperty.property("endTime").value());
+        assertTrue(nameProperty.property(Lifetime.START_TIME).isPresent());
+        assertTrue(nameProperty.property(Lifetime.END_TIME).isPresent());
+        assertEquals(Lifetime.from("2023-01-01", "2023-12-31"), Lifetime.fromProperties(nameProperty));
     }
 
     @Test
@@ -543,8 +535,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", emma.label());
         assertEquals("emma", emma.value("name"));
         assertEquals(25, emma.<Integer>value("age").intValue());
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), emma.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), emma.value("endTime"));
+        assertEquals(Lifetime.from("2023-01-01", "2023-12-31"), Lifetime.fromProperties(emma));
         assertEquals(4, IteratorUtils.count(emma.properties())); // name, age, startTime, endTime
     }
 
@@ -558,8 +549,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertFalse(traversal.hasNext());
         assertEquals("person", frank.label());
         assertEquals("frank", frank.value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01T10:30:00"), frank.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31T23:59:59"), frank.value("endTime"));
+        assertEquals(Lifetime.from("2023-01-01T10:30:00", "2023-12-31T23:59:59"), Lifetime.fromProperties(frank));
         assertEquals(3, IteratorUtils.count(frank.properties())); // name, startTime, endTime
     }
 
@@ -573,8 +563,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertFalse(traversal.hasNext());
         assertEquals("person", grace.label());
         assertEquals("grace", grace.value("name"));
-        assertEquals(LifetimeHelper.toStartDate("2022-01-01"), grace.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), grace.value("endTime"));
+        assertEquals(Lifetime.from("2022-01-01", "2023-12-31"), Lifetime.fromProperties(grace));
         assertEquals(3, IteratorUtils.count(grace.properties())); // name, startTime, endTime
     }
     @Test
@@ -590,12 +579,11 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         printTraversalForm(traversal);
         
         List<Date> startTimes = IteratorUtils.list(traversal);
-        // Filter out null values since not all vertices have startTime properties
-        startTimes.removeIf(time -> time == null);
-        assertEquals(3, startTimes.size());
-        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-01-01")));
-        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-02-01")));
-        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-03-01")));
+        assertEquals(9, startTimes.size());
+        assertEquals(6, Collections.frequency(startTimes, Lifetime.toStartDate(null)));
+        assertTrue(startTimes.contains(Lifetime.toStartDate("2023-01-01")));
+        assertTrue(startTimes.contains(Lifetime.toStartDate("2023-02-01")));
+        assertTrue(startTimes.contains(Lifetime.toStartDate("2023-03-01")));
     }
 
     @Test
@@ -611,12 +599,11 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         printTraversalForm(traversal);
         
         List<Date> endTimes = IteratorUtils.list(traversal);
-        // Filter out null values since not all vertices have endTime properties
-        endTimes.removeIf(time -> time == null);
-        assertEquals(3, endTimes.size());
-        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2023-12-31")));
-        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-01-31")));
-        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-02-28")));
+        assertEquals(9, endTimes.size());
+        assertEquals(6, Collections.frequency(endTimes, Lifetime.toEndDate(null)));
+        assertTrue(endTimes.contains(Lifetime.toEndDate("2023-12-31")));
+        assertTrue(endTimes.contains(Lifetime.toEndDate("2024-01-31")));
+        assertTrue(endTimes.contains(Lifetime.toEndDate("2024-02-28")));
     }
 
     @Test
@@ -633,12 +620,11 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         printTraversalForm(traversal);
         
         List<Date> startTimes = IteratorUtils.list(traversal);
-        // Filter out null values since not all properties have startTime metadata
-        startTimes.removeIf(time -> time == null);
-        assertEquals(3, startTimes.size());
-        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-01-01")));
-        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-02-01")));
-        assertTrue(startTimes.contains(LifetimeHelper.toStartDate("2023-03-01")));
+        assertEquals(9, startTimes.size());
+        assertEquals(6, Collections.frequency(startTimes, Lifetime.toStartDate(null)));
+        assertTrue(startTimes.contains(Lifetime.toStartDate("2023-01-01")));
+        assertTrue(startTimes.contains(Lifetime.toStartDate("2023-02-01")));
+        assertTrue(startTimes.contains(Lifetime.toStartDate("2023-03-01")));
     }
 
     @Test
@@ -655,12 +641,11 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         printTraversalForm(traversal);
         
         List<Date> endTimes = IteratorUtils.list(traversal);
-        // Filter out null values since not all properties have endTime metadata
-        endTimes.removeIf(time -> time == null);
-        assertEquals(3, endTimes.size());
-        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2023-12-31")));
-        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-01-31")));
-        assertTrue(endTimes.contains(LifetimeHelper.toEndDate("2024-02-28")));
+        assertEquals(9, endTimes.size());
+        assertEquals(6, Collections.frequency(endTimes, Lifetime.toEndDate(null)));
+        assertTrue(endTimes.contains(Lifetime.toEndDate("2023-12-31")));
+        assertTrue(endTimes.contains(Lifetime.toEndDate("2024-01-31")));
+        assertTrue(endTimes.contains(Lifetime.toEndDate("2024-02-28")));
     }
 
 
@@ -777,7 +762,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
 
         @Override
         public Traversal<Vertex, Vertex> get_g_addVXpersonX_lifetimePropertyXname_bobX_2023_01_01X() {
-            return g.addV("person").lifetimeProperty("name", "bob", "2023-01-01", "1e10");
+            return g.addV("person").lifetimeProperty("name", "bob", "2023-01-01", Lifetime.MAX_END_TIME);
         }
 
         @Override

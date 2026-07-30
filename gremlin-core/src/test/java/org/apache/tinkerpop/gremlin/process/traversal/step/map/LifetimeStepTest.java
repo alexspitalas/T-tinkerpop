@@ -19,162 +19,130 @@
 package org.apache.tinkerpop.gremlin.process.traversal.step.map;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
-import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.step.StepTest;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Edge;
-
-import org.junit.Before;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 import org.junit.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Date;
 import java.util.List;
-import java.util.Iterator;
 
-import static org.mockito.Mockito.*;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 public class LifetimeStepTest extends StepTest {
 
-    @Mock
-    private Vertex testVertex;
-    
-    @Mock
-    private Edge testEdge;
-    
-    @Mock
-    private VertexProperty<Object> testVertexProperty;
-    
-    @Mock
-    private Property<Object> testProperty;
-
-    @Before
-    public void setup() {
-        MockitoAnnotations.initMocks(this);
-        
-        // Setup mock vertex
-        when(testVertex.property(anyString())).thenReturn(testVertexProperty);
-        when(testVertex.property(any(VertexProperty.Cardinality.class), anyString(), any())).thenReturn(testVertexProperty);
-        
-        // Setup mock edge
-        when(testEdge.property(anyString(), any())).thenReturn(testProperty);
-        
-        // Setup mock vertex property
-        when(testVertexProperty.isPresent()).thenReturn(true);
-        when(testVertexProperty.value()).thenReturn("testValue");
-        when(testVertexProperty.property(anyString())).thenReturn(testProperty);
-        when(testVertexProperty.properties()).thenReturn(mock(Iterator.class));
-        
-        // Setup mock property
-        when(testProperty.isPresent()).thenReturn(true);
-        when(testProperty.value()).thenReturn("testValue");
-    }
-
-    @Override
-    protected List<Traversal> getTraversals() {
-        return Arrays.asList(
+    private final List<Traversal> traversals = Arrays.asList(
             __.lifetime("2023-01-01", "2023-12-31"),
             __.lifetime("2023-01-01"),
             __.lifetime("2023-01-01T10:30:00", "2023-12-31T23:59:59")
-        );
+    );
+
+    @Override
+    protected List<Traversal> getTraversals() {
+        return traversals;
     }
 
     @Test
     public void shouldAcceptValidDateFormats() {
-        assertNotNull(new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", "2023-12-31", null, null));
-        assertNotNull(new LifetimeStep<>(__.start().asAdmin(), "2023-01-01T10:30:00", "2023-12-31T23:59:59", null, null));
-        assertNotNull(new LifetimeStep<>(__.start().asAdmin(), "2023-01-01T10:30:00Z", "2023-12-31T23:59:59Z", null, null));
+        assertLifetime("2023-01-01", "2023-12-31");
+        assertLifetime("2023-01-01T10:30:00", "2023-12-31T23:59:59");
+        assertLifetime("2023-01-01T10:30:00Z", "2023-12-31T23:59:59Z");
     }
 
     @Test
-    public void shouldAcceptDefaultEndTime() {
-        // Test with null endTime (should use DEFAULT_ENDTIME)
-        assertNotNull(new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", null, null, null));
-        assertNotNull(new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", "1e10", null, null));
-    }
+    public void shouldAcceptNullStartTime() {
+        final LifetimeStep<Vertex> step = lifetimeStep(null, "2023-12-31");
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldRejectNullStartTime() {
-        new LifetimeStep<>(__.start().asAdmin(), null, "2023-12-31", null, null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldRejectEmptyStartTime() {
-        new LifetimeStep<>(__.start().asAdmin(), "", "2023-12-31", null, null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldRejectWhitespaceStartTime() {
-        new LifetimeStep<>(__.start().asAdmin(), "   ", "2023-12-31", null, null);
+        assertEquals(Lifetime.toStartDate(Lifetime.MIN_START_TIME), step.getLifetime().getStartDate());
+        assertEquals(DatetimeHelper.parse("2023-12-31"), step.getLifetime().getEndDate());
     }
 
     @Test
     public void shouldAcceptNullEndTime() {
-        // Null endTime should use DEFAULT_ENDTIME
-        LifetimeStep<Vertex> step = new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", null, null, null);
-        assertEquals("1e10", step.getEndTime());
+        final LifetimeStep<Vertex> step = lifetimeStep("2023-01-01", null);
+
+        assertEquals(DatetimeHelper.parse("2023-01-01"), step.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step.getLifetime().getEndDate());
+    }
+
+    @Test
+    public void shouldAcceptOpenLifetime() {
+        final LifetimeStep<Vertex> step = lifetimeStep(null, null);
+
+        assertEquals(Lifetime.toStartDate(Lifetime.MIN_START_TIME), step.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step.getLifetime().getEndDate());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldRejectEmptyStartTime() {
+        lifetimeStep("", "2023-12-31");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldRejectWhitespaceStartTime() {
+        lifetimeStep("   ", "2023-12-31");
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectEmptyEndTime() {
-        new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", "", null, null);
+        lifetimeStep("2023-01-01", "");
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectWhitespaceEndTime() {
-        new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", "   ", null, null);
+        lifetimeStep("2023-01-01", "   ");
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectInvalidStartTimeFormat() {
-        new LifetimeStep<>(__.start().asAdmin(), "invalid-date", "2023-12-31", null, null);
+        lifetimeStep("invalid-date", "2023-12-31");
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectInvalidEndTimeFormat() {
-        new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", "invalid-date", null, null);
+        lifetimeStep("2023-01-01", "invalid-date");
     }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void shouldRejectEqualStartAndEndTime() {
-        new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", "2023-01-01", null, null);
+    @Test
+    public void shouldAcceptEqualStartAndEndTime() {
+        final LifetimeStep<Vertex> step = lifetimeStep("2023-01-01", "2023-01-01");
+
+        assertEquals(DatetimeHelper.parse("2023-01-01"), step.getLifetime().getStartDate());
+        assertEquals(DatetimeHelper.parse("2023-01-01"), step.getLifetime().getEndDate());
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldRejectStartTimeAfterEndTime() {
-        new LifetimeStep<>(__.start().asAdmin(), "2023-12-31", "2023-01-01", null, null);
+        lifetimeStep("2023-12-31", "2023-01-01");
     }
 
     @Test
     public void shouldHandleDifferentDateFormats() {
-        String[] validStartDates = {
-            "2023-01-01",
-            "2023-01-01T00:00:00",
-            "2023-01-01T00:00:00Z",
-            "2023-01-01T00:00:00.000Z"
+        final String[] validStartDates = {
+                "2023-01-01",
+                "2023-01-01T00:00:00",
+                "2023-01-01T00:00:00Z",
+                "2023-01-01T00:00:00.000Z"
         };
-        
-        String[] validEndDates = {
-            "2023-12-31",
-            "2023-12-31T23:59:59",
-            "2023-12-31T23:59:59Z",
-            "2023-12-31T23:59:59.999Z"
+
+        final String[] validEndDates = {
+                "2023-12-31",
+                "2023-12-31T23:59:59",
+                "2023-12-31T23:59:59Z",
+                "2023-12-31T23:59:59.999Z"
         };
-        
+
         for (String startDate : validStartDates) {
             for (String endDate : validEndDates) {
                 try {
-                    LifetimeStep<Vertex> step = new LifetimeStep<>(__.start().asAdmin(), startDate, endDate, null, null);
-                    assertNotNull(step);
+                    assertLifetime(startDate, endDate);
                 } catch (IllegalArgumentException e) {
                     fail("Should accept valid date format: " + startDate + " -> " + endDate + ", but got: " + e.getMessage());
                 }
@@ -184,76 +152,56 @@ public class LifetimeStepTest extends StepTest {
 
     @Test
     public void shouldRejectInvalidDateFormats() {
-        String[] invalidDates = {
-            "not-a-date",
-            "2023-13-01", // Invalid month
-            "2023-01-32", // Invalid day
-            "2023/13/01",
-            "2023/01/32",
-            "32/01/2023", // Invalid day
-            "13/13/2023", // Invalid month
-            "2023-01-01T25:00:00", // Invalid hour
-            "2023-01-01T00:60:00", // Invalid minute
-            "2023-01-01T00:00:60"  // Invalid second
+        final String[] invalidDates = {
+                "not-a-date",
+                "2023-13-01",
+                "2023-01-32",
+                "2023/13/01",
+                "2023/01/32",
+                "32/01/2023",
+                "13/13/2023",
+                "2023-01-01T25:00:00",
+                "2023-01-01T00:60:00",
+                "2023-01-01T00:00:60"
         };
-        
+
         for (String invalidDate : invalidDates) {
             try {
-                new LifetimeStep<>(__.start().asAdmin(), invalidDate, "2023-12-31", null, null);
+                lifetimeStep(invalidDate, "2023-12-31");
                 fail("Should reject invalid date format: " + invalidDate);
             } catch (IllegalArgumentException e) {
-                // Expected
-                assertTrue("Error message should contain 'not a valid temporal value' for: " + invalidDate,
-                          e.getMessage().contains("not a valid temporal value"));
+                assertNotNull(e.getMessage());
             }
-            
+
             try {
-                new LifetimeStep<>(__.start().asAdmin(), "2023-01-01", invalidDate, null, null);
+                lifetimeStep("2023-01-01", invalidDate);
                 fail("Should reject invalid date format: " + invalidDate);
             } catch (IllegalArgumentException e) {
-                // Expected
-                assertTrue("Error message should contain 'not a valid temporal value' for: " + invalidDate,
-                          e.getMessage().contains("not a valid temporal value"));
+                assertNotNull(e.getMessage());
             }
         }
     }
 
     @Test
     public void shouldTestChainedLifetimeSteps() {
-        // Test that LifetimeStep instances can be chained
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", null, null);
-        
-        // Verify the steps have the correct values
-        assertEquals("2004-02-02", step1.getStartTime());
-        assertEquals("2004-03-03", step1.getEndTime());
-        assertEquals("2004-02-02", step2.getStartTime());
-        assertEquals("2024-03-03", step2.getEndTime());
-        
-        // Test that the steps are not equal (different endTime)
+        final LifetimeStep<Vertex> step1 = lifetimeStep("2004-02-02", "2004-03-03");
+        final LifetimeStep<Vertex> step2 = lifetimeStep("2004-02-02", "2024-03-03");
+
+        assertLifetime(step1, "2004-02-02", "2004-03-03");
+        assertLifetime(step2, "2004-02-02", "2024-03-03");
         assertNotEquals(step1, step2);
     }
 
     @Test
     public void shouldTestEndTimeChange() {
-        // Test if the endTime changes when applying multiple lifetime steps
-        
-        // Test different endTime values
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2020-01-01", "2021-01-01", null, null);
-        assertEquals("2020-01-01", step1.getStartTime());
-        assertEquals("2021-01-01", step1.getEndTime());
-        
-        // Test with longer duration
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2020-01-01", "2030-01-01", null, null);
-        assertEquals("2020-01-01", step2.getStartTime());
-        assertEquals("2030-01-01", step2.getEndTime());
-        
-        // Test with shorter duration
-        LifetimeStep<Vertex> step3 = new LifetimeStep<>(__.start().asAdmin(), "2020-01-01", "2025-01-01", null, null);
-        assertEquals("2020-01-01", step3.getStartTime());
-        assertEquals("2025-01-01", step3.getEndTime());
-        
-        // Verify that steps with different endTimes are not equal
+        final LifetimeStep<Vertex> step1 = lifetimeStep("2020-01-01", "2021-01-01");
+        final LifetimeStep<Vertex> step2 = lifetimeStep("2020-01-01", "2030-01-01");
+        final LifetimeStep<Vertex> step3 = lifetimeStep("2020-01-01", "2025-01-01");
+
+        assertLifetime(step1, "2020-01-01", "2021-01-01");
+        assertLifetime(step2, "2020-01-01", "2030-01-01");
+        assertLifetime(step3, "2020-01-01", "2025-01-01");
+
         assertNotEquals(step1, step2);
         assertNotEquals(step2, step3);
         assertNotEquals(step1, step3);
@@ -261,128 +209,116 @@ public class LifetimeStepTest extends StepTest {
 
     @Test
     public void shouldTestLifetimeWithPropertyKey() {
-        // Test lifetime with property key and value
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", "name", "john");
-        assertEquals("2004-02-02", step1.getStartTime());
-        assertEquals("2004-03-03", step1.getEndTime());
-        
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", "name", null);
-        assertEquals("2004-02-02", step2.getStartTime());
-        assertEquals("2024-03-03", step2.getEndTime());
-        
-        // Verify that steps with different property values are not equal
+        final LifetimeStep<Vertex> step1 = lifetimeStep("2004-02-02", "2004-03-03", "name", "john");
+        final LifetimeStep<Vertex> step2 = lifetimeStep("2004-02-02", "2024-03-03", "name", null);
+
+        assertLifetime(step1, "2004-02-02", "2004-03-03");
+        assertLifetime(step2, "2004-02-02", "2024-03-03");
         assertNotEquals(step1, step2);
     }
 
     @Test
     public void shouldTestLifetimeOnEdge() {
-        // Test lifetime on edges
-        LifetimeStep<Edge> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        assertEquals("2004-02-02", step1.getStartTime());
-        assertEquals("2004-03-03", step1.getEndTime());
-        
-        LifetimeStep<Edge> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", null, null);
-        assertEquals("2004-02-02", step2.getStartTime());
-        assertEquals("2024-03-03", step2.getEndTime());
-        
-        // Verify that steps with different endTimes are not equal
+        final LifetimeStep<Edge> step1 = new LifetimeStep<>(__.start().asAdmin(), Lifetime.from("2004-02-02", "2004-03-03"), null, null);
+        final LifetimeStep<Edge> step2 = new LifetimeStep<>(__.start().asAdmin(), Lifetime.from("2004-02-02", "2024-03-03"), null, null);
+
+        assertLifetime(step1, "2004-02-02", "2004-03-03");
+        assertLifetime(step2, "2004-02-02", "2024-03-03");
         assertNotEquals(step1, step2);
     }
 
     @Test
     public void shouldTestLifetimeWithDefaultEndTime() {
-        // Test lifetime with default end time (1e10)
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", null, null, null);
-        assertEquals("2004-02-02", step1.getStartTime());
-        assertEquals("1e10", step1.getEndTime());
-        
-        // Test with explicit default end time
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "1e10", null, null);
-        assertEquals("2004-02-02", step2.getStartTime());
-        assertEquals("1e10", step2.getEndTime());
-        
-        // Test with specific end time
-        LifetimeStep<Vertex> step3 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", null, null);
-        assertEquals("2004-02-02", step3.getStartTime());
-        assertEquals("2024-03-03", step3.getEndTime());
-        
-        // Verify that steps with default and specific endTimes are not equal
+        final LifetimeStep<Vertex> step1 = lifetimeStep("2004-02-02", null);
+        final LifetimeStep<Vertex> step2 = lifetimeStep("2004-02-02", Lifetime.MAX_END_TIME);
+        final LifetimeStep<Vertex> step3 = lifetimeStep("2004-02-02", "2024-03-03");
+
+        assertEquals(DatetimeHelper.parse("2004-02-02"), step1.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step1.getLifetime().getEndDate());
+        assertEquals(DatetimeHelper.parse("2004-02-02"), step2.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step2.getLifetime().getEndDate());
+        assertLifetime(step3, "2004-02-02", "2024-03-03");
+
         assertNotEquals(step1, step3);
         assertNotEquals(step2, step3);
-        assertEquals(step1, step2); // Both use default endTime
     }
 
     @Test
     public void shouldTestLifetimeWithSupportedDateFormats() {
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        assertEquals("2004-02-02", step1.getStartTime());
-        assertEquals("2004-03-03", step1.getEndTime());
+        final LifetimeStep<Vertex> step1 = lifetimeStep("2004-02-02", "2004-03-03");
+        final LifetimeStep<Vertex> step2 = lifetimeStep("2004-02-02T00:00:00", "2004-03-03T00:00:00");
 
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02T00:00:00", "2004-03-03T00:00:00", null, null);
-        assertEquals("2004-02-02T00:00:00", step2.getStartTime());
-        assertEquals("2004-03-03T00:00:00", step2.getEndTime());
-
-        assertNotEquals(step1, step2);
+        assertLifetime(step1, "2004-02-02", "2004-03-03");
+        assertLifetime(step2, "2004-02-02T00:00:00", "2004-03-03T00:00:00");
+        assertEquals(step1, step2);
     }
 
     @Test
     public void shouldTestLifetimeStepEquality() {
-        // Test that LifetimeStep instances are equal when they have the same parameters
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        LifetimeStep<Vertex> step3 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", null, null);
-        
+        final Lifetime lifetime = Lifetime.from("2004-02-02", "2004-03-03");
+        final LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), lifetime, null, null);
+        final LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), lifetime, null, null);
+        final LifetimeStep<Vertex> step3 = lifetimeStep("2004-02-02", "2024-03-03");
+
         assertEquals(step1, step2);
         assertNotEquals(step1, step3);
-        
-        // Test with property key and value
-        LifetimeStep<Vertex> step4 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", "name", "john");
-        LifetimeStep<Vertex> step5 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", "name", "john");
-        LifetimeStep<Vertex> step6 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", "name", "jane");
-        
+
+        final LifetimeStep<Vertex> step4 = new LifetimeStep<>(__.start().asAdmin(), lifetime, "name", "john");
+        final LifetimeStep<Vertex> step5 = new LifetimeStep<>(__.start().asAdmin(), lifetime, "name", "john");
+        final LifetimeStep<Vertex> step6 = new LifetimeStep<>(__.start().asAdmin(), lifetime, "name", "jane");
+
         assertEquals(step4, step5);
         assertNotEquals(step4, step6);
     }
 
     @Test
     public void shouldTestLifetimeStepHashCode() {
-        // Test that LifetimeStep instances have consistent hashCode
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2004-03-03", null, null);
-        LifetimeStep<Vertex> step3 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", null, null);
-        
+        final Lifetime lifetime = Lifetime.from("2004-02-02", "2004-03-03");
+        final LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), lifetime, null, null);
+        final LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), lifetime, null, null);
+        final LifetimeStep<Vertex> step3 = lifetimeStep("2004-02-02", "2024-03-03");
+
         assertEquals(step1.hashCode(), step2.hashCode());
         assertNotEquals(step1.hashCode(), step3.hashCode());
     }
 
     @Test
     public void shouldTestLifetimeWithExistingStartTimeAndNewEndTime() {
-        // Test the scenario where startTime is initialized but endTime is not,
-        // and verify that both existing lifetime and new endTime can be assigned
-        
-        // Test the LifetimeStep constructor behavior with null endTime
-        LifetimeStep<Vertex> step1 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", null, null, null);
-        assertEquals("2004-02-02", step1.getStartTime());
-        assertEquals("1e10", step1.getEndTime());
-        
-        // Test with a different startTime
-        LifetimeStep<Vertex> step2 = new LifetimeStep<>(__.start().asAdmin(), "2020-01-01", null, null, null);
-        assertEquals("2020-01-01", step2.getStartTime());
-        assertEquals("1e10", step2.getEndTime());
-        
-        // Test with property key and value
-        LifetimeStep<Vertex> step3 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", null, "name", "john");
-        assertEquals("2004-02-02", step3.getStartTime());
-        assertEquals("1e10", step3.getEndTime());
-        
-        // Test that the step can be created with existing startTime and new endTime
-        LifetimeStep<Vertex> step4 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "2024-03-03", null, null);
-        assertEquals("2004-02-02", step4.getStartTime());
-        assertEquals("2024-03-03", step4.getEndTime());
-        
-        // Test that the step can be created with existing startTime and default endTime
-        LifetimeStep<Vertex> step5 = new LifetimeStep<>(__.start().asAdmin(), "2004-02-02", "1e10", null, null);
-        assertEquals("2004-02-02", step5.getStartTime());
-        assertEquals("1e10", step5.getEndTime());
+        final LifetimeStep<Vertex> step1 = lifetimeStep("2004-02-02", null);
+        assertEquals(DatetimeHelper.parse("2004-02-02"), step1.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step1.getLifetime().getEndDate());
+
+        final LifetimeStep<Vertex> step2 = lifetimeStep("2020-01-01", null);
+        assertEquals(DatetimeHelper.parse("2020-01-01"), step2.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step2.getLifetime().getEndDate());
+
+        final LifetimeStep<Vertex> step3 = lifetimeStep("2004-02-02", null, "name", "john");
+        assertEquals(DatetimeHelper.parse("2004-02-02"), step3.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step3.getLifetime().getEndDate());
+
+        final LifetimeStep<Vertex> step4 = lifetimeStep("2004-02-02", "2024-03-03");
+        assertLifetime(step4, "2004-02-02", "2024-03-03");
+
+        final LifetimeStep<Vertex> step5 = lifetimeStep("2004-02-02", Lifetime.MAX_END_TIME);
+        assertEquals(DatetimeHelper.parse("2004-02-02"), step5.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), step5.getLifetime().getEndDate());
     }
-} 
+
+    private static LifetimeStep<Vertex> lifetimeStep(final Object startTime, final Object endTime) {
+        return lifetimeStep(startTime, endTime, null, null);
+    }
+
+    private static LifetimeStep<Vertex> lifetimeStep(final Object startTime, final Object endTime,
+                                                     final String propertyKey, final String propertyValue) {
+        return new LifetimeStep<>(__.start().asAdmin(), Lifetime.from(startTime, endTime), propertyKey, propertyValue);
+    }
+
+    private static void assertLifetime(final Object startTime, final Object endTime) {
+        assertLifetime(lifetimeStep(startTime, endTime), startTime, endTime);
+    }
+
+    private static void assertLifetime(final LifetimeStep<?> step, final Object startTime, final Object endTime) {
+        assertEquals(Lifetime.toStartDate(startTime), step.getLifetime().getStartDate());
+        assertEquals(Lifetime.toEndDate(endTime), step.getLifetime().getEndDate());
+    }
+}

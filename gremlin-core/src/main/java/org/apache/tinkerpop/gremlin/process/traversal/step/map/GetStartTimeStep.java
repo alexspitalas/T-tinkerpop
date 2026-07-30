@@ -21,14 +21,15 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.map;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+
 
 import java.util.Date;
 
 /**
  * A step that extracts the startTime property value from an element.
  * Works with vertices, edges, and vertex properties.
- * Returns null for elements that don't have startTime properties.
+ * Returns the minimum start time for elements that don't have startTime properties.
  */
 public class GetStartTimeStep<S extends Element> extends ScalarMapStep<S, Date> {
 
@@ -39,6 +40,6 @@ public class GetStartTimeStep<S extends Element> extends ScalarMapStep<S, Date> 
     @Override
     protected Date map(final Traverser.Admin<S> traverser) {
         final S element = traverser.get();
-        return LifetimeHelper.getStartDateProperty(element);
+        return Lifetime.getStartTimeFromProperty(element);
     }
 } 

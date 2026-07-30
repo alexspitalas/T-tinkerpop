@@ -29,6 +29,8 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -91,6 +93,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X();
 
     public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X();
+
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime();
+
+    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime();
 
     public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime();
 
@@ -304,8 +310,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
         assertEquals(3, IteratorUtils.count(edge.properties()));
-        assertEquals(LifetimeHelper.toStartDate("2022-05-10"), edge.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("2222-05-10"), edge.value("endTime"));
+        assertEquals(Lifetime.from("2022-05-10", "2222-05-10"), Lifetime.fromProperties(edge));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
         assertEquals(6L, g.V().count().next().longValue());
         assertEquals(7L, g.E().count().next().longValue());
@@ -324,8 +329,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
         assertEquals(3, IteratorUtils.count(edge.properties()));
-        assertEquals(LifetimeHelper.toStartDate("2022-05-10"), edge.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("1e10"), edge.value("endTime"));
+        assertEquals(Lifetime.from("2022-05-10", null), Lifetime.fromProperties(edge));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
         assertEquals(6L, g.V().count().next().longValue());
         assertEquals(7L, g.E().count().next().longValue());
@@ -348,8 +352,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals("knows", edge.label());
         assertEquals(v1, edge.outVertex());
         assertEquals(v2, edge.inVertex());
-        assertEquals(LifetimeHelper.toStartDate("2023-06-01"), edge.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), edge.value("endTime"));
+        assertEquals(Lifetime.from("2023-06-01", "2023-12-31"), Lifetime.fromProperties(edge));
     }
 
     @Test
@@ -402,6 +405,32 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     @Test
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime() {
+        g.addV("person").lifetime("2023-06-01", "2023-12-31").property("name", "alice").next();
+        g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "bob").next();
+
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime();
+        printTraversalForm(traversal);
+
+        assertCannotCreateEdgeOutsideVertexLifetime(traversal);
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime() {
+        g.addV("person").property("name", "alice").next();
+        g.addV("person").lifetime("2023-06-01", "2023-12-31").property("name", "bob").next();
+
+        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime();
+        printTraversalForm(traversal);
+
+        assertCannotCreateEdgeOutsideVertexLifetime(traversal);
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
     public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime() {
         // Create vertices without lifetime properties
         Vertex v1 = g.addV("person").property("name", "alice").next();
@@ -416,8 +445,42 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals("knows", edge.label());
         assertEquals(v1, edge.outVertex());
         assertEquals(v2, edge.inVertex());
-        assertEquals(LifetimeHelper.toStartDate("2023-01-01"), edge.value("startTime"));
-        assertEquals(LifetimeHelper.toEndDate("2023-12-31"), edge.value("endTime"));
+        assertEquals(Lifetime.from("2023-01-01", "2023-12-31"), Lifetime.fromProperties(edge));
+    }
+
+    private void assertCannotCreateEdgeOutsideVertexLifetime(final Traversal<Edge, Edge> traversal) {
+        try {
+            traversal.next();
+            fail("Expected IllegalArgumentException to be thrown");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+            assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
+        } catch (CompletionException e) {
+            // In remote test environments, the exception is wrapped in CompletionException
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
+            } else {
+                // Check if the cause is a ResponseException by checking the class name
+                String causeClassName = cause.getClass().getName();
+                if (causeClassName.contains("ResponseException")) {
+                    assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                    assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
+                } else {
+                    throw e; // Re-throw if it's not the expected exception
+                }
+            }
+        } catch (Exception e) {
+            // Check if this is a ResponseException by checking the class name
+            String exceptionClassName = e.getClass().getName();
+            if (exceptionClassName.contains("ResponseException")) {
+                assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
+            } else {
+                throw e; // Re-throw if it's not the expected exception
+            }
+        }
     }
 
     @Test
@@ -530,6 +593,16 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         @Override
         public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X() {
             return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2022-01-01", "2022-12-31");
+        }
+
+        @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime() {
+            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-01-01", "2023-12-31");
+        }
+
+        @Override
+        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime() {
+            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-01-01", "2023-12-31");
         }
 
         @Override
