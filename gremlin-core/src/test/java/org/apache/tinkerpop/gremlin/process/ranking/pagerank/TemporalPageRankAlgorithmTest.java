@@ -19,11 +19,14 @@
 package org.apache.tinkerpop.gremlin.process.ranking.pagerank;
 
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRank;
+import org.apache.tinkerpop.gremlin.structure.Direction;
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
-import org.apache.tinkerpop.gremlin.util.CollectionUtil;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
 import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 import org.junit.Test;
 
@@ -82,7 +85,7 @@ public class TemporalPageRankAlgorithmTest {
 
     @Test
     public void shouldMatchFlowPrOracleForTimestampStyleStream() {
-        final List<TemporalPageRankAlgorithm.TemporalEdge> stream = timestampStyleStream();
+        final List<TemporalEdge> stream = timestampStyleStream();
 
         for (final double beta : Arrays.asList(0.5d, 1.0d)) {
             assertRanksEqual(flowPrOracle(stream, ALPHA, beta),
@@ -92,7 +95,7 @@ public class TemporalPageRankAlgorithmTest {
 
     @Test
     public void shouldExposeBetaSensitivityInRetainedAndMovedMass() {
-        final List<TemporalPageRankAlgorithm.TemporalEdge> stream = timestampStyleStream();
+        final List<TemporalEdge> stream = timestampStyleStream();
 
         final Map<Object, Double> betaPointOne = execute(stream, 0.1d, false);
         final Map<Object, Double> betaPointFive = execute(stream, 0.5d, false);
@@ -140,7 +143,7 @@ public class TemporalPageRankAlgorithmTest {
         final Map<Object, Double> laterStaticRanks = staticPageRank(laterPhase, ALPHA);
 
         final Map<Object, Double> beforeShift = execute(repeatedStream(initialPhase, 80), 1.0d, true);
-        final List<TemporalPageRankAlgorithm.TemporalEdge> shiftedStream = new ArrayList<>();
+        final List<TemporalEdge> shiftedStream = new ArrayList<>();
         shiftedStream.addAll(repeatedStream(initialPhase, 80, 0));
         shiftedStream.addAll(repeatedStream(laterPhase, 80, shiftedStream.size()));
         final Map<Object, Double> afterShift = execute(shiftedStream, 1.0d, true);
@@ -176,25 +179,34 @@ public class TemporalPageRankAlgorithmTest {
     }
 
     @Test
+    public void shouldAcceptZeroDurationEdgeLifetime() {
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(Arrays.asList(
+                edge("A", "B", "e1", "2024-01-01T09:00:00Z", "2024-01-01T09:00:00Z")),
+                0.85d, 0.5d, false);
+
+        assertEquals(0.15d, ranks.get("A"), TOLERANCE);
+        assertEquals(0.1275d, ranks.get("B"), TOLERANCE);
+    }
+
+    @Test
     public void shouldDefensivelyCopyTemporalEdgeDates() {
         final Date start = DatetimeHelper.parse("2024-01-01T09:00:00Z");
         final Date end = DatetimeHelper.parse("2024-01-01T10:00:00Z");
-        final TemporalPageRankAlgorithm.TemporalEdge edge =
-                new TemporalPageRankAlgorithm.TemporalEdge("A", "B", "e1", start, end);
+        final TemporalEdge edge = edge("A", "B", "e1", start, end);
         final Date expectedStart = new Date(start.getTime());
         final Date expectedEnd = new Date(end.getTime());
 
         start.setTime(end.getTime() + 1_000L);
         end.setTime(start.getTime() + 1_000L);
 
-        assertEquals(expectedStart, edge.getStartTime());
-        assertEquals(expectedEnd, edge.getEndTime());
+        assertEquals(expectedStart, edge.getStartInstant());
+        assertEquals(expectedEnd, edge.getEndInstant());
 
-        edge.getStartTime().setTime(expectedEnd.getTime());
-        edge.getEndTime().setTime(expectedStart.getTime());
+        edge.getStartInstant().setTime(expectedEnd.getTime());
+        edge.getEndInstant().setTime(expectedStart.getTime());
 
-        assertEquals(expectedStart, edge.getStartTime());
-        assertEquals(expectedEnd, edge.getEndTime());
+        assertEquals(expectedStart, edge.getStartInstant());
+        assertEquals(expectedEnd, edge.getEndInstant());
     }
 
     @Test
@@ -217,16 +229,18 @@ public class TemporalPageRankAlgorithmTest {
         final Vertex a = vertex("a", true, writtenRanks);
         final Vertex b = vertex("b", true, writtenRanks);
         final Vertex c = vertex("c", false, writtenRanks);
-        final TemporalPageRankAlgorithm.TemporalEdge internalEdge = sequentialEdge("a", "b", "ab", 0);
-        final TemporalPageRankAlgorithm.TemporalEdge crossingEdge = sequentialEdge("b", "c", "bc", 1);
-        final TemporalPageRankAlgorithm.TemporalEdge incomingCrossingEdge = sequentialEdge("c", "a", "ca", 2);
+        final TemporalEdge internalEdge = sequentialEdge("a", "b", "ab", 0);
+        final TemporalEdge crossingEdge = sequentialEdge("b", "c", "bc", 1);
+        final TemporalEdge incomingCrossingEdge = sequentialEdge("c", "a", "ca", 2);
+        final Edge ab = edge(internalEdge, a, b);
+        final Edge bc = edge(crossingEdge, b, c);
+        final Edge ca = edge(incomingCrossingEdge, c, a);
         final Graph graph = mock(Graph.class);
 
         when(graph.vertices()).thenAnswer(invocation -> Arrays.asList(a, b, c).iterator());
-        when(graph.vertices(eq("a"))).thenAnswer(invocation -> Arrays.asList(a).iterator());
-        when(graph.vertices(eq("b"))).thenAnswer(invocation -> Arrays.asList(b).iterator());
-        when(graph.edges()).thenAnswer(invocation -> Arrays.asList(
-                detachedEdge(internalEdge), detachedEdge(crossingEdge), detachedEdge(incomingCrossingEdge)).iterator());
+        when(a.edges(Direction.OUT)).thenAnswer(invocation -> Arrays.asList(ab).iterator());
+        when(b.edges(Direction.OUT)).thenAnswer(invocation -> Arrays.asList(bc).iterator());
+        when(c.edges(Direction.OUT)).thenAnswer(invocation -> Arrays.asList(ca).iterator());
 
         final List<Vertex> result = traversal().withEmbedded(graph).V().has("selected", true).temporalPageRank().
                 with(TemporalPageRank.propertyName, TRAVERSAL_RANK).
@@ -249,12 +263,33 @@ public class TemporalPageRankAlgorithmTest {
         assertFalse(Math.abs(graphWideRanks.get("b") - writtenRanks.get("b")) < TOLERANCE);
     }
 
-    private static Map<Object, Double> execute(final List<TemporalPageRankAlgorithm.TemporalEdge> stream,
+    @Test
+    public void shouldUseTemporalVertexVisibilityWhenReadingTraversalEdges() {
+        final Map<Object, Double> writtenRanks = new LinkedHashMap<>();
+        final Vertex a = vertex("a", true, writtenRanks);
+        final Vertex b = vertex("b", true, writtenRanks,
+                "2024-01-02T00:00:00Z", "2024-01-03T00:00:00Z");
+        final Edge ab = edge(sequentialEdge("a", "b", "ab", 0), a, b);
+        final Graph graph = mock(Graph.class);
+
+        when(graph.vertices()).thenAnswer(invocation -> Arrays.asList(a, b).iterator());
+        when(a.edges(Direction.OUT)).thenAnswer(invocation -> Arrays.asList(ab).iterator());
+        when(b.edges(Direction.OUT)).thenAnswer(invocation -> new ArrayList<Edge>().iterator());
+
+        traversal().withEmbedded(graph).V().has("selected", true).temporalPageRank().
+                with(TemporalPageRank.propertyName, TRAVERSAL_RANK).
+                iterate();
+
+        assertEquals(0.0d, writtenRanks.get("a"), TOLERANCE);
+        assertEquals(0.0d, writtenRanks.get("b"), TOLERANCE);
+    }
+
+    private static Map<Object, Double> execute(final List<TemporalEdge> stream,
                                                final double beta, final boolean normalize) {
         return TemporalPageRankAlgorithm.execute(stream, ALPHA, beta, normalize);
     }
 
-    private static List<TemporalPageRankAlgorithm.TemporalEdge> timestampStyleStream() {
+    private static List<TemporalEdge> timestampStyleStream() {
         return Arrays.asList(
                 sequentialEdge("A", "B", "e1", 0),
                 sequentialEdge("B", "C", "e2", 1),
@@ -263,17 +298,18 @@ public class TemporalPageRankAlgorithmTest {
                 sequentialEdge("B", "A", "e5", 4));
     }
 
-    private static Map<Object, Double> flowPrOracle(final List<TemporalPageRankAlgorithm.TemporalEdge> stream,
+    private static Map<Object, Double> flowPrOracle(final List<TemporalEdge> stream,
                                                    final double alpha, final double beta) {
-        final List<TemporalPageRankAlgorithm.TemporalEdge> sortedStream = new ArrayList<>(stream);
-        sortedStream.sort(TemporalPageRankAlgorithm.TemporalEdge.chronological());
+        final List<TemporalEdge> sortedStream = new ArrayList<>(stream);
+        sortedStream.sort(Comparator.comparing(TemporalEdge::getStartInstant)
+                .thenComparing(edge -> String.valueOf(edge.id())));
         final Map<Object, Double> ranks = new LinkedHashMap<>();
         final Map<Object, Double> activeMass = new LinkedHashMap<>();
         final double injected = 1.0d - alpha;
 
-        for (final TemporalPageRankAlgorithm.TemporalEdge edge : sortedStream) {
-            final Object source = edge.getOutVertexId();
-            final Object target = edge.getInVertexId();
+        for (final TemporalEdge edge : sortedStream) {
+            final Object source = edge.outVertex().id();
+            final Object target = edge.inVertex().id();
             ranks.putIfAbsent(source, 0.0d);
             ranks.putIfAbsent(target, 0.0d);
             activeMass.putIfAbsent(source, 0.0d);
@@ -347,15 +383,15 @@ public class TemporalPageRankAlgorithmTest {
         return ranks;
     }
 
-    private static List<TemporalPageRankAlgorithm.TemporalEdge> repeatedStream(final List<WeightedEdge> edges,
+    private static List<TemporalEdge> repeatedStream(final List<WeightedEdge> edges,
                                                                                final int scans) {
         return repeatedStream(edges, scans, 0);
     }
 
-    private static List<TemporalPageRankAlgorithm.TemporalEdge> repeatedStream(final List<WeightedEdge> edges,
+    private static List<TemporalEdge> repeatedStream(final List<WeightedEdge> edges,
                                                                                final int scans,
                                                                                final int offset) {
-        final List<TemporalPageRankAlgorithm.TemporalEdge> stream = new ArrayList<>();
+        final List<TemporalEdge> stream = new ArrayList<>();
         int sequence = offset;
         for (int scan = 0; scan < scans; scan++) {
             for (final WeightedEdge edge : edges) {
@@ -384,27 +420,55 @@ public class TemporalPageRankAlgorithmTest {
         expected.forEach((vertexId, rank) -> assertEquals(rank, actual.get(vertexId), TOLERANCE));
     }
 
-    private static TemporalPageRankAlgorithm.TemporalEdge sequentialEdge(final String outVertexId,
+    private static TemporalEdge sequentialEdge(final String outVertexId,
                                                                          final String inVertexId,
                                                                          final String edgeId,
                                                                          final int sequence) {
         final Date start = new Date(DatetimeHelper.parse("2024-01-01T00:00:00Z").getTime() + sequence * 2_000L);
-        return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId,
-                start, new Date(start.getTime() + 1_000L));
+        return edge(outVertexId, inVertexId, edgeId, start, new Date(start.getTime() + 1_000L));
     }
 
-    private static TemporalPageRankAlgorithm.TemporalEdge edge(final String outVertexId, final String inVertexId,
+    private static TemporalEdge edge(final String outVertexId, final String inVertexId,
                                                                final String edgeId, final String startTime,
                                                                final String endTime) {
-        return new TemporalPageRankAlgorithm.TemporalEdge(outVertexId, inVertexId, edgeId,
-                DatetimeHelper.parse(startTime), DatetimeHelper.parse(endTime));
+        return edge(outVertexId, inVertexId, edgeId, DatetimeHelper.parse(startTime), DatetimeHelper.parse(endTime));
+    }
+
+    private static TemporalEdge edge(final String outVertexId, final String inVertexId, final String edgeId,
+                                     final Date startTime, final Date endTime) {
+        final Vertex outVertex = mock(Vertex.class);
+        final Vertex inVertex = mock(Vertex.class);
+        final Edge edge = mock(Edge.class);
+        final Property<Object> startTimeProperty = property(startTime);
+        final Property<Object> endTimeProperty = property(endTime);
+
+        when(outVertex.id()).thenReturn(outVertexId);
+        when(inVertex.id()).thenReturn(inVertexId);
+        when(edge.id()).thenReturn(edgeId);
+        when(edge.outVertex()).thenReturn(outVertex);
+        when(edge.inVertex()).thenReturn(inVertex);
+        when(edge.property(Lifetime.START_TIME)).thenReturn(startTimeProperty);
+        when(edge.property(Lifetime.END_TIME)).thenReturn(endTimeProperty);
+
+        return new TemporalEdge(edge);
     }
 
     private static Vertex vertex(final String id, final boolean selected, final Map<Object, Double> writtenRanks) {
+        return vertex(id, selected, writtenRanks, null, null);
+    }
+
+    private static Vertex vertex(final String id, final boolean selected, final Map<Object, Double> writtenRanks,
+                                 final String startTime, final String endTime) {
         final Vertex vertex = mock(Vertex.class);
         final VertexProperty<Boolean> selectedProperty = mock(VertexProperty.class);
+        final VertexProperty<Object> startTimeProperty = null == startTime ?
+                VertexProperty.empty() : vertexProperty(DatetimeHelper.parse(startTime));
+        final VertexProperty<Object> endTimeProperty = null == endTime ?
+                VertexProperty.empty() : vertexProperty(DatetimeHelper.parse(endTime));
 
         when(vertex.id()).thenReturn(id);
+        when(vertex.property(Lifetime.START_TIME)).thenReturn(startTimeProperty);
+        when(vertex.property(Lifetime.END_TIME)).thenReturn(endTimeProperty);
         when(selectedProperty.value()).thenReturn(selected);
         when(vertex.properties("selected")).thenAnswer(invocation -> Arrays.asList(selectedProperty).iterator());
         when(vertex.property(eq(VertexProperty.Cardinality.single), eq(TRAVERSAL_RANK), any())).
@@ -415,10 +479,37 @@ public class TemporalPageRankAlgorithmTest {
         return vertex;
     }
 
-    private static DetachedEdge detachedEdge(final TemporalPageRankAlgorithm.TemporalEdge edge) {
-        return new DetachedEdge(edge.getEdgeId(), "temporal",
-                CollectionUtil.asMap("startTime", edge.getStartTime(), "endTime", edge.getEndTime()),
-                edge.getOutVertexId(), Vertex.DEFAULT_LABEL, edge.getInVertexId(), Vertex.DEFAULT_LABEL);
+    private static Edge edge(final TemporalEdge temporalEdge,
+                             final Vertex outVertex, final Vertex inVertex) {
+        final Object edgeId = temporalEdge.id();
+        final Date startInstant = temporalEdge.getStartInstant();
+        final Date endInstant = temporalEdge.getEndInstant();
+        final Edge edge = mock(Edge.class);
+        final Property<Object> startTime = property(startInstant);
+        final Property<Object> endTime = property(endInstant);
+
+        when(edge.id()).thenReturn(edgeId);
+        when(edge.outVertex()).thenReturn(outVertex);
+        when(edge.inVertex()).thenReturn(inVertex);
+        when(edge.property(Lifetime.START_TIME)).thenReturn(startTime);
+        when(edge.property(Lifetime.END_TIME)).thenReturn(endTime);
+        return edge;
+    }
+
+    private static Property<Object> property(final Object value) {
+        final Property<Object> property = mock(Property.class);
+        when(property.isPresent()).thenReturn(true);
+        when(property.value()).thenReturn(value);
+        when(property.orElse(any())).thenReturn(value);
+        return property;
+    }
+
+    private static VertexProperty<Object> vertexProperty(final Object value) {
+        final VertexProperty<Object> property = mock(VertexProperty.class);
+        when(property.isPresent()).thenReturn(true);
+        when(property.value()).thenReturn(value);
+        when(property.orElse(any())).thenReturn(value);
+        return property;
     }
 
     private static WeightedEdge weightedEdge(final String outVertexId, final String inVertexId, final int weight) {
