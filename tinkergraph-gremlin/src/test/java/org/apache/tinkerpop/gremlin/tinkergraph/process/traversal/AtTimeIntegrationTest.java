@@ -19,6 +19,7 @@
 package org.apache.tinkerpop.gremlin.tinkergraph.process.traversal;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Step;
+import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep;
@@ -37,6 +38,7 @@ import org.junit.Test;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.atTime;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -46,6 +48,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -78,6 +81,7 @@ public class AtTimeIntegrationTest {
      * <pre>
      *  alice (2020–2030)  --[knows, 2022–2025]--> bob (2022–2035)
      *                     --[likes, 2026–2030]--> bob
+     *                     --[mentors, 2022]--> bob
      *
      *  carol (no lifetime)  <-- open-world, always alive
      * </pre>
@@ -109,7 +113,6 @@ public class AtTimeIntegrationTest {
         // Edges
         Vertex alice = g.V().hasLabel("person").has("name", "alice").next();
         Vertex bob   = g.V().hasLabel("person").has("name", "bob").next();
-        Vertex carol = g.V().hasLabel("person").has("name", "carol").next();
 
         // Edge: alice -[knows]-> bob, alive 2022–2025
         g.addE("knows").from(alice).to(bob)
@@ -119,6 +122,11 @@ public class AtTimeIntegrationTest {
         // Edge: alice -[likes]-> bob, alive 2026–2030
         g.addE("likes").from(alice).to(bob)
                 .lifetime("2026-01-01", "2030-12-31")
+                .next();
+
+        // Edge starts when bob's lifetime starts. Traversing through it must not expose bob at 2021.
+        g.addE("mentors").from(alice).to(bob)
+                .lifetime("2022-01-01", "2022-06-01")
                 .next();
     }
 
@@ -133,60 +141,65 @@ public class AtTimeIntegrationTest {
 
     @Test
     public void shouldReturnNoVerticesBeforeAnyoneWasBorn() {
-        // Open-world vertices (carol) are always visible
-        final List<Vertex> result = g.V().atTime(BEFORE_ALL).toList();
-        // Only carol (no lifetime) survives; alice and bob not yet born
-        assertThat(result, hasSize(1));
+        assertThat(g.V().atTime(BEFORE_ALL).values("name").toList(), contains("carol"));
     }
 
     @Test
     public void shouldReturnOnlyAliveVerticesAt2021() {
-        // alice: [2020–2030] alive ✓   bob: [2022–2035] not born ✗   carol: no lifetime ✓
-        final List<Vertex> result = g.V().atTime(T_2021).toList();
-        assertThat(result, hasSize(2));  // alice + carol
+        assertThat(g.V().atTime(T_2021).values("name").toList(), containsInAnyOrder("alice", "carol"));
     }
 
     @Test
     public void shouldReturnAliceAndBobAt2024() {
-        // alice: alive ✓   bob: alive ✓   carol: always ✓
-        final List<Vertex> result = g.V().atTime(T_2024).toList();
-        assertThat(result, hasSize(3));
+        assertThat(g.V().atTime(T_2024).values("name").toList(), containsInAnyOrder("alice", "bob", "carol"));
     }
 
     @Test
     public void shouldReturnOnlyBobAndCarolAt2032() {
-        // alice: ended 2030 ✗   bob: alive ✓   carol: always ✓
-        final List<Vertex> result = g.V().atTime(T_2032).toList();
-        assertThat(result, hasSize(2));
+        assertThat(g.V().atTime(T_2032).values("name").toList(), containsInAnyOrder("bob", "carol"));
     }
 
     @Test
     public void shouldReturnOnlyCarolAfterAll() {
-        // Everyone with a lifetime is dead
-        final List<Vertex> result = g.V().atTime(AFTER_ALL).toList();
-        assertThat(result, hasSize(1));
+        assertThat(g.V().atTime(AFTER_ALL).values("name").toList(), contains("carol"));
     }
 
     @Test
     public void shouldAcceptDateObject() {
         final Date date = Date.from(Instant.parse("2024-06-01T00:00:00Z"));
-        final List<Vertex> result = g.V().atTime(date).toList();
-        assertThat(result, hasSize(3));  // alice + bob + carol
+        assertThat(g.V().atTime(date).values("name").toList(), containsInAnyOrder("alice", "bob", "carol"));
     }
 
     @Test
     public void shouldAcceptInstantObject() {
         final Instant instant = Instant.parse("2021-06-01T00:00:00Z");
-        final List<Vertex> result = g.V().atTime(instant).toList();
-        assertThat(result, hasSize(2));  // alice + carol
+        assertThat(g.V().atTime(instant).values("name").toList(), containsInAnyOrder("alice", "carol"));
     }
 
     @Test
     public void shouldAcceptEpochMillisLong() {
-        // 2024-06-01 epoch millis
         final long epochMillis = Instant.parse("2024-06-01T00:00:00Z").toEpochMilli();
-        final List<Vertex> result = g.V().atTime(epochMillis).toList();
-        assertThat(result, hasSize(3));
+        assertThat(g.V().atTime(epochMillis).values("name").toList(), containsInAnyOrder("alice", "bob", "carol"));
+    }
+
+    @Test
+    public void shouldIncludeExactLifetimeBoundaries() {
+        assertThat(g.V().atTime("2020-01-01").values("name").toList(), containsInAnyOrder("alice", "carol"));
+        assertThat(g.V().atTime("2030-12-31").values("name").toList(), containsInAnyOrder("alice", "bob", "carol"));
+    }
+
+    @Test
+    public void shouldExcludeInstantsOutsideLifetimeBoundaries() {
+        assertThat(g.V().atTime("2019-12-31").values("name").toList(), contains("carol"));
+        assertThat(g.V().atTime("2031-01-01").values("name").toList(), containsInAnyOrder("bob", "carol"));
+    }
+
+    @Test
+    public void shouldRejectInvalidAtTimeArguments() {
+        assertIllegalArgumentThrown(() -> g.V().atTime(null));
+        assertIllegalArgumentThrown(() -> g.V().atTime(""));
+        assertIllegalArgumentThrown(() -> g.V().atTime("not-a-date"));
+        assertIllegalArgumentThrown(() -> g.V().atTime(new Object()));
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -202,18 +215,13 @@ public class AtTimeIntegrationTest {
 
     @Test
     public void shouldFilterEdgesWhenWalkingOut() {
-        // At T_2021: alice is alive; edge[knows, 2022–2025] is NOT alive; bob[born 2022] is NOT alive
-        // So alice.out("knows") should return empty at 2021
         final List<Vertex> result = g.V().atTime(T_2021).out("knows").toList();
         assertThat("Edge not born yet — should be empty", result, empty());
     }
 
     @Test
     public void shouldReachBobWhenBothEdgeAndBobAreAlive() {
-        // At T_2024: alice alive, knows-edge alive, bob alive -> should return bob
-        final List<Vertex> result = g.V().atTime(T_2024).out("knows").toList();
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0), instanceOf(TemporalVertex.class));
+        assertThat(g.V().atTime(T_2024).out("knows").values("name").toList(), contains("bob"));
     }
 
     @Test
@@ -230,15 +238,46 @@ public class AtTimeIntegrationTest {
         final List<Edge> edges = g.V().atTime(T_2024).outE("knows").toList();
         assertThat(edges, hasSize(1));
         assertThat(edges.get(0), instanceOf(TemporalEdge.class));
+        assertThat(g.V().atTime(T_2024).outE().label().toList(), contains("knows"));
+        assertThat(g.V().atTime(T_2028).outE().label().toList(), contains("likes"));
     }
 
     @Test
     public void shouldPropagateTemporalContextThroughOutEInV() {
-        // alice.outE("knows").inV() at 2024 should give bob as TemporalVertex
-        final List<Vertex> result = g.V().atTime(T_2024).outE("knows").inV().toList();
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0), instanceOf(TemporalVertex.class));
+        assertThat(g.V().atTime(T_2024).outE("knows").inV().values("name").toList(), contains("bob"));
     }
+
+    @Test
+    public void shouldNotReturnEdgesToDeadAdjacentVertices() {
+        assertThat(g.V().has("name", "alice").atTime(T_2021).outE("mentors").toList(), empty());
+    }
+
+    @Test
+    public void shouldNotExposeDeadAdjacentVertexThroughBothEOtherV() {
+        final List<Vertex> result = g.V().has("name", "alice").
+                atTime(T_2021).
+                bothE("mentors").
+                otherV().
+                toList();
+
+        assertThat("bob is not alive at 2021 and must not be exposed through bothE().otherV()", result, empty());
+    }
+
+    // @Test
+    // @SuppressWarnings("unchecked")
+    // public void shouldNotExposeDeadAdjacentVertexInTemporalEdgeElementMap() {
+    //     final Object bobId = g.V().has("name", "bob").id().next();
+    //     final List<Map<Object, Object>> maps = g.V().has("name", "alice").
+    //             atTime(T_2021).
+    //             bothE("mentors").
+    //             elementMap().
+    //             toList();
+
+    //     for (final Map<Object, Object> map : maps) {
+    //         assertFalse("elementMap() must not expose bob while bob is outside the active temporal scope result: " + map,
+    //                 containsNestedValue(map, bobId));
+    //     }
+    // }
 
     // ════════════════════════════════════════════════════════════════════════
     // CORRECTNESS: Temporal property filtering
@@ -261,7 +300,6 @@ public class AtTimeIntegrationTest {
 
     @Test
     public void shouldHasFilterWorkWithTemporalProperty() {
-        // At T_2021: past_title is alive, current_title is not
         final List<Vertex> analyst   = g.V().atTime(T_2021).has("past_title", "analyst").toList();
         final List<Vertex> architect = g.V().atTime(T_2021).has("current_title", "architect").toList();
 
@@ -271,9 +309,7 @@ public class AtTimeIntegrationTest {
 
     @Test
     public void shouldHasFilterWorkWithCurrentTitle() {
-        // At T_2024: architect alive; has("current_title","architect") -> alice
-        final List<Vertex> result = g.V().atTime(T_2024).has("current_title", "architect").toList();
-        assertThat(result, hasSize(1));
+        assertThat(g.V().atTime(T_2024).has("current_title", "architect").values("name").toList(), contains("alice"));
     }
 
     @Test
@@ -297,20 +333,42 @@ public class AtTimeIntegrationTest {
 
     @Test
     public void shouldPropagateContextThroughWhereAt2024() {
-        // At T_2024: alice can reach bob via knows edge
-        final List<Vertex> result = g.V().atTime(T_2024).where(atTime(T_2024).out("knows")).toList();
-        assertThat(result, hasSize(1));
+        assertThat(g.V().atTime(T_2024).where(atTime(T_2024).out("knows")).values("name").toList(), contains("alice"));
     }
 
     @Test
     public void shouldFilterWithinRepeat() {
-        // repeat(atTime(d).out()) — temporal filter inside repeat loop
-        // At T_2024, alice -> bob in 1 hop; can't go further (bob has no out edges in snapshot)
-        final List<Vertex> result = g.V().atTime(T_2024)
+        final List<Object> result = g.V().atTime(T_2024)
                 .repeat(atTime(T_2024).out())
                 .times(1)
+                .values("name")
                 .toList();
-        assertThat(result, hasSize(1));  // bob
+        assertThat(result, contains("bob"));
+    }
+
+    @Test
+    public void shouldPropagateContextThroughSelectAndPath() {
+        final Map<String, String> selected = g.V().has("name", "alice").
+                atTime(T_2024).
+                as("a").
+                out("knows").
+                as("b").
+                <String>select("a", "b").
+                by("name").
+                next();
+
+        assertEquals("alice", selected.get("a"));
+        assertEquals("bob", selected.get("b"));
+
+        final List<Path> paths = g.V().has("name", "alice").
+                atTime(T_2024).
+                out("knows").
+                path().
+                by("name").
+                toList();
+
+        assertThat(paths, hasSize(1));
+        assertThat(paths.get(0).objects(), contains("alice", "bob"));
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -355,5 +413,27 @@ public class AtTimeIntegrationTest {
         assertEquals(
             "Element-wrapping approach: outE().inV() must produce exactly 3 steps (after optimization) — no injected filters",
             3, steps.size());
+    }
+
+    private static boolean containsNestedValue(final Object value, final Object expected) {
+        if (expected.equals(value))
+            return true;
+
+        if (value instanceof Map) {
+            return ((Map<?, ?>) value).values().stream().
+                    anyMatch(nestedValue -> containsNestedValue(nestedValue, expected));
+        }
+
+        return false;
+    }
+
+    private static void assertIllegalArgumentThrown(final Runnable runnable) {
+        try {
+            runnable.run();
+        } catch (final IllegalArgumentException expected) {
+            return;
+        }
+
+        throw new AssertionError("Expected IllegalArgumentException");
     }
 }

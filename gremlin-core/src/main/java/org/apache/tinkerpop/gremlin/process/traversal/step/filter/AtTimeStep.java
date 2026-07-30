@@ -18,6 +18,7 @@
  */
 package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 
+import org.apache.tinkerpop.gremlin.process.computer.util.ComputerGraph;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -29,6 +30,7 @@ import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.util.Date;
 import java.util.Objects;
@@ -56,7 +58,7 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         super(traversal);
         if (null == instant)
             throw new IllegalArgumentException("Temporal instant cannot be null");
-        this.instant = LifetimeHelper.toTemporalDate(instant);
+        this.instant = Lifetime.toTemporalDate(instant);
     }
 
     @Override
@@ -67,9 +69,10 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
+        final boolean graphComputerTraversal = ((Element) current).graph() instanceof ComputerGraph;
 
         // Drop elements not alive at this instant.
-        if (!LifetimeHelper.isAliveAt((Element) current, instant))
+        if (!LifetimeHelper.isVisibleAt((Element) current, instant))
             return false;
 
         // Wrap passing elements so subsequent navigation respects the snapshot.
@@ -85,11 +88,12 @@ public final class AtTimeStep<S> extends FilterStep<S> {
             }
         } else if (current instanceof Vertex) {
             if (!(current instanceof TemporalVertex)
-                    || !((TemporalVertex) current).getInstant().equals(instant)) {
+                    || !((TemporalVertex) current).getInstant().equals(instant)
+                    || graphComputerTraversal == ((TemporalVertex) current).filtersAdjacentElementsForNavigation()) {
                 final Vertex base = (current instanceof TemporalVertex)
                         ? ((TemporalVertex) current).getBaseVertex()
                         : (Vertex) current;
-                traverser.set((S) new TemporalVertex(base, instant));
+                traverser.set((S) new TemporalVertex(base, instant, !graphComputerTraversal));
             }
         } else if (current instanceof Edge) {
             if (!(current instanceof TemporalEdge)

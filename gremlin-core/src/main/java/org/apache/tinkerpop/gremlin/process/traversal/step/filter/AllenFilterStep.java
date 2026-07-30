@@ -21,7 +21,7 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.util.Date;
 
@@ -102,35 +102,26 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         
         final Element currentElement = (Element) currentObject;
         
-        // Initialize reference properties once (lazy)
+        // Initialize the normalized reference lifetime once (lazy)
         if (!refPropertiesInitialized) {
             initializeReferenceProperties();
         }
-        
-        // Early exit if reference element has no temporal properties
-        if (cachedRefStart == null) {
-            return false;
-        }
-        
-        // Get temporal properties from current element
-        final Date currentStart = LifetimeHelper.getStartDateProperty(currentElement);
-        if (currentStart == null) {
-            return false;
-        }
-        
-        final Date currentEnd = LifetimeHelper.getEndDateProperty(currentElement);
+
+        // Missing temporal bounds are normalized by Lifetime.
+        final Lifetime currentLifetime = Lifetime.fromProperties(currentElement);
+        final Date currentStart = currentLifetime.getStartDate();
+        final Date currentEnd = currentLifetime.getEndDate();
 
         return evaluate(relation, currentStart, currentEnd, cachedRefStart, cachedRefEnd);
     }
 
     /**
-     * Initialize and cache reference element temporal properties once.
+     * Initialize and cache the normalized reference lifetime once.
      */
     private void initializeReferenceProperties() {
-        cachedRefStart = LifetimeHelper.getStartDateProperty(referenceElement);
-        if (cachedRefStart != null) {
-            cachedRefEnd = LifetimeHelper.getEndDateProperty(referenceElement);
-        }
+        final Lifetime referenceLifetime = Lifetime.fromProperties(referenceElement);
+        cachedRefStart = referenceLifetime.getStartDate();
+        cachedRefEnd = referenceLifetime.getEndDate();
         
         refPropertiesInitialized = true;
     }
