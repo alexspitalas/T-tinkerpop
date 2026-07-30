@@ -38,6 +38,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
 import org.apache.tinkerpop.gremlin.structure.Column;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyVertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceVertexProperty;
@@ -472,36 +473,36 @@ public class SubgraphStrategyProcessTest extends AbstractGremlinProcessTest {
     @LoadGraphWith(CREW)
     public void shouldFilterVertexProperties() throws Exception {
         GraphTraversalSource sg = g.withStrategies(SubgraphStrategy.create(new MapConfiguration(new HashMap<String, Object>() {{
-            put(SubgraphStrategy.VERTEX_PROPERTIES, has("startTime", P.gt(2005)));
+            put(SubgraphStrategy.VERTEX_PROPERTIES, has(Lifetime.START_TIME, P.gt(2005)));
         }})));
         checkResults(Arrays.asList("purcellville", "baltimore", "oakland", "seattle", "aachen"), sg.V().properties("location").value());
         checkResults(Arrays.asList("purcellville", "baltimore", "oakland", "seattle", "aachen"), sg.V().values("location"));
         if (sg.getStrategies().getStrategy(InlineFilterStrategy.class).isPresent())
             assertFalse(TraversalHelper.hasStepOfAssignableClassRecursively(TraversalFilterStep.class, sg.V().properties("location").value().iterate().asAdmin()));
         // check to make sure edge properties are not analyzed
-        sg = g.withStrategies(SubgraphStrategy.build().vertexProperties(has("startTime", P.gt(2005))).create());
+        sg = g.withStrategies(SubgraphStrategy.build().vertexProperties(has(Lifetime.START_TIME, P.gt(2005))).create());
         checkResults(Arrays.asList("purcellville", "baltimore", "oakland", "seattle", "aachen"), sg.V().as("a").properties("location").as("b").select("a").outE().properties().select("b").value().dedup());
         checkResults(Arrays.asList("purcellville", "baltimore", "oakland", "seattle", "aachen"), sg.V().as("a").values("location").as("b").select("a").outE().properties().select("b").dedup());
         if (sg.getStrategies().getStrategy(InlineFilterStrategy.class).isPresent())
             assertFalse(TraversalHelper.hasStepOfAssignableClassRecursively(TraversalFilterStep.class, sg.V().as("a").values("location").as("b").select("a").outE().properties().select("b").dedup().iterate().asAdmin()));
         //
-        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("name", P.neq("stephen"))).vertexProperties(has("startTime", P.gt(2005))).create());
+        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("name", P.neq("stephen"))).vertexProperties(has(Lifetime.START_TIME, P.gt(2005))).create());
         checkResults(Arrays.asList("baltimore", "oakland", "seattle", "aachen"), sg.V().properties("location").value());
         checkResults(Arrays.asList("baltimore", "oakland", "seattle", "aachen"), sg.V().values("location"));
         //
-        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("name", P.not(P.within("stephen", "daniel")))).vertexProperties(has("startTime", P.gt(2005))).create());
+        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("name", P.not(P.within("stephen", "daniel")))).vertexProperties(has(Lifetime.START_TIME, P.gt(2005))).create());
         checkResults(Arrays.asList("baltimore", "oakland", "seattle"), sg.V().properties("location").value());
         checkResults(Arrays.asList("baltimore", "oakland", "seattle"), sg.V().values("location"));
         //
-        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("name", P.eq("matthias"))).vertexProperties(has("startTime", P.gte(2014))).create());
+        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("name", P.eq("matthias"))).vertexProperties(has(Lifetime.START_TIME, P.gte(2014))).create());
         checkResults(makeMapList(1, "seattle", 1L), sg.V().groupCount().by("location"));
         //
-        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("location")).vertexProperties(hasNot("endTime")).create());
+        sg = g.withStrategies(SubgraphStrategy.build().vertices(has("location")).vertexProperties(hasNot(Lifetime.END_TIME)).create());
         checkOrderedResults(Arrays.asList("aachen", "purcellville", "santa fe", "seattle"), sg.V().order().by("location", Order.asc).values("location"));
         //
         sg = g.withStrategies(SubgraphStrategy.create(new MapConfiguration(new HashMap<String, Object>() {{
             put(SubgraphStrategy.VERTICES, has("location"));
-            put(SubgraphStrategy.VERTEX_PROPERTIES, hasNot("endTime"));
+            put(SubgraphStrategy.VERTEX_PROPERTIES, hasNot(Lifetime.END_TIME));
         }})));
         checkResults(Arrays.asList("aachen", "purcellville", "santa fe", "seattle"), sg.V().valueMap("location").select(Column.values).unfold().unfold());
         checkResults(Arrays.asList("aachen", "purcellville", "santa fe", "seattle"), sg.V().propertyMap("location").select(Column.values).unfold().unfold().value());

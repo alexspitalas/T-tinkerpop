@@ -30,6 +30,7 @@ import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoIo;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedPath;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedProperty;
@@ -163,10 +164,10 @@ public class SerializationTest {
             assertEquals(vertexProperty.label(), detached.label());
             assertEquals(vertexProperty.id(), detached.id());
             assertEquals(vertexProperty.value(), detached.value());
-            assertEquals(vertexProperty.values("startTime").next(), detached.values("startTime").next());
-            assertEquals(vertexProperty.properties("startTime").next().key(), detached.properties("startTime").next().key());
-            assertEquals(vertexProperty.values("endTime").next(), detached.values("endTime").next());
-            assertEquals(vertexProperty.properties("endTime").next().key(), detached.properties("endTime").next().key());
+            assertEquals(vertexProperty.values(Lifetime.START_TIME).next(), detached.values(Lifetime.START_TIME).next());
+            assertEquals(vertexProperty.properties(Lifetime.START_TIME).next().key(), detached.properties(Lifetime.START_TIME).next().key());
+            assertEquals(vertexProperty.values(Lifetime.END_TIME).next(), detached.values(Lifetime.END_TIME).next());
+            assertEquals(vertexProperty.properties(Lifetime.END_TIME).next().key(), detached.properties(Lifetime.END_TIME).next().key());
         }
 
         @Test
@@ -350,10 +351,10 @@ public class SerializationTest {
             assertEquals(vertexProperty.label(), detached.label());
             assertEquals(vertexProperty.id(), detached.id());
             assertEquals(vertexProperty.value(), detached.value());
-            assertEquals(vertexProperty.values("startTime").next(), detached.values("startTime").next());
-            assertEquals(vertexProperty.properties("startTime").next().key(), detached.properties("startTime").next().key());
-            assertEquals(vertexProperty.values("endTime").next(), detached.values("endTime").next());
-            assertEquals(vertexProperty.properties("endTime").next().key(), detached.properties("endTime").next().key());
+            assertEquals(vertexProperty.values(Lifetime.START_TIME).next(), detached.values(Lifetime.START_TIME).next());
+            assertEquals(vertexProperty.properties(Lifetime.START_TIME).next().key(), detached.properties(Lifetime.START_TIME).next().key());
+            assertEquals(vertexProperty.values(Lifetime.END_TIME).next(), detached.values(Lifetime.END_TIME).next());
+            assertEquals(vertexProperty.properties(Lifetime.END_TIME).next().key(), detached.properties(Lifetime.END_TIME).next().key());
         }
 
         @Test
@@ -515,8 +516,8 @@ public class SerializationTest {
             assertEquals(vp.label(), m.get(GraphSONTokens.LABEL));
             assertNotNull(m.get(GraphSONTokens.ID));
             assertEquals(vp.value(), m.get(GraphSONTokens.VALUE));
-            assertEquals(vp.values("startTime").next(), ((Map) m.get(GraphSONTokens.PROPERTIES)).get("startTime"));
-            assertEquals(vp.values("endTime").next(), ((Map) m.get(GraphSONTokens.PROPERTIES)).get("endTime"));
+            assertEquals(vp.values(Lifetime.START_TIME).next(), ((Map) m.get(GraphSONTokens.PROPERTIES)).get(Lifetime.START_TIME));
+            assertEquals(vp.values(Lifetime.END_TIME).next(), ((Map) m.get(GraphSONTokens.PROPERTIES)).get(Lifetime.END_TIME));
         }
 
         @Test
@@ -695,10 +696,10 @@ public class SerializationTest {
             assertEquals(vp.label(), detached.label());
             assertEquals(vp.id(), detached.id());
             assertEquals(vp.value(), detached.value());
-            assertEquals(vp.values("startTime").next(), detached.values("startTime").next());
-            assertEquals(((Property) vp.properties("startTime").next()).key(), ((Property) detached.properties("startTime").next()).key());
-            assertEquals(vp.values("endTime").next(), detached.values("endTime").next());
-            assertEquals(((Property) vp.properties("endTime").next()).key(), ((Property) detached.properties("endTime").next()).key());
+            assertEquals(vp.values(Lifetime.START_TIME).next(), detached.values(Lifetime.START_TIME).next());
+            assertEquals(((Property) vp.properties(Lifetime.START_TIME).next()).key(), ((Property) detached.properties(Lifetime.START_TIME).next()).key());
+            assertEquals(vp.values(Lifetime.END_TIME).next(), detached.values(Lifetime.END_TIME).next());
+            assertEquals(((Property) vp.properties(Lifetime.END_TIME).next()).key(), ((Property) detached.properties(Lifetime.END_TIME).next()).key());
         }
 
         @Test
@@ -897,10 +898,10 @@ public class SerializationTest {
             assertEquals(vp.label(), detached.label());
             assertEquals(vp.id(), detached.id());
             assertEquals(vp.value(), detached.value());
-            assertEquals(vp.values("startTime").next(), detached.values("startTime").next());
-            assertEquals(((Property) vp.properties("startTime").next()).key(), ((Property) detached.properties("startTime").next()).key());
-            assertEquals(vp.values("endTime").next(), detached.values("endTime").next());
-            assertEquals(((Property) vp.properties("endTime").next()).key(), ((Property) detached.properties("endTime").next()).key());
+            assertEquals(vp.values(Lifetime.START_TIME).next(), detached.values(Lifetime.START_TIME).next());
+            assertEquals(((Property) vp.properties(Lifetime.START_TIME).next()).key(), ((Property) detached.properties(Lifetime.START_TIME).next()).key());
+            assertEquals(vp.values(Lifetime.END_TIME).next(), detached.values(Lifetime.END_TIME).next());
+            assertEquals(((Property) vp.properties(Lifetime.END_TIME).next()).key(), ((Property) detached.properties(Lifetime.END_TIME).next()).key());
         }
 
         @Test

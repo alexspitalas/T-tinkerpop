@@ -23,6 +23,7 @@ import org.apache.tinkerpop.gremlin.FeatureRequirementSet;
 import org.apache.tinkerpop.gremlin.LoadGraphWith;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.Attachable;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
@@ -105,19 +106,19 @@ public class DetachedVertexPropertyTest extends AbstractGremlinTest {
         v1.properties("location").forEachRemaining(vp -> {
             final DetachedVertexProperty detached = DetachedFactory.detach(vp, true);
             if (detached.value().equals("san diego")) {
-                assertEquals(1997, (int) detached.value("startTime"));
-                assertEquals(2001, (int) detached.value("endTime"));
+                assertEquals(1997, (int) detached.value(Lifetime.START_TIME));
+                assertEquals(2001, (int) detached.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(detached.properties()));
             } else if (vp.value().equals("santa cruz")) {
-                assertEquals(2001, (int) detached.value("startTime"));
-                assertEquals(2004, (int) detached.value("endTime"));
+                assertEquals(2001, (int) detached.value(Lifetime.START_TIME));
+                assertEquals(2004, (int) detached.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(detached.properties()));
             } else if (detached.value().equals("brussels")) {
-                assertEquals(2004, (int) vp.value("startTime"));
-                assertEquals(2005, (int) vp.value("endTime"));
+                assertEquals(2004, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2005, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(detached.properties()));
             } else if (detached.value().equals("santa fe")) {
-                assertEquals(2005, (int) detached.value("startTime"));
+                assertEquals(2005, (int) detached.value(Lifetime.START_TIME));
                 assertEquals(1, (int) IteratorUtils.count(detached.properties()));
             } else {
                 fail("Found a value that should be there");
