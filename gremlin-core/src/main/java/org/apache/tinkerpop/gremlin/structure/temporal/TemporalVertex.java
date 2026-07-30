@@ -26,7 +26,6 @@ import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertex;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
-import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertexProperty;
 
 import java.util.Collections;
 import java.util.Date;
@@ -51,17 +50,29 @@ import java.util.Iterator;
 public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
 
     private final Vertex base;
-    private final Date   startInstant;
-    private final Date   endInstant;
+    private final Lifetime lifetime;
+    private final boolean filterAdjacentElementsForNavigation;
 
     public TemporalVertex(final Vertex base, final Date instant) {
-        this(base, instant, null);
+        this(base, Lifetime.from(instant, instant));
+    }
+
+    public TemporalVertex(final Vertex base, final Date instant, final boolean filterAdjacentElementsForNavigation) {
+        this(base, Lifetime.from(instant, instant), filterAdjacentElementsForNavigation);
     }
 
     public TemporalVertex(final Vertex base, final Date startInstant, final Date endInstant) {
+        this(base, Lifetime.from(startInstant, endInstant));
+    }
+
+    public TemporalVertex(final Vertex base, final Lifetime lifetime) {
+        this(base, lifetime, true);
+    }
+
+    public TemporalVertex(final Vertex base, final Lifetime lifetime, final boolean filterAdjacentElementsForNavigation) {
         this.base    = base;
-        this.startInstant = startInstant;
-        this.endInstant = endInstant;
+        this.lifetime = lifetime;
+        this.filterAdjacentElementsForNavigation = filterAdjacentElementsForNavigation;
     }
 
     // ── WrappedVertex ────────────────────────────────────────────────────
@@ -72,15 +83,19 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
     }
 
     public Date getInstant() {
-        return startInstant;
+        return lifetime.getStartDate();
     }
 
     public Date getStartInstant() {
-        return startInstant;
+        return lifetime.getStartDate();
     }
 
     public Date getEndInstant() {
-        return endInstant;
+        return lifetime.getEndDate();
+    }
+
+    public boolean filtersAdjacentElementsForNavigation() {
+        return filterAdjacentElementsForNavigation;
     }
 
     // ── Graph Navigation (the critical overrides) ─────────────────────────
@@ -95,9 +110,11 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
         return IteratorUtils.map(
             IteratorUtils.filter(
                 base.edges(direction, edgeLabels),
-                edge -> LifetimeHelper.isAliveDuring(edge, startInstant, endInstant)
+                edge -> filterAdjacentElementsForNavigation ?
+                        LifetimeHelper.isVisibleDuring(edge, lifetime) :
+                        LifetimeHelper.isAliveDuring(edge, lifetime)
             ),
-            edge -> (Edge) new TemporalEdge(edge, startInstant, endInstant)
+            edge -> (Edge) new TemporalEdge(edge, lifetime)
         );
     }
 
@@ -111,14 +128,14 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
         return IteratorUtils.flatMap(
             base.edges(direction, edgeLabels),
             edge -> {
-                if (!LifetimeHelper.isAliveDuring(edge, startInstant, endInstant))
+                if (!LifetimeHelper.isAliveDuring(edge, lifetime))
                     return Collections.emptyIterator();
 
                 final Vertex neighbour = neighbourVertex(edge, direction);
-                if (!LifetimeHelper.isAliveDuring(neighbour, startInstant, endInstant))
+                if (filterAdjacentElementsForNavigation && !LifetimeHelper.isAliveDuring(neighbour, lifetime))
                     return Collections.emptyIterator();
 
-                return IteratorUtils.of(new TemporalVertex(neighbour, startInstant, endInstant));
+                return IteratorUtils.of(new TemporalVertex(neighbour, lifetime));
             }
         );
     }
@@ -140,14 +157,13 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
         return IteratorUtils.map(
             IteratorUtils.filter(
                 base.properties(propertyKeys),
-                prop -> LifetimeHelper.isAliveDuring(prop, startInstant, endInstant)
+                prop -> LifetimeHelper.isAliveDuring(prop, lifetime)
             ),
-            prop -> (VertexProperty<V>) new TemporalVertexProperty<>(prop, startInstant, endInstant)
+            prop -> (VertexProperty<V>) new TemporalVertexProperty<>(prop, lifetime)
         );
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public <V> VertexProperty<V> property(final String key) {
         final Iterator<VertexProperty<V>> alive = properties(key);
         return alive.hasNext() ? alive.next() : VertexProperty.empty();
@@ -182,8 +198,7 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
 
     @Override
     public String toString() {
-        if (endInstant == null) return "temporal[" + base.toString() + "@" + startInstant + "]";
-        return "temporal[" + base.toString() + "@(" + startInstant + "," + endInstant + ")]";
+        return "temporal[" + base.toString() + "@(" + lifetime.getStartDate() + "," + lifetime.getEndDate() + ")]";
     }
 
     @Override

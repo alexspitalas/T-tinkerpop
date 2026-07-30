@@ -44,30 +44,33 @@ import java.util.Iterator;
 public final class TemporalVertexProperty<V> implements VertexProperty<V> {
 
     private final VertexProperty<V> base;
-    private final Date startInstant;
-    private final Date endInstant;
+    private final Lifetime lifetime;
 
     public TemporalVertexProperty(final VertexProperty<V> base, final Date instant) {
-        this(base, instant, null);
+        this(base, instant, instant);
     }
 
     public TemporalVertexProperty(final VertexProperty<V> base, final Date startInstant, final Date endInstant) {
         this.base    = base;
-        this.startInstant = startInstant;
-        this.endInstant = endInstant;
+        this.lifetime = Lifetime.from(startInstant, endInstant);
+    }
+
+    public TemporalVertexProperty(final VertexProperty<V> base, final Lifetime lifetime) {
+        this.base    = base;
+        this.lifetime = lifetime;
     }
 
     public VertexProperty<V> getBaseVertexProperty() { return base; }
-    public Date              getInstant()            { return startInstant; }
-    public Date              getStartInstant()       { return startInstant; }
-    public Date              getEndInstant()         { return endInstant; }
+    public Date              getInstant()            { return lifetime.getStartDate(); }
+    public Date              getStartInstant()       { return lifetime.getStartDate(); }
+    public Date              getEndInstant()         { return lifetime.getEndDate(); }
 
     // ── Key overrides ─────────────────────────────────────────────────────
 
     /** Returns the owning vertex wrapped in a {@link TemporalVertex}. */
     @Override
     public Vertex element() {
-        return new TemporalVertex(base.element(), startInstant, endInstant);
+        return new TemporalVertex(base.element(), lifetime);
     }
 
     /**
@@ -101,8 +104,7 @@ public final class TemporalVertexProperty<V> implements VertexProperty<V> {
 
     @Override
     public String toString() { 
-        if (endInstant == null) return "temporal[" + base.toString() + "@" + startInstant + "]"; 
-        return "temporal[" + base.toString() + "@(" + startInstant + "," + endInstant + ")]";
+        return "temporal[" + base.toString() + "@(" + lifetime.getStartDate() + "," + lifetime.getEndDate() + ")]";
     }
 
     @Override
