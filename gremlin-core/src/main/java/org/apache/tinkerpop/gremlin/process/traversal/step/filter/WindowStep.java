@@ -18,6 +18,7 @@
  */
 package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 
+import org.apache.tinkerpop.gremlin.process.computer.util.ComputerGraph;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -29,6 +30,7 @@ import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.util.Date;
 import java.util.Objects;
@@ -50,15 +52,11 @@ import java.util.Objects;
  */
 public final class WindowStep<S> extends FilterStep<S> {
 
-    private final Date windowStart;
-    private final Date windowEnd;
+    private final Lifetime window;
 
-    public WindowStep(final Traversal.Admin traversal, final Object start, final Object end) {
+    public WindowStep(final Traversal.Admin traversal, final Lifetime window) {
         super(traversal);
-        if (null == start || null == end)
-            throw new IllegalArgumentException("Temporal window bounds cannot be null");
-        this.windowStart = LifetimeHelper.toTemporalDate(start);
-        this.windowEnd = LifetimeHelper.toTemporalDate(end);
+        this.window = window;
     }
 
     @Override
@@ -69,59 +67,61 @@ public final class WindowStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
+        final boolean graphComputerTraversal = ((Element) current).graph() instanceof ComputerGraph;
 
         // Drop elements whose lifetime does not intersect this window.
-        if (!LifetimeHelper.isAliveDuring((Element) current, windowStart, windowEnd))
+        if (!LifetimeHelper.isVisibleDuring((Element) current, window))
             return false;
 
         // Wrap passing elements so subsequent navigation respects the window.
         if (current instanceof VertexProperty) {
             if (!(current instanceof TemporalVertexProperty)
-                    || !windowStart.equals(((TemporalVertexProperty<?>) current).getStartInstant())
-                    || !windowEnd.equals(((TemporalVertexProperty<?>) current).getEndInstant())) {
+                    || !window.getStartDate().equals(((TemporalVertexProperty<?>) current).getStartInstant())
+                    || !window.getEndDate().equals(((TemporalVertexProperty<?>) current).getEndInstant())) {
                 final VertexProperty<?> base = (current instanceof TemporalVertexProperty)
                         ? ((TemporalVertexProperty<?>) current).getBaseVertexProperty()
                         : (VertexProperty<?>) current;
-                traverser.set((S) new TemporalVertexProperty<>(base, windowStart, windowEnd));
+                traverser.set((S) new TemporalVertexProperty<>(base, window));
             }
         } else if (current instanceof Vertex) {
             if (!(current instanceof TemporalVertex)
-                    || !windowStart.equals(((TemporalVertex) current).getStartInstant())
-                    || !windowEnd.equals(((TemporalVertex) current).getEndInstant())) {
+                    || !window.getStartDate().equals(((TemporalVertex) current).getStartInstant())
+                    || !window.getEndDate().equals(((TemporalVertex) current).getEndInstant())
+                    || graphComputerTraversal == ((TemporalVertex) current).filtersAdjacentElementsForNavigation()) {
                 final Vertex base = (current instanceof TemporalVertex)
                         ? ((TemporalVertex) current).getBaseVertex()
                         : (Vertex) current;
-                traverser.set((S) new TemporalVertex(base, windowStart, windowEnd));
+                traverser.set((S) new TemporalVertex(base, window, !graphComputerTraversal));
             }
         } else if (current instanceof Edge) {
             if (!(current instanceof TemporalEdge)
-                    || !windowStart.equals(((TemporalEdge) current).getStartInstant())
-                    || !windowEnd.equals(((TemporalEdge) current).getEndInstant())) {
+                    || !window.getStartDate().equals(((TemporalEdge) current).getStartInstant())
+                    || !window.getEndDate().equals(((TemporalEdge) current).getEndInstant())) {
                 final Edge base = (current instanceof TemporalEdge)
                         ? ((TemporalEdge) current).getBaseEdge()
                         : (Edge) current;
-                traverser.set((S) new TemporalEdge(base, windowStart, windowEnd));
+                traverser.set((S) new TemporalEdge(base, window));
             }
         }
 
         return true;
     }
 
-    public Date getWindowStart() { return windowStart; }
-    public Date getWindowEnd() { return windowEnd; }
+    public Date getWindowStart() { return window.getStartDate(); }
+    public Date getWindowEnd() { return window.getEndDate(); }
 
     @Override
-    public String toString() { return StringFactory.stepString(this, windowStart, windowEnd); }
+    public String toString() { return StringFactory.stepString(this, window); }
 
     @Override
-    public int hashCode() { return Objects.hash(super.hashCode(), windowStart, windowEnd); }
+    public int hashCode() { return Objects.hash(super.hashCode(), window); }
 
     @Override
     public boolean equals(final Object o) {
         if (this == o) return true;
         if (!(o instanceof WindowStep)) return false;
         final WindowStep<?> that = (WindowStep<?>) o;
-        return super.equals(o) && windowStart.equals(that.windowStart) && windowEnd.equals(that.windowEnd);
+        return super.equals(o) && window.equals(that.window);
     }
 
     @Override
