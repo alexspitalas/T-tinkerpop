@@ -90,16 +90,6 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
 
     public abstract Traversal<Edge, Edge> get_g_addEXV_outE_label_groupCount_orderXlocalX_byXvalues_descX_selectXkeysX_unfold_limitX1XX_fromXV_hasXname_vadasXX_toXV_hasXname_lopXX();
 
-    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X();
-
-    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X();
-
-    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime();
-
-    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime();
-
-    public abstract Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime();
-
     ///////
 
     @Test
@@ -344,7 +334,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         Vertex v2 = g.addV("person").lifetime("2023-06-01", "2024-06-30").property("name", "bob").next();
         
         // Add edge with lifetime that overlaps with both vertices
-        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X();
+        final Traversal<Edge, Edge> traversal = g.addE("knows")
+                .from(V().has("name", "alice"))
+                .to(V().has("name", "bob"))
+                .lifetime("2023-06-01", "2023-12-31");
         printTraversalForm(traversal);
         
         final Edge edge = traversal.next();
@@ -364,7 +357,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         Vertex v2 = g.addV("person").lifetime("2023-06-01", "2024-06-30").property("name", "bob").next();
         
         // Try to add edge with lifetime that doesn't overlap with vertices
-        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X();
+        final Traversal<Edge, Edge> traversal = g.addE("knows")
+                .from(V().has("name", "alice"))
+                .to(V().has("name", "bob"))
+                .lifetime("2022-01-01", "2022-12-31");
         printTraversalForm(traversal);
         
         // This should throw an exception because the edge lifetime doesn't overlap with vertex lifetimes
@@ -409,7 +405,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         g.addV("person").lifetime("2023-06-01", "2023-12-31").property("name", "alice").next();
         g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "bob").next();
 
-        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime();
+        final Traversal<Edge, Edge> traversal = g.addE("knows")
+                .from(V().has("name", "alice"))
+                .to(V().has("name", "bob"))
+                .lifetime("2023-01-01", "2023-12-31");
         printTraversalForm(traversal);
 
         assertCannotCreateEdgeOutsideVertexLifetime(traversal);
@@ -422,7 +421,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         g.addV("person").property("name", "alice").next();
         g.addV("person").lifetime("2023-06-01", "2023-12-31").property("name", "bob").next();
 
-        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime();
+        final Traversal<Edge, Edge> traversal = g.addE("knows")
+                .from(V().has("name", "alice"))
+                .to(V().has("name", "bob"))
+                .lifetime("2023-01-01", "2023-12-31");
         printTraversalForm(traversal);
 
         assertCannotCreateEdgeOutsideVertexLifetime(traversal);
@@ -437,7 +439,10 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         Vertex v2 = g.addV("person").property("name", "bob").next();
         
         // Add edge with lifetime - should work because vertices don't have lifetime constraints
-        final Traversal<Edge, Edge> traversal = get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime();
+        final Traversal<Edge, Edge> traversal = g.addE("knows")
+                .from(V().has("name", "alice"))
+                .to(V().has("name", "bob"))
+                .lifetime("2023-01-01", "2023-12-31");
         printTraversalForm(traversal);
         
         final Edge edge = traversal.next();
@@ -584,32 +589,6 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         public Traversal<Edge, Edge> get_g_addEXV_outE_label_groupCount_orderXlocalX_byXvalues_descX_selectXkeysX_unfold_limitX1XX_fromXV_hasXname_vadasXX_toXV_hasXname_lopXX() {
             return g.addE(V().outE().label().groupCount().order(local).by(values, desc).select(keys).<String>unfold().limit(1)).from(V().has("name", "vadas")).to(V().has("name", "lop"));
         }
-
-        @Override
-        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_06_01XendTime_2023_12_31X() {
-            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-06-01", "2023-12-31");
-        }
-
-        @Override
-        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2022_01_01XendTime_2022_12_31X() {
-            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2022-01-01", "2022-12-31");
-        }
-
-        @Override
-        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_partialVertexLifetime() {
-            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-01-01", "2023-12-31");
-        }
-
-        @Override
-        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime() {
-            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-01-01", "2023-12-31");
-        }
-
-        @Override
-        public Traversal<Edge, Edge> get_g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_noVertexLifetime() {
-            return g.addE("knows").from(V().has("name", "alice")).to(V().has("name", "bob")).lifetime("2023-01-01", "2023-12-31");
-        }
-
 
     }
 }
