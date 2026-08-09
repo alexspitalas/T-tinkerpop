@@ -171,7 +171,16 @@ public final class Lifetime implements Serializable {
 
     @Override
     public String toString() {
-        return "lifetime[" + DatetimeHelper.format(startDate.toInstant()) + "," +
-                DatetimeHelper.format(endDate.toInstant()) + "]";
+        return "lifetime[" + formatStartDate() + "," + formatEndDate() + "]";
+    }
+
+    private String formatStartDate() {
+        return startDate.getTime() == Long.MIN_VALUE ? "*" :
+                DatetimeHelper.format(startDate.toInstant());
+    }
+
+    private String formatEndDate() {
+        return endDate.getTime() == Long.MAX_VALUE ? "*" :
+                DatetimeHelper.format(endDate.toInstant());
     }
 }

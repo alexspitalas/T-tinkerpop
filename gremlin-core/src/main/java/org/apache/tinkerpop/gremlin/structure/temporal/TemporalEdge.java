@@ -155,7 +155,7 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
 
     @Override
     public String toString() {
-        return "temporal[" + base.toString() + "@(" + lifetime.getStartDate() + "," + lifetime.getEndDate() + ")]";
+        return "temporal[" + base.toString() + "@" + lifetime + "]";
     }
 
     @Override

@@ -198,7 +198,7 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
 
     @Override
     public String toString() {
-        return "temporal[" + base.toString() + "@(" + lifetime.getStartDate() + "," + lifetime.getEndDate() + ")]";
+        return "temporal[" + base.toString() + "@" + lifetime + "]";
     }
 
     @Override

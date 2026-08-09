@@ -104,7 +104,7 @@ public final class TemporalVertexProperty<V> implements VertexProperty<V> {
 
     @Override
     public String toString() { 
-        return "temporal[" + base.toString() + "@(" + lifetime.getStartDate() + "," + lifetime.getEndDate() + ")]";
+        return "temporal[" + base.toString() + "@" + lifetime + "]";
     }
 
     @Override

@@ -102,6 +102,13 @@ public class LifetimeTest {
     }
 
     @Test
+    public void shouldFormatOpenEndedBounds() {
+        assertEquals("lifetime[*,1970-01-01T00:00:02Z]", Lifetime.from(new Date(Long.MIN_VALUE), new Date(2000L)).toString());
+        assertEquals("lifetime[1970-01-01T00:00:01Z,*]", Lifetime.from(new Date(1000L), new Date(Long.MAX_VALUE)).toString());
+        assertEquals("lifetime[*,*]", Lifetime.from(new Date(Long.MIN_VALUE), new Date(Long.MAX_VALUE)).toString());
+    }
+
+    @Test
     public void shouldReadLifetimeFromProperties() {
         final Element element = elementWithProperties(new Date(1000L), new Date(2000L));
 
