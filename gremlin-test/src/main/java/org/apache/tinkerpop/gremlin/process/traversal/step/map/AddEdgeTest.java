@@ -417,6 +417,27 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
     @Test
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
     @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
+    public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_07_01XendTime_2023_11_30X_partialVertexLifetime() {
+        final Vertex v1 = g.addV("person").lifetime("2023-06-01", "2023-12-31").property("name", "alice").next();
+        final Vertex v2 = g.addV("person").lifetime("2023-01-01", "2023-12-31").property("name", "bob").next();
+
+        final Traversal<Edge, Edge> traversal = g.addE("knows")
+                .from(V().has("name", "alice"))
+                .to(V().has("name", "bob"))
+                .lifetime("2023-07-01", "2023-11-30");
+        printTraversalForm(traversal);
+
+        final Edge edge = traversal.next();
+        assertFalse(traversal.hasNext());
+        assertEquals("knows", edge.label());
+        assertEquals(v1, edge.outVertex());
+        assertEquals(v2, edge.inVertex());
+        assertEquals(Lifetime.from("2023-07-01", "2023-11-30"), Lifetime.fromProperties(edge));
+    }
+
+    @Test
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_EDGES)
+    @FeatureRequirement(featureClass = Graph.Features.EdgeFeatures.class, feature = Graph.Features.EdgeFeatures.FEATURE_ADD_PROPERTY)
     public void g_addEXknowsX_fromXv1X_toXv2X_lifetimeXstartTime_2023_01_01XendTime_2023_12_31X_oneVertexLifetime() {
         g.addV("person").property("name", "alice").next();
         g.addV("person").lifetime("2023-06-01", "2023-12-31").property("name", "bob").next();
