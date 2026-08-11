@@ -148,7 +148,7 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
                 while (edges.hasNext()) {
                     final TemporalEdge temporalEdge = new TemporalEdge(edges.next());
 
-                    if (LifetimeHelper.isVisibleDuring(temporalEdge.getBaseEdge(), temporalEdge.getLifetime()) &&
+                    if (LifetimeHelper.isAliveDuring(temporalEdge.getBaseEdge(), temporalEdge.getLifetime()) &&
                             scopedVertexIds.contains(temporalEdge.outVertex().id()) &&
                             scopedVertexIds.contains(temporalEdge.inVertex().id()))
                         temporalEdges.add(temporalEdge);

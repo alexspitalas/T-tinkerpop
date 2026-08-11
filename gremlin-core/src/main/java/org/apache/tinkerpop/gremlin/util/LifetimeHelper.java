@@ -35,10 +35,20 @@ public final class LifetimeHelper {
     }
 
     /**
-     * Returns {@code true} if the element's lifetime intersects with the given window (inclusive).
+     * Returns {@code true} if the element is alive during the given window (inclusive).
+     * Edges are alive only when both incident vertices are also alive during the window.
      */
     public static boolean isAliveDuring(final Element element, final Lifetime window) {
-        return intersects(Lifetime.fromProperties(element), window);
+        if (!intersects(Lifetime.fromProperties(element), window))
+            return false;
+
+        if (element instanceof Edge) {
+            final Edge edge = (Edge) element;
+            return isAliveDuring(edge.outVertex(), window)
+                    && isAliveDuring(edge.inVertex(), window);
+        }
+
+        return true;
     }
 
     /**
@@ -67,25 +77,4 @@ public final class LifetimeHelper {
         return !previous.getEndDate().after(current.getStartDate());
     }
 
-    /**
-     * Returns {@code true} if the element is visible in a temporal graph view.
-     * Edges are visible only when the edge and both incident vertices are visible
-     * in the same temporal scope.
-     */
-    public static boolean isVisibleDuring(final Element element, final Lifetime window) {
-        if (!isAliveDuring(element, window))
-            return false;
-
-        if (element instanceof Edge) {
-            final Edge edge = (Edge) element;
-            return isAliveDuring(edge.outVertex(), window)
-                    && isAliveDuring(edge.inVertex(), window);
-        }
-
-        return true;
-    }
-
-    public static boolean isVisibleAt(final Element element, final Date instant) {
-        return isVisibleDuring(element, Lifetime.from(instant, instant));
-    }
 }

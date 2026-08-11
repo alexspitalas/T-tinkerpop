@@ -51,14 +51,9 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
 
     private final Vertex base;
     private final Lifetime lifetime;
-    private final boolean filterAdjacentElementsForNavigation;
 
     public TemporalVertex(final Vertex base, final Date instant) {
         this(base, Lifetime.from(instant, instant));
-    }
-
-    public TemporalVertex(final Vertex base, final Date instant, final boolean filterAdjacentElementsForNavigation) {
-        this(base, Lifetime.from(instant, instant), filterAdjacentElementsForNavigation);
     }
 
     public TemporalVertex(final Vertex base, final Date startInstant, final Date endInstant) {
@@ -66,13 +61,8 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
     }
 
     public TemporalVertex(final Vertex base, final Lifetime lifetime) {
-        this(base, lifetime, true);
-    }
-
-    public TemporalVertex(final Vertex base, final Lifetime lifetime, final boolean filterAdjacentElementsForNavigation) {
         this.base    = base;
         this.lifetime = lifetime;
-        this.filterAdjacentElementsForNavigation = filterAdjacentElementsForNavigation;
     }
 
     // ── WrappedVertex ────────────────────────────────────────────────────
@@ -94,10 +84,6 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
         return lifetime.getEndDate();
     }
 
-    public boolean filtersAdjacentElementsForNavigation() {
-        return filterAdjacentElementsForNavigation;
-    }
-
     // ── Graph Navigation (the critical overrides) ─────────────────────────
 
     /**
@@ -110,9 +96,7 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
         return IteratorUtils.map(
             IteratorUtils.filter(
                 base.edges(direction, edgeLabels),
-                edge -> filterAdjacentElementsForNavigation ?
-                        LifetimeHelper.isVisibleDuring(edge, lifetime) :
-                        LifetimeHelper.isAliveDuring(edge, lifetime)
+                edge -> LifetimeHelper.isAliveDuring(edge, lifetime)
             ),
             edge -> (Edge) new TemporalEdge(edge, lifetime)
         );
@@ -132,9 +116,6 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
                     return Collections.emptyIterator();
 
                 final Vertex neighbour = neighbourVertex(edge, direction);
-                if (filterAdjacentElementsForNavigation && !LifetimeHelper.isAliveDuring(neighbour, lifetime))
-                    return Collections.emptyIterator();
-
                 return IteratorUtils.of(new TemporalVertex(neighbour, lifetime));
             }
         );

@@ -18,7 +18,6 @@
  */
 package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 
-import org.apache.tinkerpop.gremlin.process.computer.util.ComputerGraph;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Edge;
@@ -67,10 +66,8 @@ public final class WindowStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
-        final boolean graphComputerTraversal = ((Element) current).graph() instanceof ComputerGraph;
-
         // Drop elements whose lifetime does not intersect this window.
-        if (!LifetimeHelper.isVisibleDuring((Element) current, window))
+        if (!LifetimeHelper.isAliveDuring((Element) current, window))
             return false;
 
         // Wrap passing elements so subsequent navigation respects the window.
@@ -86,12 +83,11 @@ public final class WindowStep<S> extends FilterStep<S> {
         } else if (current instanceof Vertex) {
             if (!(current instanceof TemporalVertex)
                     || !window.getStartDate().equals(((TemporalVertex) current).getStartInstant())
-                    || !window.getEndDate().equals(((TemporalVertex) current).getEndInstant())
-                    || graphComputerTraversal == ((TemporalVertex) current).filtersAdjacentElementsForNavigation()) {
+                    || !window.getEndDate().equals(((TemporalVertex) current).getEndInstant())) {
                 final Vertex base = (current instanceof TemporalVertex)
                         ? ((TemporalVertex) current).getBaseVertex()
                         : (Vertex) current;
-                traverser.set((S) new TemporalVertex(base, window, !graphComputerTraversal));
+                traverser.set((S) new TemporalVertex(base, window));
             }
         } else if (current instanceof Edge) {
             if (!(current instanceof TemporalEdge)
