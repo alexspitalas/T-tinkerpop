@@ -23,6 +23,7 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
@@ -72,10 +73,54 @@ public class LifetimeHelperTest {
         assertTrue(LifetimeHelper.isAliveDuring(edge, Lifetime.from(10L, 20L)));
     }
 
+    @Test
+    public void shouldRejectWrappedEdgeWithDeadUnderlyingOutVertex() {
+        final Edge baseEdge = edgeWithLifetime(10L, 20L,
+                elementWithLifetime(0L, 9L), elementWithLifetime(10L, 20L));
+        final Edge wrappedEdge = wrappedEdgeWithLifetime(baseEdge, 10L, 20L,
+                elementWithLifetime(10L, 20L), elementWithLifetime(10L, 20L));
+
+        assertFalse(LifetimeHelper.isAliveDuring(wrappedEdge, Lifetime.from(10L, 20L)));
+    }
+
+    @Test
+    public void shouldRejectNestedWrappedEdgeWithDeadUnderlyingInVertex() {
+        final Edge baseEdge = edgeWithLifetime(10L, 20L,
+                elementWithLifetime(10L, 20L), elementWithLifetime(21L, 30L));
+        final Edge innerWrappedEdge = wrappedEdgeWithLifetime(baseEdge, 10L, 20L,
+                elementWithLifetime(10L, 20L), elementWithLifetime(10L, 20L));
+        final Edge outerWrappedEdge = wrappedEdgeWithLifetime(innerWrappedEdge, 10L, 20L,
+                elementWithLifetime(10L, 20L), elementWithLifetime(10L, 20L));
+
+        assertFalse(LifetimeHelper.isAliveDuring(outerWrappedEdge, Lifetime.from(10L, 20L)));
+    }
+
+    @Test
+    public void shouldAcceptNestedWrappedEdgeWhenEdgeAndUnderlyingEndpointsOverlap() {
+        final Edge baseEdge = edgeWithLifetime(10L, 20L,
+                elementWithLifetime(0L, 10L), elementWithLifetime(20L, 30L));
+        final Edge innerWrappedEdge = wrappedEdgeWithLifetime(baseEdge, 10L, 20L,
+                elementWithLifetime(21L, 30L), elementWithLifetime(0L, 9L));
+        final Edge outerWrappedEdge = wrappedEdgeWithLifetime(innerWrappedEdge, 10L, 20L,
+                elementWithLifetime(21L, 30L), elementWithLifetime(0L, 9L));
+
+        assertTrue(LifetimeHelper.isAliveDuring(outerWrappedEdge, Lifetime.from(10L, 20L)));
+    }
+
     private static Edge edgeWithLifetime(final Object start, final Object end,
                                          final Element outVertex, final Element inVertex) {
         final Edge edge = mock(Edge.class);
         setLifetimeProperties(edge, start, end);
+        when(edge.outVertex()).thenReturn((Vertex) outVertex);
+        when(edge.inVertex()).thenReturn((Vertex) inVertex);
+        return edge;
+    }
+
+    private static Edge wrappedEdgeWithLifetime(final Edge baseEdge, final Object start, final Object end,
+                                                final Element outVertex, final Element inVertex) {
+        final TestWrappedEdge edge = mock(TestWrappedEdge.class);
+        setLifetimeProperties(edge, start, end);
+        when(edge.getBaseEdge()).thenReturn(baseEdge);
         when(edge.outVertex()).thenReturn((Vertex) outVertex);
         when(edge.inVertex()).thenReturn((Vertex) inVertex);
         return edge;
@@ -107,5 +152,8 @@ public class LifetimeHelperTest {
         final VertexProperty<Object> property = mock(VertexProperty.class);
         when(property.orElse(null)).thenReturn(value);
         return property;
+    }
+
+    private interface TestWrappedEdge extends Edge, WrappedEdge<Edge> {
     }
 }

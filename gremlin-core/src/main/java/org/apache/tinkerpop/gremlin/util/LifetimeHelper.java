@@ -21,6 +21,7 @@ package org.apache.tinkerpop.gremlin.util;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 
 import java.util.Date;
 import java.util.Optional;
@@ -43,7 +44,7 @@ public final class LifetimeHelper {
             return false;
 
         if (element instanceof Edge) {
-            final Edge edge = (Edge) element;
+            final Edge edge = unwrapEdge((Edge) element);
             return isAliveDuring(edge.outVertex(), window)
                     && isAliveDuring(edge.inVertex(), window);
         }
@@ -75,6 +76,17 @@ public final class LifetimeHelper {
      */
     public static boolean isSequential(final Lifetime previous, final Lifetime current) {
         return !previous.getEndDate().after(current.getStartDate());
+    }
+
+    private static Edge unwrapEdge(final Edge edge) {
+        Edge current = edge;
+        while (current instanceof WrappedEdge) {
+            final Object baseEdge = ((WrappedEdge<?>) current).getBaseEdge();
+            if (!(baseEdge instanceof Edge) || baseEdge == current)
+                return current;
+            current = (Edge) baseEdge;
+        }
+        return current;
     }
 
 }
