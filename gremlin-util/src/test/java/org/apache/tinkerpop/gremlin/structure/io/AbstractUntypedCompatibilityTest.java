@@ -23,6 +23,7 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.apache.tinkerpop.gremlin.util.message.RequestMessage;
 import org.apache.tinkerpop.gremlin.util.message.ResponseMessage;
@@ -343,25 +344,25 @@ public abstract class AbstractUntypedCompatibilityTest extends AbstractCompatibi
         assertEquals(IteratorUtils.list(resource.values("location")).get(0), ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(0)).get("value"));
         assertEquals(IteratorUtils.list(resource.values("location")).get(1), ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(1)).get("value"));
         assertEquals(IteratorUtils.list(resource.values("location")).get(2), ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(2)).get("value"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value("startTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(0)).get("properties")).get("startTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value("endTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(0)).get("properties")).get("endTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value("startTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(1)).get("properties")).get("startTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value("endTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(1)).get("properties")).get("endTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value("startTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(2)).get("properties")).get("startTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value("endTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(2)).get("properties")).get("endTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(3)).value("startTime"), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(3)).get("properties")).get("startTime"));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(0)).get("properties")).get(Lifetime.START_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value(Lifetime.END_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(0)).get("properties")).get(Lifetime.END_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(1)).get("properties")).get(Lifetime.START_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value(Lifetime.END_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(1)).get("properties")).get(Lifetime.END_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(2)).get("properties")).get(Lifetime.START_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value(Lifetime.END_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(2)).get("properties")).get(Lifetime.END_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(3)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) fromStatic.get("properties")).get("location")).get(3)).get("properties")).get(Lifetime.START_TIME));
         assertEquals(IteratorUtils.count(resource.keys()), ((Map) recycled.get("properties")).size());
         assertEquals(resource.value("name"), ((Map) ((List) ((Map) recycled.get("properties")).get("name")).get(0)).get("value"));
         assertEquals(IteratorUtils.list(resource.values("location")).get(0), ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(0)).get("value"));
         assertEquals(IteratorUtils.list(resource.values("location")).get(1), ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(1)).get("value"));
         assertEquals(IteratorUtils.list(resource.values("location")).get(2), ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(2)).get("value"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value("startTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(0)).get("properties")).get("startTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value("endTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(0)).get("properties")).get("endTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value("startTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(1)).get("properties")).get("startTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value("endTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(1)).get("properties")).get("endTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value("startTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(2)).get("properties")).get("startTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value("endTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(2)).get("properties")).get("endTime"));
-        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(3)).value("startTime"), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(3)).get("properties")).get("startTime"));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(0)).get("properties")).get(Lifetime.START_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(0)).value(Lifetime.END_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(0)).get("properties")).get(Lifetime.END_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(1)).get("properties")).get(Lifetime.START_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(1)).value(Lifetime.END_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(1)).get("properties")).get(Lifetime.END_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(2)).get("properties")).get(Lifetime.START_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(2)).value(Lifetime.END_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(2)).get("properties")).get(Lifetime.END_TIME));
+        assertEquals(((VertexProperty) IteratorUtils.list(resource.properties("location")).get(3)).value(Lifetime.START_TIME), ((Map) ((Map) ((List) ((Map) recycled.get("properties")).get("location")).get(3)).get("properties")).get(Lifetime.START_TIME));
 
         // deal with incompatibilities
         if (getCompatibility().equals("v1") || getCompatibility().equals("v3")) {

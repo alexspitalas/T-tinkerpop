@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.GraphManager;
 import org.apache.tinkerpop.gremlin.structure.Graph.Features.EdgePropertyFeatures;
 import org.apache.tinkerpop.gremlin.structure.Graph.Features.PropertyFeatures;
 import org.apache.tinkerpop.gremlin.structure.Graph.Features.VertexPropertyFeatures;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -184,9 +185,9 @@ public class PropertyTest {
         @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
         public void shouldAllowNullAddVertexProperty() throws Exception {
             final Vertex v = this.graph.addVertex("person");
-            final VertexProperty vp = v.property("location", "santa fe", "startTime", 1995, "endTime", null);
-            assertEquals(1995, (int) vp.value("startTime"));
-            assertNull(vp.value("endTime"));
+            final VertexProperty vp = v.property("location", "santa fe", Lifetime.START_TIME, 1995, Lifetime.END_TIME, null);
+            assertEquals(1995, (int) vp.value(Lifetime.START_TIME));
+            assertNull(vp.value(Lifetime.END_TIME));
         }
 
         @Test
@@ -195,9 +196,9 @@ public class PropertyTest {
         @FeatureRequirement(featureClass = Graph.Features.VertexFeatures.class, feature = Graph.Features.VertexFeatures.FEATURE_META_PROPERTIES)
         public void shouldNotAllowNullAddVertexProperty() throws Exception {
             final Vertex v = this.graph.addVertex("person");
-            final VertexProperty vp = v.property("location", "santa fe", "startTime", 1995, "endTime", null);
-            assertEquals(1995, (int) vp.value("startTime"));
-            assertThat(vp.properties("endTime").hasNext(), is(false));
+            final VertexProperty vp = v.property("location", "santa fe", Lifetime.START_TIME, 1995, Lifetime.END_TIME, null);
+            assertEquals(1995, (int) vp.value(Lifetime.START_TIME));
+            assertThat(vp.properties(Lifetime.END_TIME).hasNext(), is(false));
         }
     }
 

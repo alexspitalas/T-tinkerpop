@@ -36,7 +36,7 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
-import org.apache.tinkerpop.gremlin.process.traversal.util.AllenStep;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.util.Collection;
 import java.util.Date;
@@ -1432,6 +1432,13 @@ public class __ {
      */
     public static <A extends Element> GraphTraversal<A, Date> getEndTime() {
         return __.<A>start().getEndTime();
+    }
+
+    /**
+     * @see GraphTraversal#getLifetime()
+     */
+    public static <A extends Element> GraphTraversal<A, Lifetime> getLifetime() {
+        return __.<A>start().getLifetime();
     }
 
     /**

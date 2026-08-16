@@ -17,221 +17,259 @@
  * under the License.
  */
 
- package org.apache.tinkerpop.gremlin.process.traversal.step.map;
+package org.apache.tinkerpop.gremlin.process.traversal.step.map;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetStartTimeStep;
-import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetEndTimeStep;
-import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
+import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
 
 import org.apache.tinkerpop.gremlin.structure.Vertex;
-import org.apache.tinkerpop.gremlin.structure.VertexProperty;        
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Date;
+import java.util.Objects;
+import java.util.Set;
 
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
-    private Object startTime; // Can be date-like Object or Traversal
-    private Object endTime;   // Can be date-like Object or Traversal
+    private Lifetime lifetime;
+    private Traversal.Admin<S, ?> lifetimeTraversal;
+    private Object startTime;
+    private Object endTime;
+    private Traversal.Admin<S, ?> startTimeTraversal;
+    private Traversal.Admin<S, ?> endTimeTraversal;
+    private boolean useTemporalParameters;
     private final String propertyKey;
     private final String propertyValue;
-    public static final String DEFAULT_ENDTIME = LifetimeHelper.DEFAULT_ENDTIME;
 
-    public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime, final String propertyKey, final String propertyValue) {
+    @SuppressWarnings("unchecked")
+    public LifetimeStep(final Traversal.Admin traversal, final Object lifetime,
+            final String propertyKey, final String propertyValue) {
         super(traversal);
-        
-        // Validate startTime is not null
-        if (startTime == null) {
-            throw new IllegalArgumentException("Start time cannot be null");
+
+        if (lifetime instanceof Lifetime) {
+            this.lifetime = (Lifetime) lifetime;
+        } else if (lifetime instanceof Traversal) {
+            this.lifetimeTraversal = this.integrateChild(((Traversal<S, ?>) lifetime).asAdmin());
+        } else {
+            throw new IllegalArgumentException("Unsupported lifetime parameter type: " +
+                    (lifetime == null ? "null" : lifetime.getClass().getName()));
         }
-        
-        this.startTime = startTime;
-        this.endTime = (endTime == null) ? DEFAULT_ENDTIME : endTime;
+
         this.propertyKey = propertyKey;
         this.propertyValue = propertyValue;
-        
-        // Traversal-backed parameters are validated when they are evaluated for a traverser.
-        if (!(startTime instanceof Traversal) && !(this.endTime instanceof Traversal)) {
-            validateTimeParameters(startTime, this.endTime);
-        }
     }
 
-    private void validateTimeParameters(final Object startTime, final Object endTime) {
-        if (startTime == null) {
-            throw new IllegalArgumentException("Start time cannot be null or empty");
+    @SuppressWarnings("unchecked")
+    public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
+            final String propertyKey, final String propertyValue) {
+        super(traversal);
+
+        this.useTemporalParameters = true;
+
+        if (startTime instanceof Traversal) {
+            this.startTimeTraversal = this.integrateChild(((Traversal<S, ?>) startTime).asAdmin());
+        } else {
+            this.startTime = startTime;
         }
-        
-        final Date startDate = LifetimeHelper.toStartDate(startTime);
-        final Date endDate = LifetimeHelper.toEndDate(endTime);
-        validateTimeParameters(startTime, endTime, startDate, endDate);
+
+        if (endTime instanceof Traversal) {
+            this.endTimeTraversal = this.integrateChild(((Traversal<S, ?>) endTime).asAdmin());
+        } else {
+            this.endTime = endTime;
+        }
+
+        this.propertyKey = propertyKey;
+        this.propertyValue = propertyValue;
     }
 
-    private void validateTimeParameters(final Object startTime, final Object endTime, final Date startDate, final Date endDate) {
-        
-        if (!startDate.before(endDate)) {
-            throw new IllegalArgumentException("Start time (" + startTime + ") must be before end time (" + endTime + ")");
-        }
-    }
-    
     @Override
     public int hashCode() {
-        if (this.propertyKey == null) {
-            return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode();
-        }
-        return super.hashCode() ^ this.startTime.hashCode() ^ this.endTime.hashCode() ^ this.propertyKey.hashCode();
+        return Objects.hash(super.hashCode(), this.lifetime, this.lifetimeTraversal, this.useTemporalParameters,
+                this.startTime, this.endTime,
+                this.startTimeTraversal, this.endTimeTraversal, this.propertyKey, this.propertyValue);
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (!(obj instanceof LifetimeStep)) return false;
-        if (!super.equals(obj)) return false;
-        
+        if (this == obj)
+            return true;
+        if (!(obj instanceof LifetimeStep))
+            return false;
+        if (!super.equals(obj))
+            return false;
+
         LifetimeStep<?> that = (LifetimeStep<?>) obj;
-        
-        if (!startTime.equals(that.startTime)) return false;
-        if (!endTime.equals(that.endTime)) return false;
-        if (propertyKey != null ? !propertyKey.equals(that.propertyKey) : that.propertyKey != null) return false;
+
+        if (!Objects.equals(lifetime, that.lifetime))
+            return false;
+        if (!Objects.equals(lifetimeTraversal, that.lifetimeTraversal))
+            return false;
+        if (useTemporalParameters != that.useTemporalParameters)
+            return false;
+        if (!Objects.equals(startTime, that.startTime))
+            return false;
+        if (!Objects.equals(endTime, that.endTime))
+            return false;
+        if (!Objects.equals(startTimeTraversal, that.startTimeTraversal))
+            return false;
+        if (!Objects.equals(endTimeTraversal, that.endTimeTraversal))
+            return false;
+        if (propertyKey != null ? !propertyKey.equals(that.propertyKey) : that.propertyKey != null)
+            return false;
         return propertyValue != null ? propertyValue.equals(that.propertyValue) : that.propertyValue == null;
     }
 
     @Override
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
-      final Traverser.Admin<S> traverser = this.starts.next();
-        
-      // Evaluate traversal parameters at runtime
-      Object actualStartTime = evaluateTimeParameter(this.startTime, traverser);
-      Object actualEndTime = evaluateTimeParameter(this.endTime, traverser);
-      final Date actualStartDate = LifetimeHelper.toStartDate(actualStartTime);
-      final Date actualEndDate = LifetimeHelper.toEndDate(actualEndTime);
-      validateTimeParameters(actualStartTime, actualEndTime, actualStartDate, actualEndDate);
-        
-      if( traverser.get() instanceof Vertex){
-        final Vertex vertex = (Vertex) traverser.get();
+        final Traverser.Admin<S> traverser = this.starts.next();
 
-        if (this.propertyKey != null && this.propertyValue != null){
-            vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue, "startTime", actualStartDate , "endTime", actualEndDate);
-        }else if (this.propertyKey != null){
-            
-          // Step 1: Store Previous metaProperties 
-          VertexProperty<Object> vp = vertex.property(propertyKey); 
-          Object propertyValue = vp.value();
-          Map<String, Object> metaProperties = new HashMap<>();
-          vp.properties().forEachRemaining(metaProp -> metaProperties.put(metaProp.key(), metaProp.value()));
+        // Evaluate traversal parameters at runtime
+        final Lifetime actualLifetime = resolveLifetime(traverser);
 
-          // Step 2: Delete the property
-          vertex.property(this.propertyKey).remove();
+        if (traverser.get() instanceof Vertex) {
+            final Vertex vertex = (Vertex) traverser.get();
 
-          // Step 3: Recreate with extra meta-property
-          metaProperties.put("startTime", actualStartDate);
-          metaProperties.put("endTime", actualEndDate); // Add new meta-property
-          List<Object> args = new ArrayList<>();
-          metaProperties.forEach((key, value) -> {
-              args.add(key);
-              args.add(value);
-          });
-          vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue, args.toArray(new Object[0]));
-          }else{
-            vertex.property("startTime", actualStartDate);
-            vertex.property("endTime", actualEndDate);
-          }
-      } else if (traverser.get() instanceof Edge) {
-          final Edge edge = (Edge) traverser.get();
-          
-          // For edges, validate that both vertices exist during the edge's lifetime
-          if (validateEdgeLifetime(edge, actualStartDate, actualEndDate)) {
-              edge.property("startTime", actualStartDate);
-              edge.property("endTime", actualEndDate);
-          } else {
-              // If validation fails, throw an error
-              throw new IllegalArgumentException("Cannot create edge with lifetime [" + actualStartTime + ", " + actualEndTime + 
-                  "] because one or both vertices do not exist during this time period.");
-          }
-      }
+            if (this.propertyKey != null && this.propertyValue != null) {
+                vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue,
+                        actualLifetime.toProperties());
+            } else if (this.propertyKey != null) {
 
-      return traverser;
+                // Step 1: Store Previous metaProperties
+                VertexProperty<Object> vp = vertex.property(propertyKey);
+                Object propertyValue = vp.value();
+                Map<String, Object> metaProperties = new HashMap<>();
+                vp.properties().forEachRemaining(metaProp -> metaProperties.put(metaProp.key(), metaProp.value()));
+
+                // Step 2: Delete the property
+                vertex.property(this.propertyKey).remove();
+
+                // Step 3: Recreate with extra meta-property
+                metaProperties.putAll(actualLifetime.toPropertyMap());
+                List<Object> args = new ArrayList<>();
+                metaProperties.forEach((key, value) -> {
+                    args.add(key);
+                    args.add(value);
+                });
+                vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue,
+                        args.toArray(new Object[0]));
+            } else {
+                actualLifetime.attachTo(vertex);
+            }
+        } else if (traverser.get() instanceof Edge) {
+            final Edge edge = (Edge) traverser.get();
+
+            // For edges, validate that both vertices exist for the edge's full lifetime.
+            if (validateEdgeLifetime(edge, actualLifetime)) {
+                actualLifetime.attachTo(edge);
+            } else {
+                // If validation fails, throw an error
+                throw new IllegalArgumentException(
+                        "Cannot create edge with lifetime [" + actualLifetime.getStartDate() + ", " + actualLifetime.getEndDate() +
+                                "] because one or both vertices do not exist during this time period.");
+            }
+        }
+
+        return traverser;
     }
-    
 
-    private boolean validateEdgeLifetime(Edge edge, Date edgeStartTime, Date edgeEndTime) {
+    private boolean validateEdgeLifetime(Edge edge, Lifetime edgeLifetime) {
         Vertex inVertex = edge.inVertex();
         Vertex outVertex = edge.outVertex();
-        
-        // Check if both vertices have lifetime properties
-        if (!hasLifetimeProperty(inVertex) || !hasLifetimeProperty(outVertex)) {
-            // If vertices don't have lifetime properties, assume they exist for all time
+
+        return containsEdgeLifetime(inVertex, edgeLifetime) &&
+                containsEdgeLifetime(outVertex, edgeLifetime);
+    }
+
+    private boolean containsEdgeLifetime(final Vertex vertex, final Lifetime edgeLifetime) {
+        if (!Lifetime.hasLifetimeProperties(vertex))
             return true;
-        }
-        
-        // Get vertex lifetimes
-        Date inVertexStartTime = LifetimeHelper.getStartDateProperty(inVertex);
-        Date inVertexEndTime = LifetimeHelper.getEndDateProperty(inVertex);
-        Date outVertexStartTime = LifetimeHelper.getStartDateProperty(outVertex);
-        Date outVertexEndTime = LifetimeHelper.getEndDateProperty(outVertex);
-        
-        // Check if edge lifetime overlaps with both vertex lifetimes
-        return timeRangesOverlap(edgeStartTime, edgeEndTime, inVertexStartTime, inVertexEndTime) &&
-               timeRangesOverlap(edgeStartTime, edgeEndTime, outVertexStartTime, outVertexEndTime);
-    }
-    
 
-    private boolean hasLifetimeProperty(Vertex vertex) {
-        return vertex.property("startTime").isPresent() && vertex.property("endTime").isPresent();
-    }
-    
-    private boolean timeRangesOverlap(Date start1, Date end1, Date start2, Date end2) {
-        // Check if the ranges overlap: start1 <= end2 AND start2 <= end1
-        return !start1.after(end2) && !start2.after(end1);
+        final Lifetime vertexLifetime = Lifetime.fromProperties(vertex);
+        return vertexLifetime.contains(edgeLifetime);
     }
 
-    private Object evaluateTimeParameter(Object timeParam, Traverser.Admin<S> traverser) {
-        if (timeParam instanceof Traversal) {
-            @SuppressWarnings("unchecked")
-            Traversal<?, Object> traversal = (Traversal<?, Object>) timeParam;
-            
-            Traversal.Admin<?, Object> adminTraversal = traversal.asAdmin();
-            
-            if (adminTraversal.getSteps().size() > 0) {
-                Object step = adminTraversal.getSteps().get(0);
-                if (step instanceof GetStartTimeStep) {
-                    if (traverser.get() instanceof Element) {
-                        Element element = (Element) traverser.get();
-                        final Date startDate = LifetimeHelper.getStartDateProperty(element);
-                        if (startDate == null) {
-                            throw new IllegalArgumentException("Cannot use getStartTime() when the element does not have a startTime property. Please provide an explicit startTime value.");
-                        }
-                        return startDate;
-                    }
-                } else if (step instanceof GetEndTimeStep) {
-                    if (traverser.get() instanceof Element) {
-                        Element element = (Element) traverser.get();
-                        if (!element.property("endTime").isPresent()) {
-                            throw new IllegalArgumentException("Cannot use getEndTime() when the element does not have an endTime property. Please provide an explicit endTime value.");
-                        }
-                        return LifetimeHelper.getEndDateProperty(element);
-                    }
-                }
-            }
-            
-            // For other traversals, throw an error
-            throw new IllegalArgumentException("Unsupported traversal type for time parameter. Only getStartTime() and getEndTime() are supported.");
-        }
-        return timeParam;
-    }
-    
-    public Object getStartTime() {
-        return startTime;
+    private Lifetime resolveLifetime(final Traverser.Admin<S> traverser) {
+        if (null != this.lifetime)
+            return this.lifetime;
+
+        if (this.useTemporalParameters)
+            return resolveTemporalParameters(traverser);
+
+        final Object value = TraversalUtil.apply(traverser, this.lifetimeTraversal);
+        if (!(value instanceof Lifetime))
+            throw new IllegalArgumentException("The lifetime traversal must produce a Lifetime, but produced " +
+                    (value == null ? "null" : value.getClass().getName()));
+
+        return (Lifetime) value;
     }
 
-    public Object getEndTime() {
-        return endTime;
+    private Lifetime resolveTemporalParameters(final Traverser.Admin<S> traverser) {
+        final Object resolvedStartTime = null == this.startTimeTraversal ?
+                this.startTime :
+                TraversalUtil.apply(traverser, this.startTimeTraversal);
+        final Object resolvedEndTime = null == this.endTimeTraversal ?
+                this.endTime :
+                TraversalUtil.apply(traverser, this.endTimeTraversal);
+
+        return Lifetime.from(resolvedStartTime, resolvedEndTime);
     }
-} 
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <S, E> List<Traversal.Admin<S, E>> getLocalChildren() {
+        final List<Traversal.Admin<S, E>> children = new ArrayList<>();
+
+        if (null != this.lifetimeTraversal)
+            children.add((Traversal.Admin<S, E>) this.lifetimeTraversal);
+        if (null != this.startTimeTraversal)
+            children.add((Traversal.Admin<S, E>) this.startTimeTraversal);
+        if (null != this.endTimeTraversal)
+            children.add((Traversal.Admin<S, E>) this.endTimeTraversal);
+
+        return children;
+    }
+
+    @Override
+    public Set<TraverserRequirement> getRequirements() {
+        return this.getSelfAndChildRequirements(TraverserRequirement.OBJECT);
+    }
+
+    @Override
+    public void setTraversal(final Traversal.Admin<?, ?> parentTraversal) {
+        super.setTraversal(parentTraversal);
+        if (null != this.lifetimeTraversal)
+            this.integrateChild(this.lifetimeTraversal);
+        if (null != this.startTimeTraversal)
+            this.integrateChild(this.startTimeTraversal);
+        if (null != this.endTimeTraversal)
+            this.integrateChild(this.endTimeTraversal);
+    }
+
+    @Override
+    public LifetimeStep<S> clone() {
+        final LifetimeStep<S> clone = (LifetimeStep<S>) super.clone();
+        if (null != this.lifetimeTraversal)
+            clone.lifetimeTraversal = this.lifetimeTraversal.clone();
+        if (null != this.startTimeTraversal)
+            clone.startTimeTraversal = this.startTimeTraversal.clone();
+        if (null != this.endTimeTraversal)
+            clone.endTimeTraversal = this.endTimeTraversal.clone();
+        return clone;
+    }
+
+    public Lifetime getLifetime() {
+        return this.lifetime;
+    }
+
+    public Traversal.Admin<S, ?> getLifetimeTraversal() {
+        return this.lifetimeTraversal;
+    }
+}

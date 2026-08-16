@@ -44,6 +44,7 @@ import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONWriter;
 import org.apache.tinkerpop.gremlin.structure.io.graphson.LegacyGraphSONReader;
 import org.apache.tinkerpop.gremlin.structure.io.graphson.TypeInfo;
 import org.apache.tinkerpop.gremlin.structure.io.util.CustomId;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.apache.tinkerpop.shaded.jackson.databind.JsonNode;
 import org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper;
@@ -914,19 +915,19 @@ public class IoTest {
         assertEquals(4, (int) IteratorUtils.count(v1.properties("location")));
         v1.properties("location").forEachRemaining(vp -> {
             if (vp.value().equals("san diego")) {
-                assertEquals(1997, (int) vp.value("startTime"));
-                assertEquals(2001, (int) vp.value("endTime"));
+                assertEquals(1997, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2001, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("santa cruz")) {
-                assertEquals(2001, (int) vp.value("startTime"));
-                assertEquals(2004, (int) vp.value("endTime"));
+                assertEquals(2001, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2004, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("brussels")) {
-                assertEquals(2004, (int) vp.value("startTime"));
-                assertEquals(2005, (int) vp.value("endTime"));
+                assertEquals(2004, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2005, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("santa fe")) {
-                assertEquals(2005, (int) vp.value("startTime"));
+                assertEquals(2005, (int) vp.value(Lifetime.START_TIME));
                 assertEquals(1, (int) IteratorUtils.count(vp.properties()));
             } else {
                 fail("Found a value that should be there");
@@ -964,15 +965,15 @@ public class IoTest {
         assertEquals(3, (int) IteratorUtils.count(v7.properties("location")));
         v7.properties("location").forEachRemaining(vp -> {
             if (vp.value().equals("centreville")) {
-                assertEquals(1990, (int) vp.value("startTime"));
-                assertEquals(2000, (int) vp.value("endTime"));
+                assertEquals(1990, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2000, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("dulles")) {
-                assertEquals(2000, (int) vp.value("startTime"));
-                assertEquals(2006, (int) vp.value("endTime"));
+                assertEquals(2000, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2006, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("purcellville")) {
-                assertEquals(2006, (int) vp.value("startTime"));
+                assertEquals(2006, (int) vp.value(Lifetime.START_TIME));
                 assertEquals(1, (int) IteratorUtils.count(vp.properties()));
             } else {
                 fail("Found a value that should be there");
@@ -1010,19 +1011,19 @@ public class IoTest {
         assertEquals(4, (int) IteratorUtils.count(v8.properties("location")));
         v8.properties("location").forEachRemaining(vp -> {
             if (vp.value().equals("bremen")) {
-                assertEquals(2004, (int) vp.value("startTime"));
-                assertEquals(2007, (int) vp.value("endTime"));
+                assertEquals(2004, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2007, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("baltimore")) {
-                assertEquals(2007, (int) vp.value("startTime"));
-                assertEquals(2011, (int) vp.value("endTime"));
+                assertEquals(2007, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2011, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("oakland")) {
-                assertEquals(2011, (int) vp.value("startTime"));
-                assertEquals(2014, (int) vp.value("endTime"));
+                assertEquals(2011, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2014, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("seattle")) {
-                assertEquals(2014, (int) vp.value("startTime"));
+                assertEquals(2014, (int) vp.value(Lifetime.START_TIME));
                 assertEquals(1, (int) IteratorUtils.count(vp.properties()));
             } else {
                 fail("Found a value that should be there");
@@ -1056,15 +1057,15 @@ public class IoTest {
         assertEquals(3, (int) IteratorUtils.count(v9.properties("location")));
         v9.properties("location").forEachRemaining(vp -> {
             if (vp.value().equals("spremberg")) {
-                assertEquals(1982, (int) vp.value("startTime"));
-                assertEquals(2005, (int) vp.value("endTime"));
+                assertEquals(1982, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2005, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("kaiserslautern")) {
-                assertEquals(2005, (int) vp.value("startTime"));
-                assertEquals(2009, (int) vp.value("endTime"));
+                assertEquals(2005, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2009, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("aachen")) {
-                assertEquals(2009, (int) vp.value("startTime"));
+                assertEquals(2009, (int) vp.value(Lifetime.START_TIME));
                 assertEquals(1, (int) IteratorUtils.count(vp.properties()));
             } else {
                 fail("Found a value that should be there");

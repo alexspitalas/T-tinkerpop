@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyProperty;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -52,15 +53,17 @@ public class TemporalPathFilterLogicTest {
         Property<Object> startProp = Mockito.mock(Property.class);
         when(startProp.isPresent()).thenReturn(true);
         when(startProp.value()).thenReturn(start);
-        when(edge.property("startTime")).thenReturn(startProp);
+        when(startProp.orElse(null)).thenReturn(start);
+        when(edge.property(Lifetime.START_TIME)).thenReturn(startProp);
 
         if (end != null) {
             Property<Object> endProp = Mockito.mock(Property.class);
             when(endProp.isPresent()).thenReturn(true);
             when(endProp.value()).thenReturn(end);
-            when(edge.property("endTime")).thenReturn(endProp);
+            when(endProp.orElse(null)).thenReturn(end);
+            when(edge.property(Lifetime.END_TIME)).thenReturn(endProp);
         } else {
-            when(edge.property("endTime")).thenReturn(EmptyProperty.instance());
+            when(edge.property(Lifetime.END_TIME)).thenReturn(EmptyProperty.instance());
         }
         
         return edge;

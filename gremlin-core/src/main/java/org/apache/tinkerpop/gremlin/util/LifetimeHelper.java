@@ -18,139 +18,75 @@
  */
 package org.apache.tinkerpop.gremlin.util;
 
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 
-import java.time.Instant;
 import java.util.Date;
+import java.util.Optional;
 
 public final class LifetimeHelper {
-
-    public static final String DEFAULT_ENDTIME = "1e10";
 
     private LifetimeHelper() {
     }
 
-    public static Date getStartDateProperty(final Element element) {
-        final Object value = getPropertyValue(element, "startTime");
-        return null == value ? null : toStartDate(value);
-    }
-
-    public static Date getEndDateProperty(final Element element) {
-        return toEndDate(getPropertyValue(element, "endTime"));
-    }
-
-    public static Date toStartDate(final Object value) {
-        if (null == value)
-            throw new IllegalArgumentException("Start time cannot be null");
-
-        return toDate(value, "Start time");
-    }
-
-    public static Date toEndDate(final Object value) {
-        if (null == value)
-            return new Date(Long.MAX_VALUE);
-
-        if (value instanceof String && DEFAULT_ENDTIME.equals(((String) value).trim()))
-            return new Date(Long.MAX_VALUE);
-
-        return toDate(value, "End time");
-    }
-
-    /**
-     * Converts a temporal instant value to a {@link Date} for use with {@code atTime}.
-     * Accepts the same types as {@link #toStartDate}: {@link Date}, {@link java.time.Instant},
-     * {@link Number} (epoch millis), or {@link String} (ISO-8601 / parseable date string).
-     *
-     * @throws IllegalArgumentException if the value is null or of an unsupported type
-     */
-    public static Date toTemporalDate(final Object value) {
-        if (null == value)
-            throw new IllegalArgumentException("Temporal instant cannot be null");
-        return toDate(value, "Temporal instant");
-    }
-
-    /**
-     * Returns {@code true} if the element is alive at the given instant.
-     *
-     * <ul>
-     *   <li>If {@code startTime} is absent, the element is treated as always alive
-     *       (open-world assumption).</li>
-     *   <li>If {@code endTime} is absent, it defaults to {@link Long#MAX_VALUE}
-     *       (the element is still active).</li>
-     * </ul>
-     */
-    public static boolean isAliveAt(final Element element, final Date instant) {
-        final Date start = getStartDateProperty(element);
-        final Date end = getEndDateProperty(element);
-        
-        if (start != null && start.after(instant)) return false;
-        return !end.before(instant);
-    }
-
-    /**
-     * Convenience overload that converts the instant before checking.
-     *
-     * @throws IllegalArgumentException if instant is null or of an unsupported type
-     */
     public static boolean isAliveAt(final Element element, final Object instant) {
-        return isAliveAt(element, toTemporalDate(instant));
+        return isAliveDuring(element, Lifetime.from(instant, instant));
     }
 
     /**
-     * Returns {@code true} if the element's lifetime intersects with the given window (inclusive).
+     * Returns {@code true} if the element is alive during the given window (inclusive).
+     * Edges are alive only when both incident vertices are also alive during the window.
      */
-    public static boolean isAliveDuring(final Element element, final Date windowStart, final Date windowEnd) {
-        if (windowEnd == null)
-            return isAliveAt(element, windowStart);
+    public static boolean isAliveDuring(final Element element, final Lifetime window) {
+        if (!intersects(Lifetime.fromProperties(element), window))
+            return false;
 
-        final Date start = getStartDateProperty(element);
-        final Date end = getEndDateProperty(element);
-        
-        // elementStart <= windowEnd AND elementEnd >= windowStart
-        if (start != null && start.after(windowEnd)) return false;
-        return !end.before(windowStart);
+        if (element instanceof Edge) {
+            final Edge edge = unwrapEdge((Edge) element);
+            return isAliveDuring(edge.outVertex(), window)
+                    && isAliveDuring(edge.inVertex(), window);
+        }
+
+        return true;
     }
 
     /**
-     * Convenience overload that converts the bounds before checking.
+     * Returns {@code true} if the lifetimes intersect inclusively. A single shared point is an intersection.
      */
-    public static boolean isAliveDuring(final Element element, final Object windowStart, final Object windowEnd) {
-        return isAliveDuring(element, toTemporalDate(windowStart), windowEnd == null ? null : toTemporalDate(windowEnd));
+    public static boolean intersects(final Lifetime left, final Lifetime right) {
+        return !left.getStartDate().after(right.getEndDate()) && !left.getEndDate().before(right.getStartDate());
     }
 
-    private static Date toDate(final Object value, final String label) {
-        if (value instanceof Date)
-            return (Date) value;
+    /**
+     * Returns the inclusive intersection of two lifetimes, or {@link Optional#empty()} when they are disjoint.
+     */
+    public static Optional<Lifetime> intersection(final Lifetime left, final Lifetime right) {
+        if (!intersects(left, right))
+            return Optional.empty();
 
-        if (value instanceof Instant)
-            return Date.from((Instant) value);
+        final Date start = left.getStartDate().after(right.getStartDate()) ? left.getStartDate() : right.getStartDate();
+        final Date end = left.getEndDate().before(right.getEndDate()) ? left.getEndDate() : right.getEndDate();
+        return Optional.of(Lifetime.from(start, end));
+    }
 
-        if (value instanceof Number)
-            return new Date(((Number) value).longValue());
+    /**
+     * Returns {@code true} when {@code previous} ends before or exactly when {@code current} starts.
+     */
+    public static boolean isSequential(final Lifetime previous, final Lifetime current) {
+        return !previous.getEndDate().after(current.getStartDate());
+    }
 
-        if (value instanceof String) {
-            final String dateString = ((String) value).trim();
-            if (dateString.isEmpty())
-                throw new IllegalArgumentException(label + " cannot be empty");
-
-            try {
-                return DatetimeHelper.parse(dateString);
-            } catch (final RuntimeException e) {
-                throw new IllegalArgumentException(label + " '" + value + "' is not a valid temporal value", e);
-            }
+    private static Edge unwrapEdge(final Edge edge) {
+        Edge current = edge;
+        while (current instanceof WrappedEdge) {
+            final Object baseEdge = ((WrappedEdge<?>) current).getBaseEdge();
+            if (!(baseEdge instanceof Edge) || baseEdge == current)
+                return current;
+            current = (Edge) baseEdge;
         }
-
-        throw new IllegalArgumentException(label + " value of type " + value.getClass().getName() +
-                " is not a supported temporal value. Supported types are Date, Instant, Number, and String.");
+        return current;
     }
 
-    private static Object getPropertyValue(final Element element, final String key) {
-        try {
-            final Property<Object> property = element.property(key);
-            return property.isPresent() ? property.value() : null;
-        } catch (final RuntimeException e) {
-            return null;
-        }
-    }
 }

@@ -47,17 +47,24 @@ import java.util.Iterator;
 public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
 
     private final Edge base;
-    private final Date startInstant;
-    private final Date endInstant;
+    private final Lifetime lifetime;
+
+    public TemporalEdge(final Edge base) {
+        this(base, Lifetime.fromProperties(base));
+    }
 
     public TemporalEdge(final Edge base, final Date instant) {
-        this(base, instant, null);
+        this(base, instant, instant);
     }
 
     public TemporalEdge(final Edge base, final Date startInstant, final Date endInstant) {
         this.base    = base;
-        this.startInstant = startInstant;
-        this.endInstant = endInstant;
+        this.lifetime = Lifetime.from(startInstant, endInstant);
+    }
+
+    public TemporalEdge(final Edge base, final Lifetime lifetime) {
+        this.base    = base;
+        this.lifetime = lifetime;
     }
 
     // ── WrappedEdge ───────────────────────────────────────────────────────
@@ -68,15 +75,19 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
     }
 
     public Date getInstant() {
-        return startInstant;
+        return lifetime.getStartDate();
     }
 
     public Date getStartInstant() {
-        return startInstant;
+        return lifetime.getStartDate();
     }
 
     public Date getEndInstant() {
-        return endInstant;
+        return lifetime.getEndDate();
+    }
+
+    public Lifetime getLifetime() {
+        return lifetime;
     }
 
     // ── Graph Navigation ──────────────────────────────────────────────────
@@ -87,7 +98,7 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
      */
     @Override
     public Vertex inVertex() {
-        return new TemporalVertex(base.inVertex(), startInstant, endInstant);
+        return new TemporalVertex(base.inVertex(), lifetime);
     }
 
     /**
@@ -95,7 +106,7 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
      */
     @Override
     public Vertex outVertex() {
-        return new TemporalVertex(base.outVertex(), startInstant, endInstant);
+        return new TemporalVertex(base.outVertex(), lifetime);
     }
 
     /**
@@ -106,8 +117,8 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
     public Iterator<Vertex> vertices(final Direction direction) {
         return IteratorUtils.filter(
             IteratorUtils.map(base.vertices(direction),
-                v -> (Vertex) new TemporalVertex(v, startInstant, endInstant)),
-            v -> LifetimeHelper.isAliveDuring(((TemporalVertex) v).getBaseVertex(), startInstant, endInstant)
+                v -> (Vertex) new TemporalVertex(v, lifetime)),
+            v -> LifetimeHelper.isAliveDuring(((TemporalVertex) v).getBaseVertex(), lifetime)
         );
     }
 
@@ -118,7 +129,6 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
      * do not carry independent temporal metadata in this model. Delegated unchanged.
      */
     @Override
-    @SuppressWarnings("unchecked")
     public <V> Iterator<Property<V>> properties(final String... propertyKeys) {
         return base.properties(propertyKeys);
     }
@@ -145,8 +155,7 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
 
     @Override
     public String toString() {
-        if (endInstant == null) return "temporal[" + base.toString() + "@" + startInstant + "]";
-        return "temporal[" + base.toString() + "@(" + startInstant + "," + endInstant + ")]";
+        return "temporal[" + base.toString() + "@" + lifetime + "]";
     }
 
     @Override

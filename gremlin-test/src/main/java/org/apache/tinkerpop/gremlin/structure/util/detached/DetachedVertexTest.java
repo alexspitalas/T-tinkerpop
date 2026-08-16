@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.Attachable;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
@@ -124,19 +125,19 @@ public class DetachedVertexTest extends AbstractGremlinTest {
         v1.properties("location").forEachRemaining(vp -> {
             assertTrue(vp instanceof DetachedVertexProperty);
             if (vp.value().equals("san diego")) {
-                assertEquals(1997, (int) vp.value("startTime"));
-                assertEquals(2001, (int) vp.value("endTime"));
+                assertEquals(1997, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2001, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("santa cruz")) {
-                assertEquals(2001, (int) vp.value("startTime"));
-                assertEquals(2004, (int) vp.value("endTime"));
+                assertEquals(2001, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2004, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("brussels")) {
-                assertEquals(2004, (int) vp.value("startTime"));
-                assertEquals(2005, (int) vp.value("endTime"));
+                assertEquals(2004, (int) vp.value(Lifetime.START_TIME));
+                assertEquals(2005, (int) vp.value(Lifetime.END_TIME));
                 assertEquals(2, (int) IteratorUtils.count(vp.properties()));
             } else if (vp.value().equals("santa fe")) {
-                assertEquals(2005, (int) vp.value("startTime"));
+                assertEquals(2005, (int) vp.value(Lifetime.START_TIME));
                 assertEquals(1, (int) IteratorUtils.count(vp.properties()));
             } else {
                 fail("Found a value that should be there");

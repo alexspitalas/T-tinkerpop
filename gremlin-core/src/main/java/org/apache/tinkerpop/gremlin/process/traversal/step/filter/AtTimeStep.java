@@ -29,6 +29,7 @@ import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.util.Date;
 import java.util.Objects;
@@ -56,7 +57,7 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         super(traversal);
         if (null == instant)
             throw new IllegalArgumentException("Temporal instant cannot be null");
-        this.instant = LifetimeHelper.toTemporalDate(instant);
+        this.instant = Lifetime.toTemporalDate(instant);
     }
 
     @Override
@@ -67,7 +68,6 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
-
         // Drop elements not alive at this instant.
         if (!LifetimeHelper.isAliveAt((Element) current, instant))
             return false;
