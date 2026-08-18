@@ -29,6 +29,7 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -106,7 +107,7 @@ public abstract class DropTest extends AbstractGremlinTest {
         final Traversal<Vertex, ? extends Property<Object>> traversal = get_g_V_properties_propertiesXstartTimeX_drop();
         printTraversalForm(traversal);
         assertFalse(traversal.hasNext());
-        g.V().forEachRemaining(vertex -> assertEquals(0, IteratorUtils.count(IteratorUtils.flatMap(vertex.properties("location"), vp -> vp.properties("startTime")))));
+        g.V().forEachRemaining(vertex -> assertEquals(0, IteratorUtils.count(IteratorUtils.flatMap(vertex.properties("location"), vp -> vp.properties(Lifetime.START_TIME)))));
     }
 
 
@@ -134,7 +135,7 @@ public abstract class DropTest extends AbstractGremlinTest {
 
         @Override
         public Traversal<Vertex, ? extends Property<Object>> get_g_V_properties_propertiesXstartTimeX_drop() {
-            return g.V().properties().properties("startTime").drop();
+            return g.V().properties().properties(Lifetime.START_TIME).drop();
         }
     }
 }

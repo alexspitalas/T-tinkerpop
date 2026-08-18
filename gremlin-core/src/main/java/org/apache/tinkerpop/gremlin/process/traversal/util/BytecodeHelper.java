@@ -59,6 +59,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.filter.RangeGlobalSte
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.SampleGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TailGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TemporalPathFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TimeLimitStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TraversalFilterStep;
@@ -102,6 +104,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.LambdaMapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LengthLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetLifetimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetStartTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetEndTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LoopsStep;
@@ -307,6 +310,9 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.lifetimeProperty, Collections.singletonList(LifetimeStep.class));
             put(GraphTraversal.Symbols.getStartTime, Collections.singletonList(GetStartTimeStep.class));
             put(GraphTraversal.Symbols.getEndTime, Collections.singletonList(GetEndTimeStep.class));
+            put(GraphTraversal.Symbols.getLifetime, Collections.singletonList(GetLifetimeStep.class));
+            put(GraphTraversal.Symbols.atTime, Collections.singletonList(AtTimeStep.class));
+            put(GraphTraversal.Symbols.window, Collections.singletonList(WindowStep.class));
             put(GraphTraversal.Symbols.continuousPath, Arrays.asList(VertexStep.class, TemporalPathFilterStep.class, EdgeVertexStep.class));
             put(GraphTraversal.Symbols.sequentialPath, Arrays.asList(VertexStep.class, TemporalPathFilterStep.class, EdgeVertexStep.class));
             put(GraphTraversal.Symbols.pairwiseContinuousPath, Arrays.asList(VertexStep.class, TemporalPathFilterStep.class, EdgeVertexStep.class));

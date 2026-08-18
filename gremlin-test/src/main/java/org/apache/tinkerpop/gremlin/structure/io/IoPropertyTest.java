@@ -30,6 +30,7 @@ import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion;
 import org.apache.tinkerpop.gremlin.structure.io.graphson.TypeInfo;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoIo;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -99,7 +100,7 @@ public class IoPropertyTest extends AbstractGremlinTest {
             final GraphWriter writer = writerMaker.apply(graph);
 
             // select any vertexproperty that has both start/end time
-            final VertexProperty p = (VertexProperty) g.V(convertToVertexId("marko")).properties("location").as("p").has("endTime").select("p").next();
+            final VertexProperty p = (VertexProperty) g.V(convertToVertexId("marko")).properties("location").as("p").has(Lifetime.END_TIME).select("p").next();
             writer.writeVertexProperty(os, p);
 
             final AtomicBoolean called = new AtomicBoolean(false);
@@ -109,8 +110,8 @@ public class IoPropertyTest extends AbstractGremlinTest {
                     assertEquals(p.value(), propertyAttachable.get().value());
                     assertEquals(p.key(), propertyAttachable.get().key());
                     assertEquals(IteratorUtils.count(p.properties()), IteratorUtils.count(propertyAttachable.get().properties()));
-                    assertEquals(p.property("startTime").value(), ((Property) propertyAttachable.get().properties("startTime").next()).value());
-                    assertEquals(p.property("endTime").value(), ((Property) propertyAttachable.get().properties("endTime").next()).value());
+                    assertEquals(p.property(Lifetime.START_TIME).value(), ((Property) propertyAttachable.get().properties(Lifetime.START_TIME).next()).value());
+                    assertEquals(p.property(Lifetime.END_TIME).value(), ((Property) propertyAttachable.get().properties(Lifetime.END_TIME).next()).value());
                     called.set(true);
                     return propertyAttachable.get();
                 });

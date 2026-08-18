@@ -18,6 +18,7 @@
  */
 package org.apache.tinkerpop.gremlin.process.traversal.dsl.graph;
 
+
 import org.apache.tinkerpop.gremlin.process.computer.VertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.clustering.connected.ConnectedComponentVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ConnectedComponentVertexProgramStep;
@@ -107,6 +108,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.ElementStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FoldStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FormatStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetEndTimeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetLifetimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GetStartTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GroupCountStep;
@@ -196,7 +198,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.WithOptions;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
-import org.apache.tinkerpop.gremlin.process.traversal.util.AllenStep;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalMetrics;
 import org.apache.tinkerpop.gremlin.structure.Column;
@@ -209,6 +210,7 @@ import org.apache.tinkerpop.gremlin.structure.PropertyType;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.function.ConstantSupplier;
 
 import java.util.ArrayList;
@@ -3233,7 +3235,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
       this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
       return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
     }
-    
+
     public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final String endTime)
     {
       if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
@@ -3261,7 +3263,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
       this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
       return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
     }
-    
+
     public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Traversal<?, String> startTime, final String endTime)
     {
       if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
@@ -3349,6 +3351,51 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new GetEndTimeStep<>(this.asAdmin()));
     }
 
+    /**
+     * Map the {@link Element} to its lifetime property values.
+     *
+     * @return the traversal with an appended {@link GetLifetimeStep}.
+     * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#getlifetime-step" target="_blank">Reference Documentation - GetLifetime Step</a>
+     * @since 3.0.0-incubating
+     */
+    public default GraphTraversal<S, Lifetime> getLifetime() {
+        this.asAdmin().getBytecode().addStep(Symbols.getLifetime);
+        return this.asAdmin().addStep(new GetLifetimeStep<>(this.asAdmin()));
+    }
+
+    /**
+     * Filters elements so that only those alive at the given temporal instant remain
+     * in the traversal, and wraps passing elements so all subsequent graph navigation
+     * ({@code out()}, {@code in()}, {@code has()}, {@code values()}, etc.) is
+     * automatically restricted to the same snapshot.
+     *
+     * <p>Supported instant types: {@link java.util.Date}, {@link java.time.Instant},
+     * {@link Number} (epoch milliseconds), or {@link String} (ISO-8601).</p>
+     *
+     * @param instant the snapshot point in time
+     * @return the traversal with an appended {@link org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep}
+     */
+    public default GraphTraversal<S, E> atTime(final Object instant) {
+        if (null == instant) throw new IllegalArgumentException("Temporal instant cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.atTime, instant);
+        return this.asAdmin().addStep(new org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep<>(this.asAdmin(), instant));
+    }
+
+    /**
+     * Filters the traversal to elements whose lifetime intersects the given temporal window.
+     * All subsequent element navigation (vertices, edges, properties) will automatically
+     * remain within this temporal window.
+     *
+     * @param start the start of the temporal window
+     * @param end the end of the temporal window
+     * @return the traversal with an appended {@link org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep}
+     */
+    public default GraphTraversal<S, E> window(final Object start, final Object end) {
+        if (null == start || null == end) throw new IllegalArgumentException("Temporal window bounds cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.window, start, end);
+        return this.asAdmin().addStep(new org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep<>(this.asAdmin(), Lifetime.from(start, end)));
+    }
+
 
     // =============================================================================
     // ALLEN TEMPORAL RELATIONSHIP METHODS
@@ -3362,7 +3409,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalBefore(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalBefore, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.BEFORE, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.BEFORE, referenceElement));
     }
 
     /**
@@ -3374,7 +3422,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalAfter(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalAfter, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.AFTER, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.AFTER, referenceElement));
     }
 
     /**
@@ -3386,7 +3435,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalMeets(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMeets, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.MEETS, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.MEETS, referenceElement));
     }
 
     /**
@@ -3398,7 +3448,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalMetBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMetBy, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.MET_BY, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.MET_BY, referenceElement));
     }
 
     /**
@@ -3410,7 +3461,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalOverlaps(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlaps, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.OVERLAPS, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.OVERLAPS, referenceElement));
     }
 
     /**
@@ -3422,7 +3474,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalOverlappedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlappedBy, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.OVERLAPPED_BY, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.OVERLAPPED_BY, referenceElement));
     }
 
     /**
@@ -3434,7 +3487,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalStarts(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStarts, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.STARTS, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.STARTS, referenceElement));
     }
 
     /**
@@ -3446,7 +3500,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalStartedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStartedBy, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.STARTED_BY, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.STARTED_BY, referenceElement));
     }
 
     /**
@@ -3458,7 +3513,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalFinishes(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishes, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.FINISHES, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.FINISHES, referenceElement));
     }
 
     /**
@@ -3470,7 +3526,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalFinishedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishedBy, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.FINISHED_BY, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.FINISHED_BY, referenceElement));
     }
 
     /**
@@ -3482,7 +3539,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalDuring(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalDuring, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.DURING, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.DURING, referenceElement));
     }
 
     /**
@@ -3494,7 +3552,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalContains(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalContains, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.CONTAINS, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.CONTAINS, referenceElement));
     }
 
     /**
@@ -3506,7 +3565,8 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      */
     public default GraphTraversal<S, E> temporalEquals(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalEquals, referenceElement);
-        return AllenStep.applyTemporalFilter(this, AllenStep.AllenRelation.EQUALS, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.EQUALS, referenceElement));
     }
 
     
@@ -4515,6 +4575,9 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String lifetimeProperty = "lifetimeProperty";
         public static final String getStartTime = "getStartTime";
         public static final String getEndTime = "getEndTime";
+        public static final String getLifetime = "getLifetime";
+        public static final String atTime = "atTime";
+        public static final String window = "window";
 
         public static final String temporalAfter = "temporalAfter";
         public static final String temporalBefore = "temporalBefore";

@@ -18,77 +18,75 @@
  */
 package org.apache.tinkerpop.gremlin.util;
 
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
-import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 
-import java.time.Instant;
 import java.util.Date;
+import java.util.Optional;
 
 public final class LifetimeHelper {
-
-    public static final String DEFAULT_ENDTIME = "1e10";
 
     private LifetimeHelper() {
     }
 
-    public static Date getStartDateProperty(final Element element) {
-        final Object value = getPropertyValue(element, "startTime");
-        return null == value ? null : toStartDate(value);
+    public static boolean isAliveAt(final Element element, final Object instant) {
+        return isAliveDuring(element, Lifetime.from(instant, instant));
     }
 
-    public static Date getEndDateProperty(final Element element) {
-        return toEndDate(getPropertyValue(element, "endTime"));
-    }
+    /**
+     * Returns {@code true} if the element is alive during the given window (inclusive).
+     * Edges are alive only when both incident vertices are also alive during the window.
+     */
+    public static boolean isAliveDuring(final Element element, final Lifetime window) {
+        if (!intersects(Lifetime.fromProperties(element), window))
+            return false;
 
-    public static Date toStartDate(final Object value) {
-        if (null == value)
-            throw new IllegalArgumentException("Start time cannot be null");
-
-        return toDate(value, "Start time");
-    }
-
-    public static Date toEndDate(final Object value) {
-        if (null == value)
-            return new Date(Long.MAX_VALUE);
-
-        if (value instanceof String && DEFAULT_ENDTIME.equals(((String) value).trim()))
-            return new Date(Long.MAX_VALUE);
-
-        return toDate(value, "End time");
-    }
-
-    private static Date toDate(final Object value, final String label) {
-        if (value instanceof Date)
-            return (Date) value;
-
-        if (value instanceof Instant)
-            return Date.from((Instant) value);
-
-        if (value instanceof Number)
-            return new Date(((Number) value).longValue());
-
-        if (value instanceof String) {
-            final String dateString = ((String) value).trim();
-            if (dateString.isEmpty())
-                throw new IllegalArgumentException(label + " cannot be empty");
-
-            try {
-                return DatetimeHelper.parse(dateString);
-            } catch (final RuntimeException e) {
-                throw new IllegalArgumentException(label + " '" + value + "' is not a valid temporal value", e);
-            }
+        if (element instanceof Edge) {
+            final Edge edge = unwrapEdge((Edge) element);
+            return isAliveDuring(edge.outVertex(), window)
+                    && isAliveDuring(edge.inVertex(), window);
         }
 
-        throw new IllegalArgumentException(label + " value of type " + value.getClass().getName() +
-                " is not a supported temporal value. Supported types are Date, Instant, Number, and String.");
+        return true;
     }
 
-    private static Object getPropertyValue(final Element element, final String key) {
-        try {
-            final Property<Object> property = element.property(key);
-            return property.isPresent() ? property.value() : null;
-        } catch (final RuntimeException e) {
-            return null;
-        }
+    /**
+     * Returns {@code true} if the lifetimes intersect inclusively. A single shared point is an intersection.
+     */
+    public static boolean intersects(final Lifetime left, final Lifetime right) {
+        return !left.getStartDate().after(right.getEndDate()) && !left.getEndDate().before(right.getStartDate());
     }
+
+    /**
+     * Returns the inclusive intersection of two lifetimes, or {@link Optional#empty()} when they are disjoint.
+     */
+    public static Optional<Lifetime> intersection(final Lifetime left, final Lifetime right) {
+        if (!intersects(left, right))
+            return Optional.empty();
+
+        final Date start = left.getStartDate().after(right.getStartDate()) ? left.getStartDate() : right.getStartDate();
+        final Date end = left.getEndDate().before(right.getEndDate()) ? left.getEndDate() : right.getEndDate();
+        return Optional.of(Lifetime.from(start, end));
+    }
+
+    /**
+     * Returns {@code true} when {@code previous} ends before or exactly when {@code current} starts.
+     */
+    public static boolean isSequential(final Lifetime previous, final Lifetime current) {
+        return !previous.getEndDate().after(current.getStartDate());
+    }
+
+    private static Edge unwrapEdge(final Edge edge) {
+        Edge current = edge;
+        while (current instanceof WrappedEdge) {
+            final Object baseEdge = ((WrappedEdge<?>) current).getBaseEdge();
+            if (!(baseEdge instanceof Edge) || baseEdge == current)
+                return current;
+            current = (Edge) baseEdge;
+        }
+        return current;
+    }
+
 }

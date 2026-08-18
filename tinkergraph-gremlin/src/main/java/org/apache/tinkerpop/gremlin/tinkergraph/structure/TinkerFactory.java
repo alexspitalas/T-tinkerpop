@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSo
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.io.InputStream;
 
@@ -133,23 +134,23 @@ public final class TinkerFactory {
         final Vertex gremlin = g.addVertex(T.id, 10, T.label, "software", "name", "gremlin");
         final Vertex tinkergraph = g.addVertex(T.id, 11, T.label, "software", "name", "tinkergraph");
 
-        marko.property(VertexProperty.Cardinality.list, "location", "san diego", "startTime", 1997, "endTime", 2001);
-        marko.property(VertexProperty.Cardinality.list, "location", "santa cruz", "startTime", 2001, "endTime", 2004);
-        marko.property(VertexProperty.Cardinality.list, "location", "brussels", "startTime", 2004, "endTime", 2005);
-        marko.property(VertexProperty.Cardinality.list, "location", "santa fe", "startTime", 2005);
+        marko.property(VertexProperty.Cardinality.list, "location", "san diego", Lifetime.START_TIME, 1997, Lifetime.END_TIME, 2001);
+        marko.property(VertexProperty.Cardinality.list, "location", "santa cruz", Lifetime.START_TIME, 2001, Lifetime.END_TIME, 2004);
+        marko.property(VertexProperty.Cardinality.list, "location", "brussels", Lifetime.START_TIME, 2004, Lifetime.END_TIME, 2005);
+        marko.property(VertexProperty.Cardinality.list, "location", "santa fe", Lifetime.START_TIME, 2005);
 
-        stephen.property(VertexProperty.Cardinality.list, "location", "centreville", "startTime", 1990, "endTime", 2000);
-        stephen.property(VertexProperty.Cardinality.list, "location", "dulles", "startTime", 2000, "endTime", 2006);
-        stephen.property(VertexProperty.Cardinality.list, "location", "purcellville", "startTime", 2006);
+        stephen.property(VertexProperty.Cardinality.list, "location", "centreville", Lifetime.START_TIME, 1990, Lifetime.END_TIME, 2000);
+        stephen.property(VertexProperty.Cardinality.list, "location", "dulles", Lifetime.START_TIME, 2000, Lifetime.END_TIME, 2006);
+        stephen.property(VertexProperty.Cardinality.list, "location", "purcellville", Lifetime.START_TIME, 2006);
 
-        matthias.property(VertexProperty.Cardinality.list, "location", "bremen", "startTime", 2004, "endTime", 2007);
-        matthias.property(VertexProperty.Cardinality.list, "location", "baltimore", "startTime", 2007, "endTime", 2011);
-        matthias.property(VertexProperty.Cardinality.list, "location", "oakland", "startTime", 2011, "endTime", 2014);
-        matthias.property(VertexProperty.Cardinality.list, "location", "seattle", "startTime", 2014);
+        matthias.property(VertexProperty.Cardinality.list, "location", "bremen", Lifetime.START_TIME, 2004, Lifetime.END_TIME, 2007);
+        matthias.property(VertexProperty.Cardinality.list, "location", "baltimore", Lifetime.START_TIME, 2007, Lifetime.END_TIME, 2011);
+        matthias.property(VertexProperty.Cardinality.list, "location", "oakland", Lifetime.START_TIME, 2011, Lifetime.END_TIME, 2014);
+        matthias.property(VertexProperty.Cardinality.list, "location", "seattle", Lifetime.START_TIME, 2014);
 
-        daniel.property(VertexProperty.Cardinality.list, "location", "spremberg", "startTime", 1982, "endTime", 2005);
-        daniel.property(VertexProperty.Cardinality.list, "location", "kaiserslautern", "startTime", 2005, "endTime", 2009);
-        daniel.property(VertexProperty.Cardinality.list, "location", "aachen", "startTime", 2009);
+        daniel.property(VertexProperty.Cardinality.list, "location", "spremberg", Lifetime.START_TIME, 1982, Lifetime.END_TIME, 2005);
+        daniel.property(VertexProperty.Cardinality.list, "location", "kaiserslautern", Lifetime.START_TIME, 2005, Lifetime.END_TIME, 2009);
+        daniel.property(VertexProperty.Cardinality.list, "location", "aachen", Lifetime.START_TIME, 2009);
 
         marko.addEdge("develops", gremlin, T.id, 13, "since", 2009);
         marko.addEdge("develops", tinkergraph, T.id, 14, "since", 2010);

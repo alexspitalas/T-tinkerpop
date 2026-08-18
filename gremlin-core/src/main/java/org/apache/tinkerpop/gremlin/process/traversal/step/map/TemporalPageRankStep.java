@@ -27,20 +27,21 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.util.Parameters;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
 import org.apache.tinkerpop.gremlin.process.traversal.util.FastNoSuchElementException;
+import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
-import org.apache.tinkerpop.gremlin.structure.Graph;
-import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertex;
 import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,16 +57,12 @@ import java.util.Set;
 public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements Configuring {
 
     private static final String TEMPORAL_PAGE_RANK = "gremlin.temporalPageRank.pageRank";
-    private static final String DEFAULT_START_TIME_PROPERTY = "startTime";
-    private static final String DEFAULT_END_TIME_PROPERTY = "endTime";
 
     private Parameters parameters = new Parameters();
     private TraverserSet<S> barrier;
     private boolean computed = false;
     private double alpha = TemporalPageRankAlgorithm.DEFAULT_ALPHA;
     private double beta = TemporalPageRankAlgorithm.DEFAULT_BETA;
-    private String startTimeProperty = DEFAULT_START_TIME_PROPERTY;
-    private String endTimeProperty = DEFAULT_END_TIME_PROPERTY;
     private String propertyName = TEMPORAL_PAGE_RANK;
     private boolean normalize = TemporalPageRankAlgorithm.DEFAULT_NORMALIZE;
 
@@ -84,14 +81,6 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
             if (!(keyValues[1] instanceof Number))
                 throw new IllegalArgumentException("TemporalPageRank.beta requires a Number as its argument");
             this.beta = ((Number) keyValues[1]).doubleValue();
-        } else if (keyValues[0].equals(TemporalPageRank.startTimeProperty)) {
-            if (!(keyValues[1] instanceof String))
-                throw new IllegalArgumentException("TemporalPageRank.startTimeProperty requires a String as its argument");
-            this.startTimeProperty = (String) keyValues[1];
-        } else if (keyValues[0].equals(TemporalPageRank.endTimeProperty)) {
-            if (!(keyValues[1] instanceof String))
-                throw new IllegalArgumentException("TemporalPageRank.endTimeProperty requires a String as its argument");
-            this.endTimeProperty = (String) keyValues[1];
         } else if (keyValues[0].equals(TemporalPageRank.propertyName)) {
             if (!(keyValues[1] instanceof String))
                 throw new IllegalArgumentException("TemporalPageRank.propertyName requires a String as its argument");
@@ -122,13 +111,14 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
 
     private void processAllStarts() {
         computed = true;
-        final Set<Object> scopedVertexIds = new HashSet<>();
+        final Map<Object, Vertex> scopedVertices = new LinkedHashMap<>();
 
         while (this.starts.hasNext()) {
             final Traverser.Admin<S> traverser = this.starts.next();
             if (!(traverser.get() instanceof Vertex))
                 throw new IllegalArgumentException("temporalPageRank() can only be applied to vertex traversers");
-            scopedVertexIds.add(((Vertex) traverser.get()).id());
+            final Vertex vertex = (Vertex) traverser.get();
+            scopedVertices.putIfAbsent(vertex.id(), baseVertex(vertex));
             traverser.setStepId(this.getNextStep().getId());
             this.barrier.add(traverser);
         }
@@ -137,92 +127,51 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
             return;
 
         validateConfiguration();
-        final Graph graph = this.getTraversal().getGraph().orElseThrow(
-                () -> new IllegalStateException("temporalPageRank() requires a traversal with an attached graph"));
-        final List<TemporalPageRankAlgorithm.TemporalEdge> edges =
-                readTemporalEdges(graph, scopedVertexIds, startTimeProperty, endTimeProperty);
+        final List<TemporalEdge> edges = readTemporalEdges(scopedVertices);
 
         final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(edges, alpha, beta, normalize);
-        writeRanks(graph, scopedVertexIds, propertyName, ranks);
+        writeRanks(scopedVertices.values(), propertyName, ranks);
     }
 
     private void validateConfiguration() {
-        if (null == startTimeProperty || startTimeProperty.trim().isEmpty())
-            throw new IllegalArgumentException("Temporal PageRank startTimeProperty must be a non-empty String");
-        if (null == endTimeProperty || endTimeProperty.trim().isEmpty())
-            throw new IllegalArgumentException("Temporal PageRank endTimeProperty must be a non-empty String");
         if (null == propertyName || propertyName.trim().isEmpty())
             throw new IllegalArgumentException("Temporal PageRank propertyName must be a non-empty String");
     }
 
-    private List<TemporalPageRankAlgorithm.TemporalEdge> readTemporalEdges(final Graph graph,
-                                                                           final Set<Object> scopedVertexIds,
-                                                                           final String startTimeProperty,
-                                                                           final String endTimeProperty) {
-        final List<TemporalPageRankAlgorithm.TemporalEdge> temporalEdges = new ArrayList<>();
-        final Iterator<Edge> edges = graph.edges();
+    private List<TemporalEdge> readTemporalEdges(final Map<Object, Vertex> scopedVertices) {
+        final List<TemporalEdge> temporalEdges = new ArrayList<>();
+        final Set<Object> scopedVertexIds = new HashSet<>(scopedVertices.keySet());
 
-        try {
-            while (edges.hasNext()) {
-                final Edge edge = edges.next();
-                if (scopedVertexIds.contains(edge.outVertex().id()) && scopedVertexIds.contains(edge.inVertex().id()))
-                    temporalEdges.add(toTemporalEdge(edge, startTimeProperty, endTimeProperty));
+        for (final Vertex vertex : scopedVertices.values()) {
+            final Iterator<Edge> edges = vertex.edges(Direction.OUT);
+            try {
+                while (edges.hasNext()) {
+                    final TemporalEdge temporalEdge = new TemporalEdge(edges.next());
+
+                    if (LifetimeHelper.isAliveDuring(temporalEdge.getBaseEdge(), temporalEdge.getLifetime()) &&
+                            scopedVertexIds.contains(temporalEdge.outVertex().id()) &&
+                            scopedVertexIds.contains(temporalEdge.inVertex().id()))
+                        temporalEdges.add(temporalEdge);
+                }
+            } finally {
+                CloseableIterator.closeIterator(edges);
             }
-        } finally {
-            CloseableIterator.closeIterator(edges);
         }
 
         return temporalEdges;
     }
 
-    private TemporalPageRankAlgorithm.TemporalEdge toTemporalEdge(final Edge edge, final String startTimeProperty,
-                                                                  final String endTimeProperty) {
-        final Property<Object> startTime = edge.property(startTimeProperty);
-        if (!startTime.isPresent())
-            throw new IllegalArgumentException("Temporal edge " + edge.id() +
-                    " is missing start time property '" + startTimeProperty + "'");
-
-        final Property<Object> endTime = edge.property(endTimeProperty);
-        if (!endTime.isPresent())
-            throw new IllegalArgumentException("Temporal edge " + edge.id() +
-                    " is missing end time property '" + endTimeProperty + "'");
-
-        return new TemporalPageRankAlgorithm.TemporalEdge(edge.outVertex().id(), edge.inVertex().id(), edge.id(),
-                toStartDate(edge, startTimeProperty, startTime.value()),
-                toEndDate(edge, endTimeProperty, endTime.value()));
+    private Vertex baseVertex(final Vertex vertex) {
+        if (vertex instanceof TemporalVertex)
+            return ((TemporalVertex) vertex).getBaseVertex();
+        return vertex;
     }
 
-    private Date toStartDate(final Edge edge, final String propertyName, final Object value) {
-        try {
-            return LifetimeHelper.toStartDate(value);
-        } catch (final IllegalArgumentException e) {
-            throw new IllegalArgumentException("Temporal edge " + edge.id() +
-                    " has an invalid '" + propertyName + "' value: " + value, e);
-        }
-    }
-
-    private Date toEndDate(final Edge edge, final String propertyName, final Object value) {
-        try {
-            return LifetimeHelper.toEndDate(value);
-        } catch (final IllegalArgumentException e) {
-            throw new IllegalArgumentException("Temporal edge " + edge.id() +
-                    " has an invalid '" + propertyName + "' value: " + value, e);
-        }
-    }
-
-    private void writeRanks(final Graph graph, final Set<Object> scopedVertexIds, final String propertyName,
+    private void writeRanks(final Iterable<Vertex> vertices, final String propertyName,
                             final Map<Object, Double> ranks) {
-        for (final Object vertexId : scopedVertexIds) {
-            final Iterator<Vertex> vertices = graph.vertices(vertexId);
-            try {
-                if (vertices.hasNext()) {
-                    final Vertex vertex = vertices.next();
-                    vertex.property(VertexProperty.Cardinality.single, propertyName,
-                            ranks.getOrDefault(vertex.id(), 0.0d));
-                }
-            } finally {
-                CloseableIterator.closeIterator(vertices);
-            }
+        for (final Vertex vertex : vertices) {
+            vertex.property(VertexProperty.Cardinality.single, propertyName,
+                    ranks.getOrDefault(vertex.id(), 0.0d));
         }
     }
 
@@ -250,13 +199,11 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     @Override
     public int hashCode() {
         return super.hashCode() ^ Double.hashCode(this.alpha) ^ Double.hashCode(this.beta) ^
-                this.startTimeProperty.hashCode() ^ this.endTimeProperty.hashCode() ^
                 this.propertyName.hashCode() ^ Boolean.hashCode(this.normalize);
     }
 
     @Override
     public String toString() {
-        return StringFactory.stepString(this, this.alpha, this.beta, this.startTimeProperty, this.endTimeProperty,
-                this.propertyName, this.normalize);
+        return StringFactory.stepString(this, this.alpha, this.beta, this.propertyName, this.normalize);
     }
 }

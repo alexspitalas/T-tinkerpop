@@ -18,6 +18,8 @@
  */
 package org.apache.tinkerpop.gremlin.process.ranking.pagerank;
 
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -55,7 +57,8 @@ public final class TemporalPageRankAlgorithm {
                                               final double alpha, final double beta, final boolean normalize) {
         validate(alpha, beta);
         final List<TemporalEdge> sortedTemporalEdges = new ArrayList<>(temporalEdges);
-        sortedTemporalEdges.sort(TemporalEdge.chronological());
+        sortedTemporalEdges.sort(Comparator.comparing(TemporalEdge::getStartInstant)
+                .thenComparing(edge -> String.valueOf(edge.id())));
 
         final Map<Object, Double> r = new LinkedHashMap<>();
         final Map<Object, Double> s = new LinkedHashMap<>();
@@ -63,9 +66,9 @@ public final class TemporalPageRankAlgorithm {
         final double injected = 1.0d - alpha;
 
         for (final TemporalEdge temporalEdge : sortedTemporalEdges) {
-            final Object u = temporalEdge.getOutVertexId();
-            final Object v = temporalEdge.getInVertexId();
-            releaseAvailableMass(pending, s, u, temporalEdge.startTime);
+            final Object u = temporalEdge.outVertex().id();
+            final Object v = temporalEdge.inVertex().id();
+            releaseAvailableMass(pending, s, u, temporalEdge.getStartInstant());
             r.putIfAbsent(u, 0.0d);
             r.putIfAbsent(v, 0.0d);
             s.putIfAbsent(u, 0.0d);
@@ -78,10 +81,10 @@ public final class TemporalPageRankAlgorithm {
             r.put(v, r.get(v) + activeSourceMass * alpha);
 
             if (Double.compare(beta, 1.0d) == 0) {
-                scheduleMass(pending, v, activeSourceMass * alpha, temporalEdge.endTime);
+                scheduleMass(pending, v, activeSourceMass * alpha, temporalEdge.getEndInstant());
                 s.put(u, 0.0d);
             } else {
-                scheduleMass(pending, v, activeSourceMass * (1.0d - beta) * alpha, temporalEdge.endTime);
+                scheduleMass(pending, v, activeSourceMass * (1.0d - beta) * alpha, temporalEdge.getEndInstant());
                 s.put(u, activeSourceMass * beta);
             }
         }
@@ -133,50 +136,4 @@ public final class TemporalPageRankAlgorithm {
         }
     }
 
-    public static final class TemporalEdge {
-        private static final Comparator<TemporalEdge> CHRONOLOGICAL =
-                Comparator.comparing(TemporalEdge::getStartTime)
-                        .thenComparing(edge -> String.valueOf(edge.getEdgeId()));
-
-        private final Object outVertexId;
-        private final Object inVertexId;
-        private final Object edgeId;
-        private final Date startTime;
-        private final Date endTime;
-
-        public TemporalEdge(final Object outVertexId, final Object inVertexId, final Object edgeId,
-                            final Date startTime, final Date endTime) {
-            this.outVertexId = Objects.requireNonNull(outVertexId, "outVertexId cannot be null");
-            this.inVertexId = Objects.requireNonNull(inVertexId, "inVertexId cannot be null");
-            this.edgeId = Objects.requireNonNull(edgeId, "edgeId cannot be null");
-            this.startTime = new Date(Objects.requireNonNull(startTime, "startTime cannot be null").getTime());
-            this.endTime = new Date(Objects.requireNonNull(endTime, "endTime cannot be null").getTime());
-            if (!this.startTime.before(this.endTime))
-                throw new IllegalArgumentException("Temporal edge startTime must be before endTime");
-        }
-
-        public Object getOutVertexId() {
-            return outVertexId;
-        }
-
-        public Object getInVertexId() {
-            return inVertexId;
-        }
-
-        public Object getEdgeId() {
-            return edgeId;
-        }
-
-        public Date getStartTime() {
-            return new Date(startTime.getTime());
-        }
-
-        public Date getEndTime() {
-            return new Date(endTime.getTime());
-        }
-
-        public static Comparator<TemporalEdge> chronological() {
-            return CHRONOLOGICAL;
-        }
-    }
 }

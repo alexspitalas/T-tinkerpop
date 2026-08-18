@@ -41,6 +41,7 @@ public final class Computer implements Function<Graph, GraphComputer>, Serializa
     private GraphComputer.ResultGraph resultGraph = null;
     private Traversal<Vertex, Vertex> vertices = null;
     private Traversal<Vertex, Edge> edges = null;
+    private Traversal<Vertex, ? extends org.apache.tinkerpop.gremlin.structure.Property<?>> vertexProperties = null;
 
     private Computer(final Class<? extends GraphComputer> graphComputerClass) {
         this.graphComputerClass = graphComputerClass;
@@ -107,6 +108,12 @@ public final class Computer implements Function<Graph, GraphComputer>, Serializa
         return clone;
     }
 
+    public Computer vertexProperties(final Traversal<Vertex, ? extends org.apache.tinkerpop.gremlin.structure.Property<?>> vertexPropertyFilter) {
+        final Computer clone = this.clone();
+        clone.vertexProperties = vertexPropertyFilter;
+        return clone;
+    }
+
     public GraphComputer apply(final Graph graph) {
         GraphComputer computer = this.graphComputerClass.equals(GraphComputer.class) ? graph.compute() : graph.compute(this.graphComputerClass);
         for (final Map.Entry<String, Object> entry : this.configuration.entrySet()) {
@@ -121,7 +128,9 @@ public final class Computer implements Function<Graph, GraphComputer>, Serializa
         if (null != this.vertices)
             computer = computer.vertices(this.vertices);
         if (null != this.edges)
-            computer.edges(this.edges);
+            computer = computer.edges(this.edges);
+        if (null != this.vertexProperties)
+            computer = computer.vertexProperties(this.vertexProperties);
         return computer;
     }
 
@@ -139,6 +148,8 @@ public final class Computer implements Function<Graph, GraphComputer>, Serializa
                 clone.vertices = this.vertices.asAdmin().clone();
             if (null != this.edges)
                 clone.edges = this.edges.asAdmin().clone();
+            if (null != this.vertexProperties)
+                clone.vertexProperties = this.vertexProperties.asAdmin().clone();
             return clone;
         } catch (final CloneNotSupportedException e) {
             throw new IllegalStateException(e.getMessage());
@@ -162,6 +173,10 @@ public final class Computer implements Function<Graph, GraphComputer>, Serializa
 
     public Traversal<Vertex, Edge> getEdges() {
         return this.edges;
+    }
+
+    public Traversal<Vertex, ? extends org.apache.tinkerpop.gremlin.structure.Property<?>> getVertexProperties() {
+        return this.vertexProperties;
     }
 
     public GraphComputer.Persist getPersist() {

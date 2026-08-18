@@ -25,6 +25,7 @@ package org.apache.tinkerpop.gremlin.tinkergraph.process.traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.junit.Before;
 import org.junit.Test;
@@ -78,10 +79,10 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "alice");
         
         // Add edges with overlapping time intervals
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:30:00");
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T12:00:00", "endTime", "2023-01-01T13:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T11:30:00", Lifetime.END_TIME, "2023-01-01T12:30:00");
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T12:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .continuousPath("follows")
@@ -122,10 +123,10 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "alice");
         
         // Add sequential edges WITH GAPS (but respecting causality)
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T11:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:15:00", "endTime", "2023-01-01T13:00:00");
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T13:00:00", "endTime", "2023-01-01T14:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T11:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:30:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:15:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T13:00:00", Lifetime.END_TIME, "2023-01-01T14:00:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .sequentialPath("follows")
@@ -166,11 +167,11 @@ public class TemporalPathIntegrationTest {
         Vertex vF = graph.addVertex("name", "bob");
         
         // Add edges where consecutive pairs overlap
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00");
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T13:30:00", "endTime", "2023-01-01T15:00:00");
-        vE.addEdge("follows", vF, "startTime", "2023-01-01T14:00:00", "endTime", "2023-01-01T16:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:30:00", Lifetime.END_TIME, "2023-01-01T14:00:00");
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T13:30:00", Lifetime.END_TIME, "2023-01-01T15:00:00");
+        vE.addEdge("follows", vF, Lifetime.START_TIME, "2023-01-01T14:00:00", Lifetime.END_TIME, "2023-01-01T16:00:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .pairwiseContinuousPath("follows")
@@ -212,10 +213,10 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "alice");
         
         // Add edges where 3rd edge breaks intersection
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00");  // Gap!
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T13:00:00", "endTime", "2023-01-01T15:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:30:00", Lifetime.END_TIME, "2023-01-01T14:00:00");  // Gap!
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T13:00:00", Lifetime.END_TIME, "2023-01-01T15:00:00");
         
         // Try continuous path (should fail to reach vE)
         List<Vertex> result = graph.traversal().V(vA)
@@ -256,10 +257,10 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "alice");
         
         // Add edges where 4th edge violates temporal causality
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T11:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T12:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:00:00", "endTime", "2023-01-01T13:00:00");
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00");  // Backward!
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T11:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T12:30:00", Lifetime.END_TIME, "2023-01-01T14:00:00");  // Backward!
         
         // Try sequential path (should fail)
         List<Vertex> result = graph.traversal().V(vA)
@@ -300,10 +301,10 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "alice");
         
         // Add edges where 3rd edge has gap with 2nd
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T14:00:00", "endTime", "2023-01-01T15:00:00");  // Gap!
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T14:30:00", "endTime", "2023-01-01T16:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T14:00:00", Lifetime.END_TIME, "2023-01-01T15:00:00");  // Gap!
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T14:30:00", Lifetime.END_TIME, "2023-01-01T16:00:00");
         
         // Try pairwise path (should fail)
         List<Vertex> result = graph.traversal().V(vA)
@@ -350,11 +351,11 @@ public class TemporalPathIntegrationTest {
         Vertex vF = graph.addVertex("name", "bob");
         
         // Add perfectly sequential edges (no overlaps)
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T11:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T12:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:00:00", "endTime", "2023-01-01T13:00:00");
-        vD.addEdge("follows", vE, "startTime", "2023-01-01T13:00:00", "endTime", "2023-01-01T14:00:00");
-        vE.addEdge("follows", vF, "startTime", "2023-01-01T14:00:00", "endTime", "2023-01-01T15:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T11:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T13:00:00", Lifetime.END_TIME, "2023-01-01T14:00:00");
+        vE.addEdge("follows", vF, Lifetime.START_TIME, "2023-01-01T14:00:00", Lifetime.END_TIME, "2023-01-01T15:00:00");
         
         // SEQUENTIAL should succeed (perfect handoffs)
         List<Vertex> sequentialResult = graph.traversal().V(vA)
@@ -395,9 +396,9 @@ public class TemporalPathIntegrationTest {
         Vertex vC = graph.addVertex("name", "peter");
         Vertex vD = graph.addVertex("name", "mark");
         
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:30:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T11:30:00", Lifetime.END_TIME, "2023-01-01T12:30:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .repeat(__.continuousPath("follows"))
@@ -425,9 +426,9 @@ public class TemporalPathIntegrationTest {
         Vertex vC = graph.addVertex("name", "peter");
         Vertex vD = graph.addVertex("name", "mark");
         
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:30:00", Lifetime.END_TIME, "2023-01-01T14:00:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .repeat(__.continuousPath("follows"))
@@ -451,9 +452,9 @@ public class TemporalPathIntegrationTest {
         Vertex vC = graph.addVertex("name", "peter");
         Vertex vD = graph.addVertex("name", "mark");
         
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:30:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T11:30:00", Lifetime.END_TIME, "2023-01-01T12:30:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .repeat(__.continuousPath("follows"))
@@ -482,9 +483,9 @@ public class TemporalPathIntegrationTest {
         Vertex vD = graph.addVertex("name", "mark");
         
         //3rd edge breaks continuous
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T13:00:00");
-        vC.addEdge("follows", vD, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T14:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
+        vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T12:30:00", Lifetime.END_TIME, "2023-01-01T14:00:00");
         
         List<Vertex> result = graph.traversal().V(vA)
             .repeat(__.continuousPath("follows"))
@@ -516,12 +517,12 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "E");
 
         // Common first leg
-        vA.addEdge("follows", vB, "startTime", "2023-01-01T10:00:00", "endTime", "2023-01-01T12:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
 
         // Branches
-        vB.addEdge("follows", vC, "startTime", "2023-01-01T11:00:00", "endTime", "2023-01-01T11:30:00");
-        vB.addEdge("follows", vD, "startTime", "2023-01-01T11:30:00", "endTime", "2023-01-01T12:00:00");
-        vB.addEdge("follows", vE, "startTime", "2023-01-01T12:30:00", "endTime", "2023-01-01T13:00:00");
+        vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T11:30:00");
+        vB.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T11:30:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vB.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T12:30:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
 
         List<Object> resultNames = graph.traversal().V(vA)
             .continuousPath("follows")

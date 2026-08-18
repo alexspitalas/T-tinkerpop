@@ -41,16 +41,6 @@ public final class TemporalPageRank {
     public static final String beta = Graph.Hidden.hide("tinkerpop.temporalPageRank.beta");
 
     /**
-     * Configures the edge property that contains each temporal edge lifetime start.
-     */
-    public static final String startTimeProperty = Graph.Hidden.hide("tinkerpop.temporalPageRank.startTimeProperty");
-
-    /**
-     * Configures the edge property that contains each temporal edge lifetime end.
-     */
-    public static final String endTimeProperty = Graph.Hidden.hide("tinkerpop.temporalPageRank.endTimeProperty");
-
-    /**
      * Configures the name of the vertex property within which to store the Temporal PageRank value.
      */
     public static final String propertyName = Graph.Hidden.hide("tinkerpop.temporalPageRank.propertyName");

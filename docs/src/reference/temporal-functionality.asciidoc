@@ -54,14 +54,19 @@ g.V().has("name", "Alice").as("a")
 ----
 Vertex employee = g.V().has("name", "Alice").next();
 LocalDateTime startTime = employee.getStartTime();
-LocalDateTime endTime = employee.getEndTime(); // May be null if ongoing
+LocalDateTime endTime = employee.getEndTime(); // Max end time if ongoing
 ----
 
 === Internal Representation
 
 Lifetimes are stored as properties:
-- `lifetime_start`: Start of validity interval (required)
-- `lifetime_end`: End of validity interval (optional, null = ongoing)
+- `startTime`: Start of validity interval (optional, missing = unbounded start)
+- `endTime`: End of validity interval (optional, missing = open-ended end)
+
+When Gremlin represents an element as a `Lifetime`, missing temporal properties are normalized to unbounded interval
+limits. An element with neither `startTime` nor `endTime` is therefore treated as always valid by temporal view helpers
+and other steps that read `Lifetime` values. The `getEndTime()` step uses the same normalized open-ended behavior and
+returns the maximum representable end time when the raw `endTime` property is absent.
 
 == Allen's Interval Algebra
 
@@ -343,8 +348,9 @@ List<Path> shortestContinuous = g.V().has("name", "start")
 
 === Performance Considerations
 
-1. **Indexing**: Create indices using solr on `lifetime_start` and `lifetime_end` for optimal performance
-2. **Edge Properties**: Temporal path filters require edges to have `startTime` (and optionally `endTime`) properties
+1. **Indexing**: Create indices using solr on `startTime` and `endTime` for optimal performance
+2. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so absent `startTime` and `endTime`
+   properties are treated as unbounded interval limits
 3. **Path Length**: Longer paths with continuous constraints require more intersection calculations
 
 === Time Format
@@ -355,8 +361,10 @@ The implementation uses `LocalDateTime` with ISO 8601 format:
 
 === Null Handling
 
-- Missing `endTime` (or `lifetime_end`) is treated as `LocalDateTime.MAX` (ongoing validity)
-- Missing `startTime` (or `lifetime_start`) causes the element to be filtered out
+- An absent `startTime` is treated as an unbounded start when represented as a `Lifetime`
+- An absent `endTime` is treated as an open-ended end when represented as a `Lifetime`
+- Elements with neither temporal property are treated as always valid by temporal view helpers
+- `getEndTime()` returns the maximum representable end time when the raw `endTime` property is absent
 
 == Advanced Examples
 
