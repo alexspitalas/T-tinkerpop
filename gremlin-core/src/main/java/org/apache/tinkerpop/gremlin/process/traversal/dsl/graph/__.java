@@ -1420,6 +1420,39 @@ public class __ {
         return __.<A>start().lifetime(startTime);
     }
 
+    public static <A> GraphTraversal<A, A> addInterval(final String startTime, final String endTime) {
+        return __.<A>start().addInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> addInterval(final Traversal<?, ?> startTime, final String endTime) {
+        return __.<A>start().addInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> addInterval(final String startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().addInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> addInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
+        return __.<A>start().addInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> dropInterval(final String startTime, final String endTime) {
+        return __.<A>start().dropInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> dropInterval(final Traversal<?, ?> startTime, final String endTime) {
+        return __.<A>start().dropInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> dropInterval(final String startTime, final Traversal<?, String> endTime) {
+        return __.<A>start().dropInterval(startTime, endTime);
+    }
+
+    public static <A> GraphTraversal<A, A> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
+        return __.<A>start().dropInterval(startTime, endTime);
+    }
+
+
     /**
      * @see GraphTraversal#getStartTime()
      */

@@ -33,6 +33,7 @@ import java.util.Map;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertThrows;
@@ -188,6 +189,28 @@ public class LifetimeTest {
         final Traversal<?, ?> traversal = __.lifetime("1970-01-01T00:00:01Z", "1970-01-01T00:00:02Z");
 
         assertEquals(traversal, Serializer.deserializeObject(Serializer.serializeObject(traversal)));
+    }
+
+    @Test
+    public void shouldSupportMultipleIntervals() {
+        Lifetime lifetime = Lifetime.from(1000L, 2000L);
+        lifetime = lifetime.addInterval(new Date(3000L), new Date(4000L));
+        
+        assertLifetime(1000L, 4000L, lifetime);
+        assertTrue(lifetime.intersects(Lifetime.from(1500L, 1800L)));
+        assertTrue(lifetime.intersects(Lifetime.from(3500L, 3800L)));
+        assertFalse(lifetime.intersects(Lifetime.from(2100L, 2900L)));
+    }
+
+    @Test
+    public void shouldDropIntervals() {
+        Lifetime lifetime = Lifetime.from(1000L, 4000L);
+        lifetime = lifetime.dropInterval(new Date(2000L), new Date(3000L));
+        
+        assertLifetime(1000L, 4000L, lifetime);
+        assertFalse(lifetime.intersects(Lifetime.from(2100L, 2900L)));
+        assertTrue(lifetime.intersects(Lifetime.from(1500L, 1800L)));
+        assertTrue(lifetime.intersects(Lifetime.from(3500L, 3800L)));
     }
 
     private static Element elementWithProperties(final Object startTime, final Object endTime) {

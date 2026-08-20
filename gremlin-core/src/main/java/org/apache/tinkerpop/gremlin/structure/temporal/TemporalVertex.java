@@ -52,14 +52,6 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
     private final Vertex base;
     private final Lifetime lifetime;
 
-    public TemporalVertex(final Vertex base, final Date instant) {
-        this(base, Lifetime.from(instant, instant));
-    }
-
-    public TemporalVertex(final Vertex base, final Date startInstant, final Date endInstant) {
-        this(base, Lifetime.from(startInstant, endInstant));
-    }
-
     public TemporalVertex(final Vertex base, final Lifetime lifetime) {
         this.base    = base;
         this.lifetime = lifetime;
@@ -82,6 +74,10 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
 
     public Date getEndInstant() {
         return lifetime.getEndDate();
+    }
+
+    public Lifetime getLifetime() {
+        return lifetime;
     }
 
     // ── Graph Navigation (the critical overrides) ─────────────────────────

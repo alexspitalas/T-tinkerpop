@@ -46,15 +46,6 @@ public final class TemporalVertexProperty<V> implements VertexProperty<V> {
     private final VertexProperty<V> base;
     private final Lifetime lifetime;
 
-    public TemporalVertexProperty(final VertexProperty<V> base, final Date instant) {
-        this(base, instant, instant);
-    }
-
-    public TemporalVertexProperty(final VertexProperty<V> base, final Date startInstant, final Date endInstant) {
-        this.base    = base;
-        this.lifetime = Lifetime.from(startInstant, endInstant);
-    }
-
     public TemporalVertexProperty(final VertexProperty<V> base, final Lifetime lifetime) {
         this.base    = base;
         this.lifetime = lifetime;
@@ -64,6 +55,7 @@ public final class TemporalVertexProperty<V> implements VertexProperty<V> {
     public Date              getInstant()            { return lifetime.getStartDate(); }
     public Date              getStartInstant()       { return lifetime.getStartDate(); }
     public Date              getEndInstant()         { return lifetime.getEndDate(); }
+    public Lifetime          getLifetime()           { return lifetime; }
 
     // ── Key overrides ─────────────────────────────────────────────────────
 

@@ -24,46 +24,147 @@ import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 public final class Lifetime implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
-    private final Date startDate;
-    private final Date endDate;
-
+    private static final long serialVersionUID = 2L;
 
     public static final String START_TIME = "startTime";
     public static final String END_TIME = "endTime";
+    public static final String TEMPORAL_INTERVALS = "temporalIntervals";
     public static final String MAX_END_TIME = "+292278994-08-17T07:12:55.807Z";
     public static final String MIN_START_TIME = "-292275055-05-16T16:47:04.192Z";
 
+    public static class Interval implements Serializable, Comparable<Interval> {
+        private final Date start;
+        private final Date end;
+
+        public Interval(final Date start, final Date end) {
+            this.start = new Date(Objects.requireNonNull(start, "start cannot be null").getTime());
+            this.end = new Date(Objects.requireNonNull(end, "end cannot be null").getTime());
+            if (this.end.before(this.start))
+                throw new IllegalArgumentException("End time must not be before start time");
+        }
+
+        public Date getStart() { return new Date(start.getTime()); }
+        public Date getEnd() { return new Date(end.getTime()); }
+
+        public boolean contains(Date instant) {
+            return !instant.before(start) && !instant.after(end);
+        }
+
+        public boolean intersects(Interval other) {
+            return !this.start.after(other.end) && !this.end.before(other.start);
+        }
+
+        public Interval intersection(Interval other) {
+            if (!intersects(other)) return null;
+            Date maxStart = this.start.after(other.start) ? this.start : other.start;
+            Date minEnd = this.end.before(other.end) ? this.end : other.end;
+            return new Interval(maxStart, minEnd);
+        }
+
+        @Override
+        public int compareTo(Interval other) {
+            int c = this.start.compareTo(other.start);
+            if (c != 0) return c;
+            return this.end.compareTo(other.end);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Interval interval = (Interval) o;
+            return start.equals(interval.start) && end.equals(interval.end);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(start, end);
+        }
+    }
+
+    private final List<Interval> intervals;
+
+    private Lifetime(List<Interval> intervals) {
+        this.intervals = Collections.unmodifiableList(normalize(intervals));
+    }
+
     private Lifetime(final Date startDate, final Date endDate) {
+        this(Collections.singletonList(new Interval(startDate, endDate)));
+    }
 
-        this.startDate = new Date(Objects.requireNonNull(startDate, "startDate cannot be null").getTime());
-        this.endDate = new Date(Objects.requireNonNull(endDate, "endDate cannot be null").getTime());
+    private static List<Interval> normalize(List<Interval> input) {
+        if (input == null || input.isEmpty()) return Collections.emptyList();
+        List<Interval> sorted = new ArrayList<>(input);
+        Collections.sort(sorted);
 
-        if (this.endDate.before(this.startDate))
-            throw new IllegalArgumentException("End time must not be before start time");
+        List<Interval> merged = new ArrayList<>();
+        Interval current = sorted.get(0);
+        for (int i = 1; i < sorted.size(); i++) {
+            Interval next = sorted.get(i);
+            if (!current.getEnd().before(next.getStart())) { // overlapping or adjacent
+                Date maxEnd = current.getEnd().after(next.getEnd()) ? current.getEnd() : next.getEnd();
+                current = new Interval(current.getStart(), maxEnd);
+            } else {
+                merged.add(current);
+                current = next;
+            }
+        }
+        merged.add(current);
+        return merged;
     }
 
     public static Lifetime from(final Object startDate, final Object endDate) {
         return new Lifetime(toStartDate(startDate), toEndDate(endDate));
     }
 
+    public static Lifetime from(List<Interval> intervals) {
+        return new Lifetime(intervals);
+    }
+
     public static Lifetime fromProperties(final Element element) {
+        Property<Object> tempIntervalsProp = element.property(TEMPORAL_INTERVALS);
+        if (tempIntervalsProp.isPresent()) {
+            return fromTemporalIntervalsString(tempIntervalsProp.value().toString());
+        }
         final Property<Object> startTimeProperty = element.property(START_TIME);
         final Property<Object> endTimeProperty = element.property(END_TIME);
-
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
+    private static Lifetime fromTemporalIntervalsString(String val) {
+        List<Interval> list = new ArrayList<>();
+        String[] parts = val.split(",");
+        for (String p : parts) {
+            String[] se = p.split(":");
+            if (se.length == 2) {
+                list.add(new Interval(new Date(Long.parseLong(se[0])), new Date(Long.parseLong(se[1]))));
+            }
+        }
+        return new Lifetime(list);
+    }
+
+    private String toTemporalIntervalsString() {
+        StringBuilder sb = new StringBuilder();
+        for (int i=0; i<intervals.size(); i++) {
+            Interval iv = intervals.get(i);
+            sb.append(iv.getStart().getTime()).append(":").append(iv.getEnd().getTime());
+            if (i < intervals.size() - 1) sb.append(",");
+        }
+        return sb.toString();
+    }
+
     public static boolean hasLifetimeProperties(final Element element) {
-        return element.property(START_TIME).isPresent() || element.property(END_TIME).isPresent();
+        return element.property(START_TIME).isPresent() || element.property(END_TIME).isPresent() || element.property(TEMPORAL_INTERVALS).isPresent();
     }
 
     public static Lifetime getLifetimeFromProperties(final Element element) {
@@ -71,34 +172,111 @@ public final class Lifetime implements Serializable {
     }
 
     public Object[] toProperties() {
+        if (intervals.isEmpty()) return new Object[0];
         return new Object[] {
                 START_TIME, getStartDate(),
-                END_TIME, getEndDate()
+                END_TIME, getEndDate(),
+                TEMPORAL_INTERVALS, toTemporalIntervalsString()
         };
     }
 
     public Map<String, Object> toPropertyMap() {
         final Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put(START_TIME, getStartDate());
-        properties.put(END_TIME, getEndDate());
+        if (!intervals.isEmpty()) {
+            properties.put(START_TIME, getStartDate());
+            properties.put(END_TIME, getEndDate());
+            properties.put(TEMPORAL_INTERVALS, toTemporalIntervalsString());
+        }
         return properties;
     }
 
     public void attachTo(final Element element) {
+        if (intervals.isEmpty()) {
+            element.property(START_TIME).remove();
+            element.property(END_TIME).remove();
+            element.property(TEMPORAL_INTERVALS).remove();
+            return;
+        }
         element.property(START_TIME, getStartDate());
         element.property(END_TIME, getEndDate());
+        element.property(TEMPORAL_INTERVALS, toTemporalIntervalsString());
+    }
+
+    public Lifetime addInterval(Object start, Object end) {
+        List<Interval> newIntervals = new ArrayList<>(this.intervals);
+        newIntervals.add(new Interval(toStartDate(start), toEndDate(end)));
+        return new Lifetime(newIntervals);
+    }
+
+    public Lifetime dropInterval(Object start, Object end) {
+        Interval drop = new Interval(toStartDate(start), toEndDate(end));
+        List<Interval> newIntervals = new ArrayList<>();
+        for (Interval current : this.intervals) {
+            if (current.intersects(drop)) {
+                if (current.getStart().before(drop.getStart())) {
+                    newIntervals.add(new Interval(current.getStart(), new Date(drop.getStart().getTime() - 1)));
+                }
+                if (current.getEnd().after(drop.getEnd())) {
+                    newIntervals.add(new Interval(new Date(drop.getEnd().getTime() + 1), current.getEnd()));
+                }
+            } else {
+                newIntervals.add(current);
+            }
+        }
+        return new Lifetime(newIntervals);
+    }
+
+    public Lifetime intersection(Lifetime window) {
+        List<Interval> result = new ArrayList<>();
+        for (Interval myInt : this.intervals) {
+            for (Interval winInt : window.intervals) {
+                Interval intersect = myInt.intersection(winInt);
+                if (intersect != null) {
+                    result.add(intersect);
+                }
+            }
+        }
+        return new Lifetime(result);
+    }
+
+    public boolean contains(Date instant) {
+        for (Interval interval : intervals) {
+            if (interval.contains(instant)) return true;
+            if (interval.getStart().after(instant)) break;
+        }
+        return false;
+    }
+
+    public boolean intersects(Lifetime window) {
+        for (Interval myInt : this.intervals) {
+            for (Interval winInt : window.intervals) {
+                if (myInt.intersects(winInt)) return true;
+            }
+        }
+        return false;
     }
 
     public boolean contains(final Lifetime other) {
-        return !other.startDate.before(this.startDate) && !other.endDate.after(this.endDate);
+        Lifetime intersect = this.intersection(other);
+        return intersect.equals(other);
     }
 
     public Date getStartDate() {
-        return new Date(startDate.getTime());
+        if (intervals.isEmpty()) return toStartDate(null);
+        return intervals.get(0).getStart();
     }
 
     public Date getEndDate() {
-        return new Date(endDate.getTime());
+        if (intervals.isEmpty()) return toEndDate(null);
+        return intervals.get(intervals.size() - 1).getEnd();
+    }
+
+    public List<Interval> getIntervals() {
+        return intervals;
+    }
+
+    public boolean isEmpty() {
+        return intervals.isEmpty();
     }
 
     public static Date toStartDate(final Object value) {
@@ -160,27 +338,29 @@ public final class Lifetime implements Serializable {
             return false;
 
         final Lifetime lifetime = (Lifetime) object;
-        return Objects.equals(this.startDate, lifetime.startDate) &&
-                Objects.equals(this.endDate, lifetime.endDate);
+        return Objects.equals(this.intervals, lifetime.intervals);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.startDate, this.endDate);
+        return Objects.hash(this.intervals);
     }
 
     @Override
     public String toString() {
-        return "lifetime[" + formatStartDate() + "," + formatEndDate() + "]";
+        StringBuilder sb = new StringBuilder("lifetime[");
+        for (int i=0; i<intervals.size(); i++) {
+            Interval iv = intervals.get(i);
+            sb.append(formatDate(iv.getStart())).append(",").append(formatDate(iv.getEnd()));
+            if (i < intervals.size() - 1) sb.append(" | ");
+        }
+        sb.append("]");
+        return sb.toString();
     }
 
-    private String formatStartDate() {
-        return startDate.getTime() == Long.MIN_VALUE ? "*" :
-                DatetimeHelper.format(startDate.toInstant());
-    }
-
-    private String formatEndDate() {
-        return endDate.getTime() == Long.MAX_VALUE ? "*" :
-                DatetimeHelper.format(endDate.toInstant());
+    private static String formatDate(Date date) {
+        return date.getTime() == Long.MIN_VALUE ? "*" :
+               date.getTime() == Long.MAX_VALUE ? "*" :
+               DatetimeHelper.format(date.toInstant());
     }
 }
