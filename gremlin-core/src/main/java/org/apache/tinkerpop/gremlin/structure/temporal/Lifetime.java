@@ -134,23 +134,57 @@ public final class Lifetime implements Serializable {
     public static Lifetime fromProperties(final Element element) {
         Property<Object> tempIntervalsProp = propertyOrEmpty(element, TEMPORAL_INTERVALS);
         if (tempIntervalsProp.isPresent()) {
-            return fromTemporalIntervalsString(tempIntervalsProp.value().toString());
+            final Object value = tempIntervalsProp.value();
+            if (!(value instanceof String)) {
+                throw new IllegalArgumentException("Invalid temporalIntervals value (expected String): " + value);
+            }
+            return fromTemporalIntervalsString((String) value);
         }
         final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
         final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
-    private static Lifetime fromTemporalIntervalsString(String val) {
-        List<Interval> list = new ArrayList<>();
-        String[] parts = val.split(",");
-        for (String p : parts) {
-            String[] se = p.split(":");
-            if (se.length == 2) {
-                list.add(new Interval(new Date(Long.parseLong(se[0])), new Date(Long.parseLong(se[1]))));
+    private static Lifetime fromTemporalIntervalsString(final String value) {
+        final List<Interval> parsedIntervals = new ArrayList<>();
+        final String[] components = value.split(",", -1);
+        for (String component : components) {
+            final int colon = component.indexOf(':');
+            if (colon <= 0 || colon != component.lastIndexOf(':') || colon == component.length() - 1) {
+                throw invalidTemporalIntervals(value, component);
             }
+
+            final String startValue = component.substring(0, colon);
+            final String endValue = component.substring(colon + 1);
+            if (!isSignedDecimalInteger(startValue) || !isSignedDecimalInteger(endValue)) {
+                throw invalidTemporalIntervals(value, component);
+            }
+
+            final long start;
+            final long end;
+            try {
+                start = Long.parseLong(startValue);
+                end = Long.parseLong(endValue);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "Invalid temporalIntervals component '" + component + "' in value '" + value + "'", e);
+            }
+            if (end < start) {
+                throw new IllegalArgumentException(
+                        "Invalid temporalIntervals component '" + component + "' (end before start) in value '" + value + "'");
+            }
+            parsedIntervals.add(new Interval(new Date(start), new Date(end)));
         }
-        return new Lifetime(list);
+        return new Lifetime(parsedIntervals);
+    }
+
+    private static boolean isSignedDecimalInteger(final String value) {
+        return value.matches("[+-]?[0-9]+");
+    }
+
+    private static IllegalArgumentException invalidTemporalIntervals(final String value, final String component) {
+        return new IllegalArgumentException(
+                "Invalid temporalIntervals component '" + component + "' in value '" + value + "'");
     }
 
     private String toTemporalIntervalsString() {

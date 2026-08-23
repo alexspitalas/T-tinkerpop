@@ -27,7 +27,9 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -118,6 +120,63 @@ public class LifetimeTest {
         assertLifetime(1000L, 2000L, lifetime);
         assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(element));
         assertEquals(new Date(2000L), Lifetime.getEndTimeFromProperty(element));
+    }
+
+    @Test
+    public void shouldParseValidTemporalIntervalsProperty() {
+        assertEquals(Arrays.asList(
+                        new Lifetime.Interval(new Date(1000L), new Date(2000L)),
+                        new Lifetime.Interval(new Date(3000L), new Date(4000L))),
+                Lifetime.fromProperties(elementWithTemporalIntervals("1000:2000,3000:4000")).getIntervals());
+        assertEquals(Arrays.asList(
+                        new Lifetime.Interval(new Date(-2000L), new Date(-1000L))),
+                Lifetime.fromProperties(elementWithTemporalIntervals("-2000:-1000")).getIntervals());
+        assertLifetime(Long.MIN_VALUE, Long.MAX_VALUE,
+                Lifetime.fromProperties(elementWithTemporalIntervals(
+                        Long.MIN_VALUE + ":" + Long.MAX_VALUE)));
+    }
+
+    @Test
+    public void shouldNormalizeValidTemporalIntervalsProperty() {
+        final Lifetime lifetime = Lifetime.fromProperties(
+                elementWithTemporalIntervals("3000:5000,1000:2000,1500:4000"));
+
+        assertEquals(Arrays.asList(
+                new Lifetime.Interval(new Date(1000L), new Date(5000L))), lifetime.getIntervals());
+        assertEquals("1000:5000", lifetime.toPropertyMap().get(Lifetime.TEMPORAL_INTERVALS));
+    }
+
+    @Test
+    public void shouldRejectMalformedTemporalIntervalsProperty() {
+        final List<String> malformedValues = Arrays.asList(
+                "", " ", "1000 :2000", "1000: 2000",
+                ",1000:2000", "1000:2000,", "1000:2000,,3000:4000",
+                ":2000", "1000:", "1000", "1000:2000:3000",
+                "one:2000", "1000:two",
+                "9223372036854775808:9223372036854775808",
+                "-9223372036854775809:0", "2000:1000");
+
+        for (String malformedValue : malformedValues) {
+            final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                    () -> Lifetime.fromProperties(elementWithTemporalIntervals(malformedValue)));
+            assertTrue(exception.getMessage().contains("temporalIntervals"));
+        }
+    }
+
+    @Test
+    public void shouldRejectNonStringTemporalIntervalsProperty() {
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> Lifetime.fromProperties(elementWithTemporalIntervals(1000L)));
+
+        assertTrue(exception.getMessage().contains("expected String"));
+    }
+
+    @Test
+    public void shouldRejectEntireTemporalIntervalsPropertyWhenOneComponentIsMalformed() {
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> Lifetime.fromProperties(elementWithTemporalIntervals("1000:2000,malformed,3000:4000")));
+
+        assertTrue(exception.getMessage().contains("malformed"));
     }
 
     @Test
@@ -221,6 +280,13 @@ public class LifetimeTest {
         final Property<Object> endTimeProperty = null == endTime ? Property.empty() : property(endTime);
         when(element.property(Lifetime.START_TIME)).thenReturn(startTimeProperty);
         when(element.property(Lifetime.END_TIME)).thenReturn(endTimeProperty);
+        return element;
+    }
+
+    private static Element elementWithTemporalIntervals(final Object temporalIntervals) {
+        final Element element = mock(Element.class);
+        final Property<Object> temporalIntervalsProperty = property(temporalIntervals);
+        when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(temporalIntervalsProperty);
         return element;
     }
 
