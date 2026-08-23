@@ -132,12 +132,12 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime fromProperties(final Element element) {
-        Property<Object> tempIntervalsProp = element.property(TEMPORAL_INTERVALS);
+        Property<Object> tempIntervalsProp = propertyOrEmpty(element, TEMPORAL_INTERVALS);
         if (tempIntervalsProp.isPresent()) {
             return fromTemporalIntervalsString(tempIntervalsProp.value().toString());
         }
-        final Property<Object> startTimeProperty = element.property(START_TIME);
-        final Property<Object> endTimeProperty = element.property(END_TIME);
+        final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
+        final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
@@ -164,7 +164,9 @@ public final class Lifetime implements Serializable {
     }
 
     public static boolean hasLifetimeProperties(final Element element) {
-        return element.property(START_TIME).isPresent() || element.property(END_TIME).isPresent() || element.property(TEMPORAL_INTERVALS).isPresent();
+        return propertyOrEmpty(element, START_TIME).isPresent() ||
+                propertyOrEmpty(element, END_TIME).isPresent() ||
+                propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent();
     }
 
     public static Lifetime getLifetimeFromProperties(final Element element) {
@@ -284,12 +286,12 @@ public final class Lifetime implements Serializable {
     }
 
     public static Date getStartTimeFromProperty(final Element element) {
-        final Property<Object> startTimeProperty = element.property(START_TIME);
+        final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
         return toStartDate(startTimeProperty.orElse(null));
     }
 
     public static Date getEndTimeFromProperty(final Element element) {
-        final Property<Object> endTimeProperty = element.property(END_TIME);
+        final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
         return toEndDate(endTimeProperty.orElse(null));
     }
 
@@ -328,6 +330,11 @@ public final class Lifetime implements Serializable {
 
         throw new IllegalArgumentException(label + " value of type " + value.getClass().getName() +
                 " is not a supported temporal value. Supported types are Date, Instant, Number, and String.");
+    }
+
+    private static Property<Object> propertyOrEmpty(final Element element, final String key) {
+        final Property<Object> property = element.property(key);
+        return null == property ? Property.empty() : property;
     }
 
     @Override

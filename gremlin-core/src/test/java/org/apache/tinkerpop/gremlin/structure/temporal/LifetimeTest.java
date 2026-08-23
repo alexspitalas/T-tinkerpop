@@ -139,7 +139,8 @@ public class LifetimeTest {
         final Object[] properties = lifetime.toProperties();
         assertArrayEquals(new Object[] {
                 Lifetime.START_TIME, new Date(1000L),
-                Lifetime.END_TIME, new Date(2000L)
+                Lifetime.END_TIME, new Date(2000L),
+                Lifetime.TEMPORAL_INTERVALS, "1000:2000"
         }, properties);
 
         final Date startTimeProperty = (Date) properties[1];
@@ -151,6 +152,7 @@ public class LifetimeTest {
         final Map<String, Object> propertyMap = lifetime.toPropertyMap();
         assertEquals(new Date(1000L), propertyMap.get(Lifetime.START_TIME));
         assertEquals(new Date(2000L), propertyMap.get(Lifetime.END_TIME));
+        assertEquals("1000:2000", propertyMap.get(Lifetime.TEMPORAL_INTERVALS));
 
         ((Date) propertyMap.get(Lifetime.START_TIME)).setTime(3000L);
         ((Date) propertyMap.get(Lifetime.END_TIME)).setTime(4000L);

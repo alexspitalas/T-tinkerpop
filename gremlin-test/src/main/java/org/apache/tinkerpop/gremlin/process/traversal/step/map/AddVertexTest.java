@@ -202,7 +202,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", chris.label());
         assertEquals(Lifetime.from("2004-08-24", "3004-08-24"), Lifetime.fromProperties(chris));
         assertEquals("chris", chris.value("name"));
-        assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
+        assertEquals(4, IteratorUtils.count(chris.properties())); // name, startTime, endTime, temporalIntervals
         assertEquals(7, IteratorUtils.count(g.V()));
     }
 
@@ -218,7 +218,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", chris.label());
         assertEquals(Lifetime.from("2004-08-24", null), Lifetime.fromProperties(chris));
         assertEquals("chris", chris.value("name"));
-        assertEquals(3, IteratorUtils.count(chris.properties())); // startTime and endTime are counted as properties
+        assertEquals(4, IteratorUtils.count(chris.properties())); // name, startTime, endTime, temporalIntervals
         assertEquals(7, IteratorUtils.count(g.V()));
     }
 
@@ -450,7 +450,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", alice.label());
         assertEquals("alice", alice.value("name"));
         assertEquals(Lifetime.from("2023-01-01", "2025-12-31"), Lifetime.fromProperties(alice));
-        assertEquals(3, IteratorUtils.count(alice.properties())); // name, startTime, endTime
+        assertEquals(4, IteratorUtils.count(alice.properties())); // name, startTime, endTime, temporalIntervals
     }
 
     @Test
@@ -464,7 +464,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", bob.label());
         assertEquals("bob", bob.value("name"));
         assertEquals(Lifetime.from("2023-01-01", null), Lifetime.fromProperties(bob)); // Default endTime when not specified
-        assertEquals(3, IteratorUtils.count(bob.properties())); // name, startTime, endTime
+        assertEquals(4, IteratorUtils.count(bob.properties())); // name, startTime, endTime, temporalIntervals
     }
 
     @Test
@@ -536,7 +536,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("emma", emma.value("name"));
         assertEquals(25, emma.<Integer>value("age").intValue());
         assertEquals(Lifetime.from("2023-01-01", "2023-12-31"), Lifetime.fromProperties(emma));
-        assertEquals(4, IteratorUtils.count(emma.properties())); // name, age, startTime, endTime
+        assertEquals(5, IteratorUtils.count(emma.properties())); // name, age, startTime, endTime, temporalIntervals
     }
 
     @Test
@@ -550,7 +550,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", frank.label());
         assertEquals("frank", frank.value("name"));
         assertEquals(Lifetime.from("2023-01-01T10:30:00", "2023-12-31T23:59:59"), Lifetime.fromProperties(frank));
-        assertEquals(3, IteratorUtils.count(frank.properties())); // name, startTime, endTime
+        assertEquals(4, IteratorUtils.count(frank.properties())); // name, startTime, endTime, temporalIntervals
     }
 
     @Test
@@ -564,7 +564,7 @@ public abstract class AddVertexTest extends AbstractGremlinTest {
         assertEquals("person", grace.label());
         assertEquals("grace", grace.value("name"));
         assertEquals(Lifetime.from("2022-01-01", "2023-12-31"), Lifetime.fromProperties(grace));
-        assertEquals(3, IteratorUtils.count(grace.properties())); // name, startTime, endTime
+        assertEquals(4, IteratorUtils.count(grace.properties())); // name, startTime, endTime, temporalIntervals
     }
     @Test
     @LoadGraphWith(MODERN)

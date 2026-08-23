@@ -299,7 +299,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals(edge.outVertex(), convertToVertex(graph, "marko"));
         assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
-        assertEquals(3, IteratorUtils.count(edge.properties()));
+        assertEquals(4, IteratorUtils.count(edge.properties()));
         assertEquals(Lifetime.from("2022-05-10", "2222-05-10"), Lifetime.fromProperties(edge));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
         assertEquals(6L, g.V().count().next().longValue());
@@ -318,7 +318,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
         assertEquals(edge.outVertex(), convertToVertex(graph, "chris"));
         assertEquals(edge.inVertex(), convertToVertex(graph, "peter"));
         assertEquals("knows", edge.label());
-        assertEquals(3, IteratorUtils.count(edge.properties()));
+        assertEquals(4, IteratorUtils.count(edge.properties()));
         assertEquals(Lifetime.from("2022-05-10", null), Lifetime.fromProperties(edge));
         assertEquals(0.1d, edge.value("weight"), 0.1d);
         assertEquals(6L, g.V().count().next().longValue());
