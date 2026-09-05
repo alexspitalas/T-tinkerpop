@@ -132,25 +132,59 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime fromProperties(final Element element) {
-        Property<Object> tempIntervalsProp = element.property(TEMPORAL_INTERVALS);
+        Property<Object> tempIntervalsProp = propertyOrEmpty(element, TEMPORAL_INTERVALS);
         if (tempIntervalsProp.isPresent()) {
-            return fromTemporalIntervalsString(tempIntervalsProp.value().toString());
+            final Object value = tempIntervalsProp.value();
+            if (!(value instanceof String)) {
+                throw new IllegalArgumentException("Invalid temporalIntervals value (expected String): " + value);
+            }
+            return fromTemporalIntervalsString((String) value);
         }
-        final Property<Object> startTimeProperty = element.property(START_TIME);
-        final Property<Object> endTimeProperty = element.property(END_TIME);
+        final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
+        final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
-    private static Lifetime fromTemporalIntervalsString(String val) {
-        List<Interval> list = new ArrayList<>();
-        String[] parts = val.split(",");
-        for (String p : parts) {
-            String[] se = p.split(":");
-            if (se.length == 2) {
-                list.add(new Interval(new Date(Long.parseLong(se[0])), new Date(Long.parseLong(se[1]))));
+    private static Lifetime fromTemporalIntervalsString(final String value) {
+        final List<Interval> parsedIntervals = new ArrayList<>();
+        final String[] components = value.split(",", -1);
+        for (String component : components) {
+            final int colon = component.indexOf(':');
+            if (colon <= 0 || colon != component.lastIndexOf(':') || colon == component.length() - 1) {
+                throw invalidTemporalIntervals(value, component);
             }
+
+            final String startValue = component.substring(0, colon);
+            final String endValue = component.substring(colon + 1);
+            if (!isSignedDecimalInteger(startValue) || !isSignedDecimalInteger(endValue)) {
+                throw invalidTemporalIntervals(value, component);
+            }
+
+            final long start;
+            final long end;
+            try {
+                start = Long.parseLong(startValue);
+                end = Long.parseLong(endValue);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException(
+                        "Invalid temporalIntervals component '" + component + "' in value '" + value + "'", e);
+            }
+            if (end < start) {
+                throw new IllegalArgumentException(
+                        "Invalid temporalIntervals component '" + component + "' (end before start) in value '" + value + "'");
+            }
+            parsedIntervals.add(new Interval(new Date(start), new Date(end)));
         }
-        return new Lifetime(list);
+        return new Lifetime(parsedIntervals);
+    }
+
+    private static boolean isSignedDecimalInteger(final String value) {
+        return value.matches("[+-]?[0-9]+");
+    }
+
+    private static IllegalArgumentException invalidTemporalIntervals(final String value, final String component) {
+        return new IllegalArgumentException(
+                "Invalid temporalIntervals component '" + component + "' in value '" + value + "'");
     }
 
     private String toTemporalIntervalsString() {
@@ -164,7 +198,9 @@ public final class Lifetime implements Serializable {
     }
 
     public static boolean hasLifetimeProperties(final Element element) {
-        return element.property(START_TIME).isPresent() || element.property(END_TIME).isPresent() || element.property(TEMPORAL_INTERVALS).isPresent();
+        return propertyOrEmpty(element, START_TIME).isPresent() ||
+                propertyOrEmpty(element, END_TIME).isPresent() ||
+                propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent();
     }
 
     public static Lifetime getLifetimeFromProperties(final Element element) {
@@ -284,12 +320,12 @@ public final class Lifetime implements Serializable {
     }
 
     public static Date getStartTimeFromProperty(final Element element) {
-        final Property<Object> startTimeProperty = element.property(START_TIME);
+        final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
         return toStartDate(startTimeProperty.orElse(null));
     }
 
     public static Date getEndTimeFromProperty(final Element element) {
-        final Property<Object> endTimeProperty = element.property(END_TIME);
+        final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
         return toEndDate(endTimeProperty.orElse(null));
     }
 
@@ -328,6 +364,11 @@ public final class Lifetime implements Serializable {
 
         throw new IllegalArgumentException(label + " value of type " + value.getClass().getName() +
                 " is not a supported temporal value. Supported types are Date, Instant, Number, and String.");
+    }
+
+    private static Property<Object> propertyOrEmpty(final Element element, final String key) {
+        final Property<Object> property = element.property(key);
+        return null == property ? Property.empty() : property;
     }
 
     @Override
