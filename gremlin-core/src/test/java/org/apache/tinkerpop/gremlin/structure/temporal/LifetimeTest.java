@@ -123,6 +123,20 @@ public class LifetimeTest {
     }
 
     @Test
+    public void shouldReadExtentFromTemporalIntervals() {
+        final Element element = elementWithProperties(new Date(5000L), new Date(6000L));
+        final Property<Object> intervalsProperty = property("1000:2000,3000:4000");
+        when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(intervalsProperty);
+
+        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(element));
+        assertEquals(new Date(4000L), Lifetime.getEndTimeFromProperty(element));
+
+        final Element intervalsOnly = elementWithTemporalIntervals("1000:2000,3000:4000");
+        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(intervalsOnly));
+        assertEquals(new Date(4000L), Lifetime.getEndTimeFromProperty(intervalsOnly));
+    }
+
+    @Test
     public void shouldParseValidTemporalIntervalsProperty() {
         assertEquals(Arrays.asList(
                         new Lifetime.Interval(new Date(1000L), new Date(2000L)),
@@ -229,6 +243,7 @@ public class LifetimeTest {
 
         verify(element).property(eq(Lifetime.START_TIME), startTimeCaptor.capture());
         verify(element).property(eq(Lifetime.END_TIME), endTimeCaptor.capture());
+        verify(element).property(Lifetime.TEMPORAL_INTERVALS, "1000:2000");
         assertEquals(new Date(1000L), startTimeCaptor.getValue());
         assertEquals(new Date(2000L), endTimeCaptor.getValue());
 
@@ -236,6 +251,17 @@ public class LifetimeTest {
         endTimeCaptor.getValue().setTime(4000L);
 
         assertLifetime(1000L, 2000L, lifetime);
+    }
+
+    @Test
+    public void shouldClearEmptyLifetimeFromElementWithMissingProperties() {
+        final Element element = mock(Element.class);
+
+        Lifetime.from(Arrays.asList()).attachTo(element);
+
+        verify(element).property(Lifetime.START_TIME);
+        verify(element).property(Lifetime.END_TIME);
+        verify(element).property(Lifetime.TEMPORAL_INTERVALS);
     }
 
     @Test
@@ -280,6 +306,7 @@ public class LifetimeTest {
         final Property<Object> endTimeProperty = null == endTime ? Property.empty() : property(endTime);
         when(element.property(Lifetime.START_TIME)).thenReturn(startTimeProperty);
         when(element.property(Lifetime.END_TIME)).thenReturn(endTimeProperty);
+        when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(Property.empty());
         return element;
     }
 

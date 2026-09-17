@@ -233,9 +233,9 @@ public final class Lifetime implements Serializable {
 
     public void attachTo(final Element element) {
         if (intervals.isEmpty()) {
-            element.property(START_TIME).remove();
-            element.property(END_TIME).remove();
-            element.property(TEMPORAL_INTERVALS).remove();
+            propertyOrEmpty(element, START_TIME).remove();
+            propertyOrEmpty(element, END_TIME).remove();
+            propertyOrEmpty(element, TEMPORAL_INTERVALS).remove();
             return;
         }
         element.property(START_TIME, getStartDate());
@@ -325,11 +325,15 @@ public final class Lifetime implements Serializable {
     }
 
     public static Date getStartTimeFromProperty(final Element element) {
+        if (propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent())
+            return fromProperties(element).getStartDate();
         final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
         return toStartDate(startTimeProperty.orElse(null));
     }
 
     public static Date getEndTimeFromProperty(final Element element) {
+        if (propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent())
+            return fromProperties(element).getEndDate();
         final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
         return toEndDate(endTimeProperty.orElse(null));
     }

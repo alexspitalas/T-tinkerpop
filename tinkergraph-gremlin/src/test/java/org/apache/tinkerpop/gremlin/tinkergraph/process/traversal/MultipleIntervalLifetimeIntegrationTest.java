@@ -57,7 +57,7 @@ public class MultipleIntervalLifetimeIntegrationTest {
         final Vertex marko = g.addV("person").property("name", "marko")
                 .lifetime("2020-01-01", "2020-12-31").next();
 
-        g.V(marko).addInterval("2024-01-01", "2024-12-31").iterate();
+        g.V().has("name", "marko").addInterval("2024-01-01", "2024-12-31").iterate();
 
         assertEquals(Arrays.asList(
                         interval("2020-01-01", "2020-12-31"),

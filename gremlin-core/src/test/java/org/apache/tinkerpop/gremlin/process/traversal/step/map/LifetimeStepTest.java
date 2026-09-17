@@ -283,6 +283,26 @@ public class LifetimeStepTest extends StepTest {
     }
 
     @Test
+    public void shouldPreserveLifetimeModeWhenCloned() {
+        final LifetimeStep<Vertex> replace = new LifetimeStep<>(__.start().asAdmin(),
+                "2024-01-01", "2024-12-31", null, null, LifetimeStep.LifetimeMode.REPLACE);
+        final LifetimeStep<Vertex> add = new LifetimeStep<>(__.start().asAdmin(),
+                "2024-01-01", "2024-12-31", null, null, LifetimeStep.LifetimeMode.ADD);
+        final LifetimeStep<Vertex> drop = new LifetimeStep<>(__.start().asAdmin(),
+                "2024-01-01", "2024-12-31", null, null, LifetimeStep.LifetimeMode.DROP);
+
+        assertNotEquals(replace, add);
+        assertNotEquals(replace, drop);
+        assertNotEquals(add, drop);
+        assertEquals(add, add.clone());
+        assertEquals(add.hashCode(), add.clone().hashCode());
+        assertEquals(drop, drop.clone());
+        assertEquals(drop.hashCode(), drop.clone().hashCode());
+        assertNotEquals(replace, add.clone());
+        assertNotEquals(replace, drop.clone());
+    }
+
+    @Test
     public void shouldTestLifetimeWithExistingStartTimeAndNewEndTime() {
         final LifetimeStep<Vertex> step1 = lifetimeStep("2004-02-02", null);
         assertEquals(DatetimeHelper.parse("2004-02-02"), step1.getLifetime().getStartDate());
