@@ -3355,34 +3355,69 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.ADD));
     }
 
-    public default GraphTraversal<S, E> dropInterval(final String startTime, final String endTime)
-    {
+    public default GraphTraversal<S, E> dropInterval(final String startTime, final String endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.DROP));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
     }
 
-    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final String endTime)
-    {
+    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final String endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.DROP));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
     }
 
-    public default GraphTraversal<S, E> dropInterval(final String startTime, final Traversal<?, String> endTime)
-    {
+    public default GraphTraversal<S, E> dropInterval(final String startTime, final Traversal<?, String> endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.DROP));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
     }
 
-    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime)
-    {
+    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.DROP));
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
     }
 
+    public default GraphTraversal<S, E> dropInterval(final String startTime, final String endTime,
+                                                     final Lifetime.DropMode dropMode) {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, dropMode));
+    }
+
+    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final String endTime,
+                                                     final Lifetime.DropMode dropMode) {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, dropMode));
+    }
+
+    public default GraphTraversal<S, E> dropInterval(final String startTime, final Traversal<?, String> endTime,
+                                                     final Lifetime.DropMode dropMode) {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, dropMode));
+    }
+
+    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime,
+                                                     final Lifetime.DropMode dropMode) {
+        if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
+        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
+                LifetimeStep.LifetimeMode.DROP, dropMode));
+    }
 
     /**
      * Map the {@link Element} to its startTime property value.
