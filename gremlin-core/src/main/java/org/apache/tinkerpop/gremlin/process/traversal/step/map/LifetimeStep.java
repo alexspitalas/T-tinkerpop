@@ -175,7 +175,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             if (dropMode == DropMode.HARD)
                 element.remove();
             else if (dropMode == DropMode.SOFT)
-                throw new IllegalArgumentException("Cannot soft drop the last lifetime interval");
+                throw new IllegalArgumentException("Cannot soft drop an interval that leaves the lifetime empty");
             return traverser;
         }
 
