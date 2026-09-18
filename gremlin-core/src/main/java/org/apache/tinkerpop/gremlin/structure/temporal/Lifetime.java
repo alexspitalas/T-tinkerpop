@@ -34,7 +34,6 @@ import java.util.Objects;
 
 public final class Lifetime implements Serializable {
     public enum DropMode {
-        DEFAULT,
         SOFT,
         HARD
     }

@@ -3359,28 +3359,28 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.SOFT));
     }
 
     public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final String endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.SOFT));
     }
 
     public default GraphTraversal<S, E> dropInterval(final String startTime, final Traversal<?, String> endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.SOFT));
     }
 
     public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
         if (null == startTime) throw new IllegalArgumentException("StartTime cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.DEFAULT));
+                LifetimeStep.LifetimeMode.DROP, Lifetime.DropMode.SOFT));
     }
 
     public default GraphTraversal<S, E> dropInterval(final String startTime, final String endTime,

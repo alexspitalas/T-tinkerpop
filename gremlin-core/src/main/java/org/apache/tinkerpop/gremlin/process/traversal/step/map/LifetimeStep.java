@@ -64,7 +64,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             final String propertyKey, final String propertyValue) {
         super(traversal);
         this.mode = LifetimeMode.REPLACE;
-        this.dropMode = DropMode.DEFAULT;
+        this.dropMode = DropMode.SOFT;
 
         if (lifetime instanceof Lifetime) {
             this.lifetime = (Lifetime) lifetime;
@@ -106,7 +106,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
             final String propertyKey, final String propertyValue, final LifetimeMode mode) {
-        this(traversal, startTime, endTime, propertyKey, propertyValue, mode, DropMode.DEFAULT);
+        this(traversal, startTime, endTime, propertyKey, propertyValue, mode, DropMode.SOFT);
     }
 
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
@@ -174,7 +174,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         if (mode == LifetimeMode.DROP && finalLifetime.isEmpty()) {
             if (dropMode == DropMode.HARD)
                 element.remove();
-            else
+            else if (dropMode == DropMode.SOFT)
                 throw new IllegalArgumentException("Cannot soft drop the last lifetime interval");
             return traverser;
         }
