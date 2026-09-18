@@ -368,19 +368,19 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
             traversal.next();
             fail("Expected IllegalArgumentException to be thrown");
         } catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+            assertTrue(e.getMessage().contains("Cannot set edge lifetime"));
             assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
         } catch (CompletionException e) {
             // In remote test environments, the exception is wrapped in CompletionException
             Throwable cause = e.getCause();
             if (cause instanceof IllegalArgumentException) {
-                assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(cause.getMessage().contains("Cannot set edge lifetime"));
                 assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
             } else {
                 // Check if the cause is a ResponseException by checking the class name
                 String causeClassName = cause.getClass().getName();
                 if (causeClassName.contains("ResponseException")) {
-                    assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                    assertTrue(cause.getMessage().contains("Cannot set edge lifetime"));
                     assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
                 } else {
                     throw e; // Re-throw if it's not the expected exception
@@ -390,7 +390,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
             // Check if this is a ResponseException by checking the class name
             String exceptionClassName = e.getClass().getName();
             if (exceptionClassName.contains("ResponseException")) {
-                assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(e.getMessage().contains("Cannot set edge lifetime"));
                 assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
             } else {
                 throw e; // Re-throw if it's not the expected exception
@@ -479,19 +479,19 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
             traversal.next();
             fail("Expected IllegalArgumentException to be thrown");
         } catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+            assertTrue(e.getMessage().contains("Cannot set edge lifetime"));
             assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
         } catch (CompletionException e) {
             // In remote test environments, the exception is wrapped in CompletionException
             Throwable cause = e.getCause();
             if (cause instanceof IllegalArgumentException) {
-                assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(cause.getMessage().contains("Cannot set edge lifetime"));
                 assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
             } else {
                 // Check if the cause is a ResponseException by checking the class name
                 String causeClassName = cause.getClass().getName();
                 if (causeClassName.contains("ResponseException")) {
-                    assertTrue(cause.getMessage().contains("Cannot create edge with lifetime"));
+                    assertTrue(cause.getMessage().contains("Cannot set edge lifetime"));
                     assertTrue(cause.getMessage().contains("because one or both vertices do not exist during this time period"));
                 } else {
                     throw e; // Re-throw if it's not the expected exception
@@ -501,7 +501,7 @@ public abstract class AddEdgeTest extends AbstractGremlinProcessTest {
             // Check if this is a ResponseException by checking the class name
             String exceptionClassName = e.getClass().getName();
             if (exceptionClassName.contains("ResponseException")) {
-                assertTrue(e.getMessage().contains("Cannot create edge with lifetime"));
+                assertTrue(e.getMessage().contains("Cannot set edge lifetime"));
                 assertTrue(e.getMessage().contains("because one or both vertices do not exist during this time period"));
             } else {
                 throw e; // Re-throw if it's not the expected exception

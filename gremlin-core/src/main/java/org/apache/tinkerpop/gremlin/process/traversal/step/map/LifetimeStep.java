@@ -215,9 +215,14 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             if (validateEdgeLifetime(edge, finalLifetime)) {
                 finalLifetime.attachTo(edge);
             } else {
-                // If validation fails, throw an error
+                String operation = "set";
+                if (mode == LifetimeMode.ADD) {
+                    operation = "add an interval to";
+                } else if (mode == LifetimeMode.DROP) {
+                    operation = "drop an interval from";
+                }
                 throw new IllegalArgumentException(
-                        "Cannot create edge with lifetime [" + finalLifetime.getStartDate() + ", " + finalLifetime.getEndDate() +
+                        "Cannot " + operation + " edge lifetime [" + finalLifetime.getStartDate() + ", " + finalLifetime.getEndDate() +
                                 "] because one or both vertices do not exist during this time period.");
             }
         }
