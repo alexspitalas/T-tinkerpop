@@ -79,7 +79,7 @@ public class MultipleIntervalLifetimeIntegrationTest {
         final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> g.E(edge).addInterval("2031-01-01", "2031-12-31").iterate());
 
-        assertTrue(exception.getMessage().contains("Cannot create edge with lifetime"));
+        assertTrue(exception.getMessage().contains("Cannot add an interval to edge lifetime"));
         assertEquals(Lifetime.from("2022-01-01", "2023-12-31"), Lifetime.fromProperties(edge));
     }
 
@@ -129,7 +129,7 @@ public class MultipleIntervalLifetimeIntegrationTest {
     }
 
     @Test
-    public void shouldLeaveMissedAndInitiallyUnboundedDropsUnchanged() {
+    public void shouldLeaveMissedDropUnchangedAndSplitUnboundedLifetime() {
         final Vertex bounded = g.addV("person").lifetime("2020-01-01", "2020-12-31").next();
         g.V(bounded).dropInterval("2022-01-01", "2022-12-31", Lifetime.DropMode.HARD).iterate();
         assertEquals(Lifetime.from("2020-01-01", "2020-12-31"), Lifetime.fromProperties(bounded));
