@@ -29,7 +29,9 @@ import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.DropMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,6 +41,14 @@ import java.util.Objects;
 import java.util.Set;
 
 public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalParent {
+    public enum LifetimeMode {
+        REPLACE,
+        ADD,
+        DROP
+    }
+
+    private LifetimeMode mode = LifetimeMode.REPLACE;
+    private final DropMode dropMode;
     private Lifetime lifetime;
     private Traversal.Admin<S, ?> lifetimeTraversal;
     private Object startTime;
@@ -53,6 +63,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     public LifetimeStep(final Traversal.Admin traversal, final Object lifetime,
             final String propertyKey, final String propertyValue) {
         super(traversal);
+        this.mode = LifetimeMode.REPLACE;
+        this.dropMode = DropMode.SOFT;
 
         if (lifetime instanceof Lifetime) {
             this.lifetime = (Lifetime) lifetime;
@@ -69,8 +81,10 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
     @SuppressWarnings("unchecked")
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
-            final String propertyKey, final String propertyValue) {
+            final String propertyKey, final String propertyValue, final LifetimeMode mode, final DropMode dropMode) {
         super(traversal);
+        this.mode = mode != null ? mode : LifetimeMode.REPLACE;
+        this.dropMode = Objects.requireNonNull(dropMode, "dropMode cannot be null");
 
         this.useTemporalParameters = true;
 
@@ -90,10 +104,20 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         this.propertyValue = propertyValue;
     }
 
+    public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
+            final String propertyKey, final String propertyValue, final LifetimeMode mode) {
+        this(traversal, startTime, endTime, propertyKey, propertyValue, mode, DropMode.SOFT);
+    }
+
+    public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
+            final String propertyKey, final String propertyValue) {
+        this(traversal, startTime, endTime, propertyKey, propertyValue, LifetimeMode.REPLACE);
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), this.lifetime, this.lifetimeTraversal, this.useTemporalParameters,
-                this.startTime, this.endTime,
+                this.startTime, this.endTime, this.mode, this.dropMode,
                 this.startTimeTraversal, this.endTimeTraversal, this.propertyKey, this.propertyValue);
     }
 
@@ -114,6 +138,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             return false;
         if (useTemporalParameters != that.useTemporalParameters)
             return false;
+        if (mode != that.mode || dropMode != that.dropMode)
+            return false;
         if (!Objects.equals(startTime, that.startTime))
             return false;
         if (!Objects.equals(endTime, that.endTime))
@@ -133,13 +159,32 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
         // Evaluate traversal parameters at runtime
         final Lifetime actualLifetime = resolveLifetime(traverser);
+        final Element element = (Element) traverser.get();
 
-        if (traverser.get() instanceof Vertex) {
-            final Vertex vertex = (Vertex) traverser.get();
+        Lifetime finalLifetime = actualLifetime;
+        if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {
+            Lifetime currentLifetime = Lifetime.fromProperties(element);
+            if (mode == LifetimeMode.ADD) {
+                finalLifetime = currentLifetime.addInterval(actualLifetime.getStartDate(), actualLifetime.getEndDate());
+            } else if (mode == LifetimeMode.DROP) {
+                finalLifetime = currentLifetime.dropInterval(actualLifetime.getStartDate(), actualLifetime.getEndDate());
+            }
+        }
+
+        if (mode == LifetimeMode.DROP && finalLifetime.isEmpty()) {
+            if (dropMode == DropMode.HARD)
+                element.remove();
+            else if (dropMode == DropMode.SOFT)
+                throw new IllegalArgumentException("Cannot soft drop an interval that leaves the lifetime empty");
+            return traverser;
+        }
+
+        if (element instanceof Vertex) {
+            final Vertex vertex = (Vertex) element;
 
             if (this.propertyKey != null && this.propertyValue != null) {
                 vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue,
-                        actualLifetime.toProperties());
+                        finalLifetime.toProperties());
             } else if (this.propertyKey != null) {
 
                 // Step 1: Store Previous metaProperties
@@ -152,7 +197,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                 vertex.property(this.propertyKey).remove();
 
                 // Step 3: Recreate with extra meta-property
-                metaProperties.putAll(actualLifetime.toPropertyMap());
+                metaProperties.putAll(finalLifetime.toPropertyMap());
                 List<Object> args = new ArrayList<>();
                 metaProperties.forEach((key, value) -> {
                     args.add(key);
@@ -161,18 +206,23 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                 vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue,
                         args.toArray(new Object[0]));
             } else {
-                actualLifetime.attachTo(vertex);
+                finalLifetime.attachTo(vertex);
             }
-        } else if (traverser.get() instanceof Edge) {
-            final Edge edge = (Edge) traverser.get();
+        } else if (element instanceof Edge) {
+            final Edge edge = (Edge) element;
 
             // For edges, validate that both vertices exist for the edge's full lifetime.
-            if (validateEdgeLifetime(edge, actualLifetime)) {
-                actualLifetime.attachTo(edge);
+            if (validateEdgeLifetime(edge, finalLifetime)) {
+                finalLifetime.attachTo(edge);
             } else {
-                // If validation fails, throw an error
+                String operation = "set";
+                if (mode == LifetimeMode.ADD) {
+                    operation = "add an interval to";
+                } else if (mode == LifetimeMode.DROP) {
+                    operation = "drop an interval from";
+                }
                 throw new IllegalArgumentException(
-                        "Cannot create edge with lifetime [" + actualLifetime.getStartDate() + ", " + actualLifetime.getEndDate() +
+                        "Cannot " + operation + " edge lifetime [" + finalLifetime.getStartDate() + ", " + finalLifetime.getEndDate() +
                                 "] because one or both vertices do not exist during this time period.");
             }
         }

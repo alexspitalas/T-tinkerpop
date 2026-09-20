@@ -307,6 +307,8 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.cap, Collections.singletonList(SideEffectCapStep.class));
             put(GraphTraversal.Symbols.property, Collections.singletonList(AddPropertyStep.class));
             put(GraphTraversal.Symbols.lifetime, Collections.singletonList(LifetimeStep.class));
+            put(GraphTraversal.Symbols.addInterval, Collections.singletonList(LifetimeStep.class));
+            put(GraphTraversal.Symbols.dropInterval, Collections.singletonList(LifetimeStep.class));
             put(GraphTraversal.Symbols.lifetimeProperty, Collections.singletonList(LifetimeStep.class));
             put(GraphTraversal.Symbols.getStartTime, Collections.singletonList(GetStartTimeStep.class));
             put(GraphTraversal.Symbols.getEndTime, Collections.singletonList(GetEndTimeStep.class));

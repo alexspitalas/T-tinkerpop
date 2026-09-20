@@ -68,37 +68,34 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
-        // Drop elements not alive at this instant.
-        if (!LifetimeHelper.isAliveAt((Element) current, instant))
+        Lifetime window = Lifetime.from(instant, instant);
+        Lifetime currentContext;
+        if (current instanceof TemporalVertex) currentContext = ((TemporalVertex) current).getLifetime();
+        else if (current instanceof TemporalEdge) currentContext = ((TemporalEdge) current).getLifetime();
+        else if (current instanceof TemporalVertexProperty) currentContext = ((TemporalVertexProperty<?>) current).getLifetime();
+        else currentContext = Lifetime.fromProperties((Element) current);
+
+        java.util.Optional<Lifetime> intersectOpt = LifetimeHelper.intersection(currentContext, window);
+        if (!intersectOpt.isPresent())
             return false;
 
-        // Wrap passing elements so subsequent navigation respects the snapshot.
-        // Note: check VertexProperty before Vertex/Edge (it's neither a Vertex nor Edge,
-        // but the ordering avoids ambiguity on future subclass hierarchies).
+        Lifetime newContext = intersectOpt.get();
+
         if (current instanceof VertexProperty) {
-            if (!(current instanceof TemporalVertexProperty)
-                    || !((TemporalVertexProperty<?>) current).getInstant().equals(instant)) {
-                final VertexProperty<?> base = (current instanceof TemporalVertexProperty)
-                        ? ((TemporalVertexProperty<?>) current).getBaseVertexProperty()
-                        : (VertexProperty<?>) current;
-                traverser.set((S) new TemporalVertexProperty<>(base, instant));
-            }
+            final VertexProperty<?> base = (current instanceof TemporalVertexProperty)
+                    ? ((TemporalVertexProperty<?>) current).getBaseVertexProperty()
+                    : (VertexProperty<?>) current;
+            traverser.set((S) new TemporalVertexProperty<>(base, newContext));
         } else if (current instanceof Vertex) {
-            if (!(current instanceof TemporalVertex)
-                    || !((TemporalVertex) current).getInstant().equals(instant)) {
-                final Vertex base = (current instanceof TemporalVertex)
-                        ? ((TemporalVertex) current).getBaseVertex()
-                        : (Vertex) current;
-                traverser.set((S) new TemporalVertex(base, instant));
-            }
+            final Vertex base = (current instanceof TemporalVertex)
+                    ? ((TemporalVertex) current).getBaseVertex()
+                    : (Vertex) current;
+            traverser.set((S) new TemporalVertex(base, newContext));
         } else if (current instanceof Edge) {
-            if (!(current instanceof TemporalEdge)
-                    || !((TemporalEdge) current).getInstant().equals(instant)) {
-                final Edge base = (current instanceof TemporalEdge)
-                        ? ((TemporalEdge) current).getBaseEdge()
-                        : (Edge) current;
-                traverser.set((S) new TemporalEdge(base, instant));
-            }
+            final Edge base = (current instanceof TemporalEdge)
+                    ? ((TemporalEdge) current).getBaseEdge()
+                    : (Edge) current;
+            traverser.set((S) new TemporalEdge(base, newContext));
         }
 
         return true;

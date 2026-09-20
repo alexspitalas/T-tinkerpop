@@ -27,12 +27,15 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertThrows;
@@ -120,6 +123,77 @@ public class LifetimeTest {
     }
 
     @Test
+    public void shouldReadExtentFromTemporalIntervals() {
+        final Element element = elementWithProperties(new Date(5000L), new Date(6000L));
+        final Property<Object> intervalsProperty = property("1000:2000,3000:4000");
+        when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(intervalsProperty);
+
+        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(element));
+        assertEquals(new Date(4000L), Lifetime.getEndTimeFromProperty(element));
+
+        final Element intervalsOnly = elementWithTemporalIntervals("1000:2000,3000:4000");
+        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(intervalsOnly));
+        assertEquals(new Date(4000L), Lifetime.getEndTimeFromProperty(intervalsOnly));
+    }
+
+    @Test
+    public void shouldParseValidTemporalIntervalsProperty() {
+        assertEquals(Arrays.asList(
+                        new Lifetime.Interval(new Date(1000L), new Date(2000L)),
+                        new Lifetime.Interval(new Date(3000L), new Date(4000L))),
+                Lifetime.fromProperties(elementWithTemporalIntervals("1000:2000,3000:4000")).getIntervals());
+        assertEquals(Arrays.asList(
+                        new Lifetime.Interval(new Date(-2000L), new Date(-1000L))),
+                Lifetime.fromProperties(elementWithTemporalIntervals("-2000:-1000")).getIntervals());
+        assertLifetime(Long.MIN_VALUE, Long.MAX_VALUE,
+                Lifetime.fromProperties(elementWithTemporalIntervals(
+                        Long.MIN_VALUE + ":" + Long.MAX_VALUE)));
+    }
+
+    @Test
+    public void shouldNormalizeValidTemporalIntervalsProperty() {
+        final Lifetime lifetime = Lifetime.fromProperties(
+                elementWithTemporalIntervals("3000:5000,1000:2000,1500:4000"));
+
+        assertEquals(Arrays.asList(
+                new Lifetime.Interval(new Date(1000L), new Date(5000L))), lifetime.getIntervals());
+        assertEquals("1000:5000", lifetime.toPropertyMap().get(Lifetime.TEMPORAL_INTERVALS));
+    }
+
+    @Test
+    public void shouldRejectMalformedTemporalIntervalsProperty() {
+        final List<String> malformedValues = Arrays.asList(
+                "", " ", "1000 :2000", "1000: 2000",
+                ",1000:2000", "1000:2000,", "1000:2000,,3000:4000",
+                ":2000", "1000:", "1000", "1000:2000:3000",
+                "one:2000", "1000:two",
+                "9223372036854775808:9223372036854775808",
+                "-9223372036854775809:0", "2000:1000");
+
+        for (String malformedValue : malformedValues) {
+            final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                    () -> Lifetime.fromProperties(elementWithTemporalIntervals(malformedValue)));
+            assertTrue(exception.getMessage().contains("temporalIntervals"));
+        }
+    }
+
+    @Test
+    public void shouldRejectNonStringTemporalIntervalsProperty() {
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> Lifetime.fromProperties(elementWithTemporalIntervals(1000L)));
+
+        assertTrue(exception.getMessage().contains("expected String"));
+    }
+
+    @Test
+    public void shouldRejectEntireTemporalIntervalsPropertyWhenOneComponentIsMalformed() {
+        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> Lifetime.fromProperties(elementWithTemporalIntervals("1000:2000,malformed,3000:4000")));
+
+        assertTrue(exception.getMessage().contains("malformed"));
+    }
+
+    @Test
     public void shouldDefaultMissingProperties() {
         final Element element = elementWithProperties(null, null);
 
@@ -138,7 +212,8 @@ public class LifetimeTest {
         final Object[] properties = lifetime.toProperties();
         assertArrayEquals(new Object[] {
                 Lifetime.START_TIME, new Date(1000L),
-                Lifetime.END_TIME, new Date(2000L)
+                Lifetime.END_TIME, new Date(2000L),
+                Lifetime.TEMPORAL_INTERVALS, "1000:2000"
         }, properties);
 
         final Date startTimeProperty = (Date) properties[1];
@@ -150,6 +225,7 @@ public class LifetimeTest {
         final Map<String, Object> propertyMap = lifetime.toPropertyMap();
         assertEquals(new Date(1000L), propertyMap.get(Lifetime.START_TIME));
         assertEquals(new Date(2000L), propertyMap.get(Lifetime.END_TIME));
+        assertEquals("1000:2000", propertyMap.get(Lifetime.TEMPORAL_INTERVALS));
 
         ((Date) propertyMap.get(Lifetime.START_TIME)).setTime(3000L);
         ((Date) propertyMap.get(Lifetime.END_TIME)).setTime(4000L);
@@ -167,6 +243,7 @@ public class LifetimeTest {
 
         verify(element).property(eq(Lifetime.START_TIME), startTimeCaptor.capture());
         verify(element).property(eq(Lifetime.END_TIME), endTimeCaptor.capture());
+        verify(element).property(Lifetime.TEMPORAL_INTERVALS, "1000:2000");
         assertEquals(new Date(1000L), startTimeCaptor.getValue());
         assertEquals(new Date(2000L), endTimeCaptor.getValue());
 
@@ -174,6 +251,17 @@ public class LifetimeTest {
         endTimeCaptor.getValue().setTime(4000L);
 
         assertLifetime(1000L, 2000L, lifetime);
+    }
+
+    @Test
+    public void shouldClearEmptyLifetimeFromElementWithMissingProperties() {
+        final Element element = mock(Element.class);
+
+        Lifetime.from(Arrays.asList()).attachTo(element);
+
+        verify(element).property(Lifetime.START_TIME);
+        verify(element).property(Lifetime.END_TIME);
+        verify(element).property(Lifetime.TEMPORAL_INTERVALS);
     }
 
     @Test
@@ -190,12 +278,42 @@ public class LifetimeTest {
         assertEquals(traversal, Serializer.deserializeObject(Serializer.serializeObject(traversal)));
     }
 
+    @Test
+    public void shouldSupportMultipleIntervals() {
+        Lifetime lifetime = Lifetime.from(1000L, 2000L);
+        lifetime = lifetime.addInterval(new Date(3000L), new Date(4000L));
+        
+        assertLifetime(1000L, 4000L, lifetime);
+        assertTrue(lifetime.intersects(Lifetime.from(1500L, 1800L)));
+        assertTrue(lifetime.intersects(Lifetime.from(3500L, 3800L)));
+        assertFalse(lifetime.intersects(Lifetime.from(2100L, 2900L)));
+    }
+
+    @Test
+    public void shouldDropIntervals() {
+        Lifetime lifetime = Lifetime.from(1000L, 4000L);
+        lifetime = lifetime.dropInterval(new Date(2000L), new Date(3000L));
+        
+        assertLifetime(1000L, 4000L, lifetime);
+        assertFalse(lifetime.intersects(Lifetime.from(2100L, 2900L)));
+        assertTrue(lifetime.intersects(Lifetime.from(1500L, 1800L)));
+        assertTrue(lifetime.intersects(Lifetime.from(3500L, 3800L)));
+    }
+
     private static Element elementWithProperties(final Object startTime, final Object endTime) {
         final Element element = mock(Element.class);
         final Property<Object> startTimeProperty = null == startTime ? Property.empty() : property(startTime);
         final Property<Object> endTimeProperty = null == endTime ? Property.empty() : property(endTime);
         when(element.property(Lifetime.START_TIME)).thenReturn(startTimeProperty);
         when(element.property(Lifetime.END_TIME)).thenReturn(endTimeProperty);
+        when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(Property.empty());
+        return element;
+    }
+
+    private static Element elementWithTemporalIntervals(final Object temporalIntervals) {
+        final Element element = mock(Element.class);
+        final Property<Object> temporalIntervalsProperty = property(temporalIntervals);
+        when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(temporalIntervalsProperty);
         return element;
     }
 

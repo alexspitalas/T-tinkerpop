@@ -56,19 +56,16 @@ public final class LifetimeHelper {
      * Returns {@code true} if the lifetimes intersect inclusively. A single shared point is an intersection.
      */
     public static boolean intersects(final Lifetime left, final Lifetime right) {
-        return !left.getStartDate().after(right.getEndDate()) && !left.getEndDate().before(right.getStartDate());
+        return left.intersects(right);
     }
 
     /**
      * Returns the inclusive intersection of two lifetimes, or {@link Optional#empty()} when they are disjoint.
      */
     public static Optional<Lifetime> intersection(final Lifetime left, final Lifetime right) {
-        if (!intersects(left, right))
-            return Optional.empty();
-
-        final Date start = left.getStartDate().after(right.getStartDate()) ? left.getStartDate() : right.getStartDate();
-        final Date end = left.getEndDate().before(right.getEndDate()) ? left.getEndDate() : right.getEndDate();
-        return Optional.of(Lifetime.from(start, end));
+        Lifetime intersect = left.intersection(right);
+        if (intersect.isEmpty()) return Optional.empty();
+        return Optional.of(intersect);
     }
 
     /**

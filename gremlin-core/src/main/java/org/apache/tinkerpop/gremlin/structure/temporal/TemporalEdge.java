@@ -53,15 +53,6 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
         this(base, Lifetime.fromProperties(base));
     }
 
-    public TemporalEdge(final Edge base, final Date instant) {
-        this(base, instant, instant);
-    }
-
-    public TemporalEdge(final Edge base, final Date startInstant, final Date endInstant) {
-        this.base    = base;
-        this.lifetime = Lifetime.from(startInstant, endInstant);
-    }
-
     public TemporalEdge(final Edge base, final Lifetime lifetime) {
         this.base    = base;
         this.lifetime = lifetime;

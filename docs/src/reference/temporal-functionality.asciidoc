@@ -19,17 +19,20 @@ limitations under the License.
 
 == Overview
 
-Apache TinkerPop™ has been extended with temporal functionality, enabling time-aware graph queries and traversals. This extension provides three main capabilities:
+Apache TinkerPop™ has been extended with temporal functionality, enabling time-aware graph queries and traversals. This extension provides:
 
-1. **Lifetime Management**: Define temporal validity intervals for vertices and edges
+1. **Lifetime Management**: Define and update one or more validity intervals for vertices and edges, and assign lifetimes to vertex properties
 2. **Allen's Interval Algebra**: Thirteen operators for interval-based temporal filtering
 3. **Temporal Paths**: Constrain traversals based on temporal relationships between edges
+4. **Temporal Views**: Query a graph at an instant or during a window
+5. **Temporal PageRank**: Rank vertices using a chronological edge stream
 
 == Lifetime Management
 
 === Setting Lifetimes
 
-The `lifetime()` step allows you to define the temporal validity of graph elements during creation.
+The `lifetime()` step allows you to define or replace the temporal validity of graph elements. Its one-argument
+form has an open-ended end. `lifetimeProperty()` assigns a lifetime to a vertex property.
 
 [source,java]
 ----
@@ -39,13 +42,23 @@ g.addV("employee")
   .property("name", "Alice")
   .next();
 
-// Edge with ongoing validity (no end time)
+g.addV("employee")
+  .lifetime("2020-01-01")
+  .property("name", "Bob")
+  .next();
+
+// Edge whose lifetime is contained in both endpoint lifetimes
 g.V().has("name", "Alice").as("a")
   .V().has("name", "Bob").as("b")
   .addE("manages")
   .from("a").to("b")
-  .lifetime("2022-06-01T09:00:00")
+  .lifetime("2022-06-01T09:00:00", "2023-12-31T17:00:00")
   .next();
+
+// A vertex property with its own lifetime
+g.V().has("name", "Alice")
+  .lifetimeProperty("title", "manager", "2022-06-01", "2023-12-31")
+  .iterate();
 ----
 
 === Retrieving Lifetime Information
@@ -53,26 +66,79 @@ g.V().has("name", "Alice").as("a")
 [source,java]
 ----
 Vertex employee = g.V().has("name", "Alice").next();
-LocalDateTime startTime = employee.getStartTime();
-LocalDateTime endTime = employee.getEndTime(); // Max end time if ongoing
+Date startTime = g.V(employee).getStartTime().next();
+Date endTime = g.V(employee).getEndTime().next();
+Lifetime lifetime = g.V(employee).getLifetime().next();
+List<Lifetime.Interval> intervals = lifetime.getIntervals();
 ----
+
+The getter steps work on vertices, edges, and vertex properties. `getStartTime()` and `getEndTime()` return
+`java.util.Date` values; for multiple intervals they return the earliest start and latest end.
 
 === Internal Representation
 
 Lifetimes are stored as properties:
-- `startTime`: Start of validity interval (optional, missing = unbounded start)
-- `endTime`: End of validity interval (optional, missing = open-ended end)
+
+- `startTime`: Earliest start of validity (missing or `null` = unbounded start)
+- `endTime`: Latest end of validity (missing or `null` = open-ended end)
+- `temporalIntervals`: Normalized intervals as comma-separated `start:end` epoch-millisecond pairs
 
 When Gremlin represents an element as a `Lifetime`, missing temporal properties are normalized to unbounded interval
-limits. An element with neither `startTime` nor `endTime` is therefore treated as always valid by temporal view helpers
+limits. An element with no lifetime properties is therefore treated as always valid by temporal view helpers
 and other steps that read `Lifetime` values. The `getEndTime()` step uses the same normalized open-ended behavior and
-returns the maximum representable end time when the raw `endTime` property is absent.
+returns the maximum representable end time when no end bound is stored. When `temporalIntervals` is
+present, it is authoritative; the two outer-bound properties do not represent gaps between intervals. An edge
+lifetime must be contained in the lifetimes of both endpoint vertices when it is set or changed.
+
+=== Adding and Dropping Intervals
+
+`addInterval(start, end)` adds an inclusive interval; `dropInterval(start, end)` subtracts one. Overlapping or
+touching intervals are merged. A subtraction may split an interval, with the retained sides ending one millisecond
+before and beginning one millisecond after the removed interval. `lifetime(start, end)` replaces all intervals.
+On an element without explicit lifetime properties, `addInterval()` establishes the first bounded interval.
+These interval mutation steps operate on vertices and edges; use `lifetimeProperty()` to assign a vertex-property lifetime.
+
+[source,java]
+----
+Vertex contract = g.addV("contract")
+    .lifetime("2020-01-01", "2030-12-31").next();
+g.V(contract).dropInterval("2024-01-01", "2024-12-31").iterate();
+g.V(contract).addInterval("2032-01-01", "2032-12-31").iterate();
+List<Lifetime.Interval> activePeriods = g.V(contract).getLifetime().next().getIntervals();
+----
+
+The default `Lifetime.DropMode.SOFT` rejects a drop that leaves no intervals.
+`dropInterval(start, end, Lifetime.DropMode.HARD)` removes the element when its entire lifetime is subtracted.
+Removing a vertex also removes its incident edges. A drop that misses all intervals leaves the lifetime unchanged.
+
+=== Temporal Views
+
+`atTime(instant)` filters elements alive at one instant; `window(start, end)` filters elements whose lifetime
+intersects the inclusive window. Both carry the temporal scope through later vertex, edge, and vertex-property
+navigation, including `out()`, `outE()`, `inV()`, `has()`, `values()`, and `properties()`.
+
+[source,java]
+----
+List<Vertex> currentEmployees = g.V().hasLabel("employee")
+    .atTime("2022-07-01").toList();
+List<Vertex> reports = g.V(employee)
+    .window("2022-01-01", "2022-12-31")
+    .out("manages").toList();
+----
+
+An `atTime(t)` query uses the point interval `[t, t]`. When navigating from a temporal vertex, the edge and both
+endpoints must each intersect the current temporal context. In a window query these intersections need not occur
+at one shared instant. A direct `g.E().atTime(...)` or `g.E().window(...)` filters the edge by its own lifetime.
+Both steps reject `null` arguments, and `window()` rejects a reversed range.
 
 == Allen's Interval Algebra
 
 === Overview
 
 Allen's Interval Algebra provides 13 distinct temporal relationships between intervals. Each relationship is implemented as a traversal step for filtering graph elements.
+Each step takes a reference `Element`. For a lifetime with multiple intervals, Allen filters compare the earliest
+start and latest end, so a gap inside the lifetime does not affect the relation. Relations such as
+`temporalDuring()` and `temporalContains()` use strict boundaries.
 
 === The 13 Allen Operators
 
@@ -149,14 +215,16 @@ List<Vertex> incidents = g.V().hasLabel("Incident")
     .temporalDuring(maintenanceWindow)
     .toList();
 
-// Identify overlapping meetings for conflict detection
-List<Path> conflicts = g.V().hasLabel("Meeting").as("m1")
-    .V().hasLabel("Meeting").where(neq("m1")).as("m2")
-    .temporalOverlaps(select("m1"))
-    .path()
+// Find other meetings whose lifetimes intersect a particular meeting, including containment and shared boundaries
+Vertex meeting = g.V().hasLabel("Meeting").next();
+Lifetime meetingLifetime = Lifetime.fromProperties(meeting);
+List<Vertex> conflicts = g.V().hasLabel("Meeting")
+    .hasId(P.neq(meeting.id()))
+    .filter(t -> Lifetime.fromProperties(t.get()).intersects(meetingLifetime))
     .toList();
 
 // Complex temporal queries with where()
+Vertex projectVertex = g.V().has("name", "Project Alpha").next();
 List<Vertex> complexQuery = g.V().hasLabel("Task")
     .where(__.or(
         __.temporalDuring(projectVertex),
@@ -170,6 +238,8 @@ List<Vertex> complexQuery = g.V().hasLabel("Task")
 === Overview
 
 Temporal paths extend standard graph traversals by enforcing temporal constraints across edges in a path. This enables queries like "find paths where all edges overlap" or "find paths that respect causality."
+Each path step follows an outgoing edge and returns its incoming vertex. It accepts zero or more edge labels;
+without labels it considers all outgoing edges. Intervals that meet at a single instant count as overlapping.
 
 === Three Path Types
 
@@ -177,18 +247,24 @@ Temporal paths extend standard graph traversals by enforcing temporal constraint
 |===
 |Type |Constraint |Use Case
 
-|`continuousPath(label)`
+|`continuousPath(labels...)`
 |All edges must overlap at a common time point
 |Concurrent collaborations, team activities
 
-|`sequentialPath(label)`
+|`sequentialPath(labels...)`
 |Each edge starts ≥ when previous ends (causality)
 |Workflows, event sequences, dependencies
 
-|`pairwiseContinuousPath(label)`
+|`pairwiseContinuousPath(labels...)`
 |Consecutive edges overlap
 |Hand-off processes, relay activities
 |===
+
+`sequentialPath(minDelay, maxDelay, labels...)` also limits the delay between the preceding edge's end and
+the next edge's start, inclusive, in milliseconds. `pairwiseContinuousPath(true, labels...)` also requires
+each new edge to start no earlier than the preceding edge; the default form has no monotonicity constraint.
+Continuous and pairwise paths intersect the actual intervals of multi-interval edge lifetimes, including gaps.
+Sequential paths use each edge lifetime's earliest start and latest end.
 
 === Continuous Paths
 
@@ -308,9 +384,8 @@ You can combine temporal constraints with shortest path algorithms.
 
 [source,java]
 ----
-// Find the shortest sequential path (respecting causality)
-// Uses custom traversal that tracks path length
-List<Path> shortestSequential = g.V().has("name", "start")
+// Find one sequential path (the first returned path is not necessarily shortest)
+List<Path> oneSequentialPath = g.V().has("name", "start")
     .repeat(
         __.sequentialPath("edge")
           .simplePath()
@@ -331,40 +406,43 @@ Path shortest = allSequentialPaths.stream()
     .min(Comparator.comparingInt(Path::size))
     .orElse(null);
 
-// Continuous shortest path
-List<Path> shortestContinuous = g.V().has("name", "start")
+// Continuous shortest path: collect candidates before comparing their lengths
+List<Path> allContinuousPaths = g.V().has("name", "start")
     .repeat(
         __.continuousPath("collaborates")
           .simplePath()
     )
     .until(__.has("name", "end"))
     .path()
-    .order().by(__.path().count(local))
-    .limit(1)
     .toList();
+Path shortestContinuous = allContinuousPaths.stream()
+    .min(Comparator.comparingInt(Path::size))
+    .orElse(null);
 ----
 
 == Implementation Notes
 
 === Performance Considerations
 
-1. **Indexing**: Create indices using solr on `startTime` and `endTime` for optimal performance
-2. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so absent `startTime` and `endTime`
-   properties are treated as unbounded interval limits
+1. **Indexing**: Available indices depend on the graph provider; outer-bound properties alone do not describe gaps in a multi-interval lifetime
+2. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so an edge with no lifetime properties
+   has unbounded interval limits
 3. **Path Length**: Longer paths with continuous constraints require more intersection calculations
 
 === Time Format
 
-The implementation uses `LocalDateTime` with ISO 8601 format:
-- Format: `yyyy-MM-dd'T'HH:mm:ss`
-- Example: `2023-06-15T14:30:00`
+The implementation uses `java.util.Date` values. `Lifetime` accepts `Date`, `Instant`, epoch milliseconds as a
+`Number`, and parseable date strings. String forms include `2023-06-15`, `2023-06-15T14:30:00`, and
+`2023-06-15T14:30:00Z`. The `lifetime()`, `addInterval()`, and `dropInterval()` traversal methods expose string
+and child-traversal overloads; `atTime()` and `window()` accept the supported temporal values directly.
 
 === Null Handling
 
 - An absent `startTime` is treated as an unbounded start when represented as a `Lifetime`
 - An absent `endTime` is treated as an open-ended end when represented as a `Lifetime`
-- Elements with neither temporal property are treated as always valid by temporal view helpers
-- `getEndTime()` returns the maximum representable end time when the raw `endTime` property is absent
+- Elements with no lifetime properties are treated as always valid by temporal view helpers
+- When neither `startTime` nor `temporalIntervals` is present, `getStartTime()` returns the date represented by `Lifetime.MIN_START_TIME`
+- When neither `endTime` nor `temporalIntervals` is present, `getEndTime()` returns the date represented by `Lifetime.MAX_END_TIME`
 
 == Advanced Examples
 
@@ -372,7 +450,7 @@ The implementation uses `LocalDateTime` with ISO 8601 format:
 
 [source,java]
 ----
-// Find sequential paths where all edges DURING a project timeframe
+// Find sequential paths whose reached vertices are DURING a project timeframe
 Vertex project = g.V().has("name", "Project Alpha").next();
 
 List<Path> constrainedPaths = g.V().has("type", "task")
@@ -391,7 +469,7 @@ List<Path> constrainedPaths = g.V().has("type", "task")
 ----
 // Find continuous collaboration paths that:
 // 1. All overlap (continuous)
-// 2. Start DURING Q1 2023
+// 2. Have edges DURING Q1 2023
 // 3. Involve at least 4 people
 
 Vertex q1_2023 = g.addV("timeframe")
@@ -403,13 +481,36 @@ List<Path> results = g.V()
     .repeat(__.continuousPath("collaborates"))
     .times(3)
     .path()
-    .filter(__.path().unfold()
+    .filter(__.unfold()
         .hasLabel("collaborates")
         .temporalDuring(q1_2023)
         .count().is(P.gte(3))
     )
     .toList();
 ----
+
+== Temporal PageRank
+
+`temporalPageRank()` performs a chronological edge-stream scan on the vertices arriving at the step. It considers
+outgoing edges whose endpoints are both in that vertex set, writes a rank property to each selected vertex, and
+passes the incoming vertex traversers onward. Walk mass arriving across an edge becomes available when that edge
+ends; this is different from the iterative static `pageRank()` algorithm.
+
+[source,java]
+----
+List<Vertex> ranked = g.V().hasLabel("person")
+    .temporalPageRank()
+    .with(TemporalPageRank.propertyName, "temporalRank")
+    .with(TemporalPageRank.alpha, 0.85d)
+    .with(TemporalPageRank.beta, 0.5d)
+    .with(TemporalPageRank.normalize, true)
+    .toList();
+----
+
+The defaults are `alpha = 0.85`, `beta = 0.5`, normalization enabled, and property name
+`gremlin.temporalPageRank.pageRank`. `alpha` must be greater than zero and less than one; `beta` must be greater
+than zero and at most one. Vertices with no eligible edges receive rank `0.0`. For a multi-interval edge, the
+scan uses its earliest start and latest end.
 
 == Summary
 
@@ -418,7 +519,11 @@ The temporal extensions to Apache TinkerPop provide a framework for time-aware g
 - **Lifetime Management** makes temporal validity a first-class property
 - **Allen's Operators** enable sophisticated interval-based queries
 - **Temporal Paths** allow traversals that respect temporal constraints
+- **Temporal Views** filter later navigation at an instant or within a window
+- **Temporal PageRank** ranks vertices using temporal edge order
 
 For more examples and test cases, see:
 - `TemporalPathIntegrationTest.java` - Comprehensive temporal path tests
-- `AllenFilterStepTest.java` - Allen operator test coverage
+- `AllenTemporalIntegrationTest.java` - Allen operator test coverage
+- `AtTimeIntegrationTest.java` and `WindowIntegrationTest.java` - Temporal view tests
+- `MultipleIntervalLifetimeIntegrationTest.java` - Multi-interval mutation tests
