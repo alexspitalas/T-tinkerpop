@@ -38,10 +38,12 @@ import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.Text;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.RangeGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.FoldStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GroupCountStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GroupStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MatchStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MeanGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.OrderGlobalStep;
@@ -106,6 +108,7 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.SerializerShim;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedPath;
@@ -324,6 +327,7 @@ public enum GryoVersion {
             add(GryoTypeReg.of(Bytecode.class, 122, new GryoSerializersV3.BytecodeSerializer()));
             add(GryoTypeReg.of(P.class, 124, new GryoSerializersV3.PSerializer()));
             add(GryoTypeReg.of(TextP.class, 186, new GryoSerializersV3.TextPSerializer()));
+            add(GryoTypeReg.of(TemporalP.class, 199, new GryoSerializersV3.TemporalPSerializer()));
             add(GryoTypeReg.of(Text.RegexPredicate.class, 197));                                       // ***LAST ID***
             add(GryoTypeReg.of(Lambda.class, 125, new GryoSerializersV3.LambdaSerializer()));
             add(GryoTypeReg.of(Bytecode.Binding.class, 126, new GryoSerializersV3.BindingSerializer()));
@@ -527,6 +531,7 @@ public enum GryoVersion {
             add(GryoTypeReg.of(Bytecode.class, 122, new GryoSerializersV1.BytecodeSerializer()));
             add(GryoTypeReg.of(P.class, 124, new GryoSerializersV1.PSerializer()));
             add(GryoTypeReg.of(TextP.class, 186, new GryoSerializersV1.TextPSerializer()));
+            add(GryoTypeReg.of(TemporalP.class, 199, new GryoSerializersV1.TemporalPSerializer()));
             add(GryoTypeReg.of(Text.RegexPredicate.class, 197));
             add(GryoTypeReg.of(Lambda.class, 125, new GryoSerializersV1.LambdaSerializer()));
             add(GryoTypeReg.of(Bytecode.Binding.class, 126, new GryoSerializersV1.BindingSerializer()));
@@ -537,8 +542,10 @@ public enum GryoVersion {
             add(GryoTypeReg.of(Pop.class, 133));
             add(GryoTypeReg.of(SackFunctions.Barrier.class, 135));
             add(GryoTypeReg.of(Pick.class, 137));
-            add(GryoTypeReg.of(DT.class, 198));     // ***LAST ID***
+            add(GryoTypeReg.of(DT.class, 198));
             add(GryoTypeReg.of(Merge.class, 196));
+            add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
+            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));          // ***LAST ID***
             add(GryoTypeReg.of(HashSetSupplier.class, 136, new UtilSerializers.HashSetSupplierSerializer()));
             add(GryoTypeReg.of(MultiComparator.class, 165));
 
@@ -628,6 +635,8 @@ public enum GryoVersion {
             add(GryoTypeReg.of(LabelledCounter.class, 180));
             add(GryoTypeReg.of(Stack.class, 181));
             add(GryoTypeReg.of(ReferenceMap.class, 182));
+            add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
+            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
         }};
     }
 

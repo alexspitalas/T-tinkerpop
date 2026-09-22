@@ -65,6 +65,7 @@ public enum DataType {
     SHORT(0X26),
     BOOLEAN(0x27),
     TEXTP(0x28),
+    TEMPORALP(0x30),
     TRAVERSALSTRATEGY(0X29),
     BULKSET(0X2A),
     TREE(0X2B),

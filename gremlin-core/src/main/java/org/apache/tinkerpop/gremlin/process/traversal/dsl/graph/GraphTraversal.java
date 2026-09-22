@@ -59,6 +59,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.branch.OptionalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.RepeatStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.UnionStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AndStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AnyStep;
@@ -3476,7 +3477,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalBefore(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalBefore, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.BEFORE, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.precedes, referenceElement));
     }
 
     /**
@@ -3489,7 +3490,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalAfter(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalAfter, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.AFTER, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.succeeds, referenceElement));
     }
 
     /**
@@ -3502,7 +3503,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalMeets(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMeets, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.MEETS, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.meets, referenceElement));
     }
 
     /**
@@ -3515,7 +3516,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalMetBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMetBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.MET_BY, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.metBy, referenceElement));
     }
 
     /**
@@ -3528,7 +3529,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalOverlaps(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlaps, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.OVERLAPS, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.overlaps, referenceElement));
     }
 
     /**
@@ -3541,7 +3542,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalOverlappedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlappedBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.OVERLAPPED_BY, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.overlappedBy, referenceElement));
     }
 
     /**
@@ -3554,7 +3555,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalStarts(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStarts, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.STARTS, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.starts, referenceElement));
     }
 
     /**
@@ -3567,7 +3568,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalStartedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStartedBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.STARTED_BY, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.startedBy, referenceElement));
     }
 
     /**
@@ -3580,7 +3581,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalFinishes(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishes, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.FINISHES, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.finishes, referenceElement));
     }
 
     /**
@@ -3593,7 +3594,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalFinishedBy(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishedBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.FINISHED_BY, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.finishedBy, referenceElement));
     }
 
     /**
@@ -3606,7 +3607,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalDuring(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalDuring, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.DURING, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.during, referenceElement));
     }
 
     /**
@@ -3619,7 +3620,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalContains(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalContains, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.CONTAINS, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.contains, referenceElement));
     }
 
     /**
@@ -3632,7 +3633,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     public default GraphTraversal<S, E> temporalEquals(final Element referenceElement) {
         this.asAdmin().getBytecode().addStep(Symbols.temporalEquals, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
-                (Traversal.Admin) this.asAdmin(), AllenFilterStep.AllenRelation.EQUALS, referenceElement));
+                (Traversal.Admin) this.asAdmin(), Temporal.eq, referenceElement));
     }
 
     

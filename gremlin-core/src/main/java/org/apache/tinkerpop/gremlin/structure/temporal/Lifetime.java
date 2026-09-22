@@ -288,17 +288,62 @@ public final class Lifetime implements Serializable {
     }
 
     public boolean intersects(Lifetime window) {
-        for (Interval myInt : this.intervals) {
-            for (Interval winInt : window.intervals) {
-                if (myInt.intersects(winInt)) return true;
+        if (window == null) return false;
+        if (this.isEmpty() || window.isEmpty()) return false;
+        
+        // Fast path on outer bounds
+        if (this.getStartDate().after(window.getEndDate()) || this.getEndDate().before(window.getStartDate())) return false;
+        
+        final List<Interval> i1s = this.intervals;
+        final List<Interval> i2s = window.intervals;
+        int i = 0, j = 0;
+        
+        // O(N+M) Sweep
+        while (i < i1s.size() && j < i2s.size()) {
+            Interval int1 = i1s.get(i);
+            Interval int2 = i2s.get(j);
+
+            if (int1.intersects(int2)) return true;
+
+            if (int1.getEnd().before(int2.getEnd())) {
+                i++;
+            } else {
+                j++;
             }
         }
         return false;
     }
 
     public boolean contains(final Lifetime other) {
-        Lifetime intersect = this.intersection(other);
-        return intersect.equals(other);
+        if (other == null) return false;
+        if (other.isEmpty()) return true;
+        if (this.isEmpty()) return false;
+        
+        // Fast path: other cannot be wider than this
+        if (other.getStartDate().before(this.getStartDate()) || other.getEndDate().after(this.getEndDate())) return false;
+        
+        final List<Interval> subs = other.intervals;
+        final List<Interval> supers = this.intervals;
+        int i = 0, j = 0;
+        
+        // O(N+M) Sweep
+        while (i < subs.size() && j < supers.size()) {
+            Interval intSub = subs.get(i);
+            Interval intSuper = supers.get(j);
+
+            // Is intSub completely contained inside intSuper?
+            if (!intSub.getStart().before(intSuper.getStart()) && !intSub.getEnd().after(intSuper.getEnd())) {
+                i++; // Fully covered, move to next sub-interval
+            } else if (!intSuper.getEnd().after(intSub.getStart())) {
+                j++; // intSuper is completely before intSub, check next super-interval
+            } else {
+                // intSub is overlapping the boundary or falls in a gap. It cannot be fully covered.
+                return false;
+            }
+        }
+        
+        // If we advanced through all sub-intervals, it is fully contained
+        return i == subs.size();
     }
 
     public Date getStartDate() {

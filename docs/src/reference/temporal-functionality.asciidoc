@@ -135,10 +135,32 @@ Both steps reject `null` arguments, and `window()` rejects a reversed range.
 
 === Overview
 
-Allen's Interval Algebra provides 13 distinct temporal relationships between intervals. Each relationship is implemented as a traversal step for filtering graph elements.
-Each step takes a reference `Element`. For a lifetime with multiple intervals, Allen filters compare the earliest
-start and latest end, so a gap inside the lifetime does not affect the relation. Relations such as
-`temporalDuring()` and `temporalContains()` use strict boundaries.
+Allen's Interval Algebra provides 13 distinct temporal relationships between intervals, extended with a general `intersects` operator. These operators can be used in two ways:
+1. **As standard traversal steps**: Comparing the current element against a static reference element (e.g., `temporalOverlaps(ref)`).
+2. **As Cypher-style binary predicates**: Using `TemporalP` inside `where()`, `has()`, or `match()` steps to dynamically compare graph variables (e.g., `where("a", TemporalP.overlaps("b"))`).
+
+These temporal filters are fully **multi-interval aware**. When evaluating elements with fragmented lifetimes (i.e., multiple active periods separated by gaps), the filters perform a full O(N+M) temporal sweep to ensure mathematically correct overlap and subset logic. For instance, an element is only considered `during` a reference if all of its active sub-intervals are perfectly enclosed by active sub-intervals of the reference, without falling into any gaps.
+
+=== Using Temporal Predicates (Pattern Matching)
+
+The `TemporalP` predicate wrapper unlocks dynamic binary pattern matching, allowing you to declare temporal relationships between traversal variables:
+
+[source,java]
+----
+// Find all cases where a fraud investigation completely contained 
+// a series of suspicious transfers, but the account was closed 
+// immediately after the transfers finished.
+g.V().match(
+    __.as("acc").outE("investigation").as("i"),
+    __.as("acc").outE("transfer").as("t"),
+    __.as("acc").outE("closed").as("c")
+).where("t", TemporalP.during("i"))
+ .where("c", TemporalP.metBy("t"));
+
+// Find an edge that overlaps with the temporal bounds of a specific event
+g.E().hasLabel("event").as("event")
+ .V().outE("active").where(TemporalP.intersects("event"));
+----
 
 === The 13 Allen Operators
 
@@ -146,11 +168,11 @@ start and latest end, so a gap inside the lifetime does not affect the relation.
 |===
 |Operator |Description |Example Use Case
 
-|`temporalBefore(ref)`
+|`temporalPrecedes(ref)`
 |Element ends before reference starts
 |Tasks before a deadline
 
-|`temporalAfter(ref)`
+|`temporalSucceeds(ref)`
 |Element starts after reference ends
 |Events after a milestone
 
