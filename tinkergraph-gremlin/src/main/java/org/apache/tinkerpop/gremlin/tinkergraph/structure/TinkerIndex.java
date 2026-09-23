@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-final class TinkerIndex<T extends Element> extends AbstractTinkerIndex<T> {
+class TinkerIndex<T extends Element> extends AbstractTinkerIndex<T> {
 
     protected Map<String, Map<Object, Set<T>>> index = new ConcurrentHashMap<>();
 

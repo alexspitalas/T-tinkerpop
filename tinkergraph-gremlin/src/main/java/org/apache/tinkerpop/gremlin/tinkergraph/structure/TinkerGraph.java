@@ -387,10 +387,10 @@ public class TinkerGraph extends AbstractTinkerGraph {
      */
     public <E extends Element> void createIndex(final String key, final Class<E> elementClass) {
         if (Vertex.class.isAssignableFrom(elementClass)) {
-            if (null == this.vertexIndex) this.vertexIndex = new TinkerIndex<>(this, TinkerVertex.class);
+            if (null == this.vertexIndex) this.vertexIndex = new TemporalTinkerIndex<>(this, TinkerVertex.class);
             this.vertexIndex.createKeyIndex(key);
         } else if (Edge.class.isAssignableFrom(elementClass)) {
-            if (null == this.edgeIndex) this.edgeIndex = new TinkerIndex<>(this, TinkerEdge.class);
+            if (null == this.edgeIndex) this.edgeIndex = new TemporalTinkerIndex<>(this, TinkerEdge.class);
             this.edgeIndex.createKeyIndex(key);
         } else {
             throw new IllegalArgumentException("Class is not indexable: " + elementClass);

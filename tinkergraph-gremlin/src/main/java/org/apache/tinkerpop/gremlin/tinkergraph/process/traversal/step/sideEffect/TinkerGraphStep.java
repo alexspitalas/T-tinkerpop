@@ -79,7 +79,7 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
         else
             iterator = null == indexedContainer ?
                     this.iteratorList(graph.edges()) :
-                    TinkerIndexHelper.queryEdgeIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getValue()).stream()
+                    TinkerIndexHelper.queryEdgeIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getBiPredicate(), indexedContainer.getPredicate().getValue()).stream()
                                 .filter(edge -> HasContainer.testAll(edge, this.hasContainers))
                                 .collect(Collectors.<Edge>toList()).iterator();
 
@@ -101,7 +101,7 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
         else
             iterator = (null == indexedContainer ?
                     this.iteratorList(graph.vertices()) :
-                    IteratorUtils.filter(TinkerIndexHelper.queryVertexIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getValue()).iterator(),
+                    IteratorUtils.filter(TinkerIndexHelper.queryVertexIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getBiPredicate(), indexedContainer.getPredicate().getValue()).iterator(),
                                          vertex -> HasContainer.testAll(vertex, this.hasContainers)));
 
         iterators.add(iterator);
@@ -113,7 +113,7 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
         final Set<String> indexedKeys = ((AbstractTinkerGraph) this.getTraversal().getGraph().get()).getIndexedKeys(indexedClass);
 
         final Iterator<HasContainer> itty = IteratorUtils.filter(hasContainers.iterator(),
-                c -> c.getPredicate().getBiPredicate() == Compare.eq && indexedKeys.contains(c.getKey()));
+                c -> (c.getPredicate().getBiPredicate() == Compare.eq || c.getPredicate().getBiPredicate() instanceof org.apache.tinkerpop.gremlin.process.traversal.Temporal) && indexedKeys.contains(c.getKey()));
         return itty.hasNext() ? itty.next() : null;
 
     }

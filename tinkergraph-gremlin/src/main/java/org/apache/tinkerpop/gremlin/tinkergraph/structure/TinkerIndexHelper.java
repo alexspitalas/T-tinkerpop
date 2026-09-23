@@ -26,12 +26,20 @@ public final class TinkerIndexHelper {
     private TinkerIndexHelper() {
     }
 
-    public static List<TinkerVertex> queryVertexIndex(final AbstractTinkerGraph graph, final String key, final Object value) {
-        return null == graph.vertexIndex ? Collections.emptyList() : graph.vertexIndex.get(key, value);
+    public static List<TinkerVertex> queryVertexIndex(final AbstractTinkerGraph graph, final String key, final java.util.function.BiPredicate predicate, final Object value) {
+        if (graph.vertexIndex == null) return Collections.emptyList();
+        if (graph.vertexIndex instanceof TemporalTinkerIndex) {
+            return ((TemporalTinkerIndex<TinkerVertex>) graph.vertexIndex).getTemporal(key, predicate, value);
+        }
+        return graph.vertexIndex.get(key, value);
     }
 
-    public static List<TinkerEdge> queryEdgeIndex(final AbstractTinkerGraph graph, final String key, final Object value) {
-        return null == graph.edgeIndex ? Collections.emptyList() : graph.edgeIndex.get(key, value);
+    public static List<TinkerEdge> queryEdgeIndex(final AbstractTinkerGraph graph, final String key, final java.util.function.BiPredicate predicate, final Object value) {
+        if (graph.edgeIndex == null) return Collections.emptyList();
+        if (graph.edgeIndex instanceof TemporalTinkerIndex) {
+            return ((TemporalTinkerIndex<TinkerEdge>) graph.edgeIndex).getTemporal(key, predicate, value);
+        }
+        return graph.edgeIndex.get(key, value);
     }
 
     public static void autoUpdateIndex(final TinkerEdge edge, final String key, final Object newValue, final Object oldValue) {
