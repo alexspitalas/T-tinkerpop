@@ -174,6 +174,9 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.TraversalMapStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TraversalMergeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TraversalSelectStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TreeStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalBfsStep;
+import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalShortestPathVertexProgramStep;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TrimGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TrimLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.UnfoldStep;
@@ -3997,6 +4000,35 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      * @return the traversal with the appended {@link ShortestPathVertexProgramStep}
      * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#shortestpath-step" target="_blank">Reference Documentation - ShortestPath Step</a>
      */
+            public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final Date initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
+        return this.tbfs(initialTime.getTime(), target, direction, edgeLabels);
+    }
+
+    
+
+    public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final TemporalPathTarget target, final long initialTime) {
+        return this.tbfs(initialTime, target, Direction.OUT);
+    }
+
+    public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final TemporalPathTarget target, final Date initialTime) {
+        return this.tbfs(initialTime.getTime(), target, Direction.OUT);
+    }
+
+    
+public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
+        this.asAdmin().getBytecode().addStep(Symbols.tbfs, initialTime, target, direction, edgeLabels);
+        return this.asAdmin().addStep(new TemporalBfsStep(this.asAdmin(), initialTime, target, direction, edgeLabels));
+    }
+
+        public default GraphTraversal<S, Path> temporalShortestPath() {
+        if (this.asAdmin().getEndStep() instanceof GraphStep) {
+            this.identity();
+        }
+        this.asAdmin().getBytecode().addStep(Symbols.temporalShortestPath);
+        return (GraphTraversal<S, Path>) ((Traversal.Admin) this.asAdmin())
+                .addStep(new TemporalShortestPathVertexProgramStep(this.asAdmin()));
+    }
+
     public default GraphTraversal<S, Path> shortestPath() {
         if (this.asAdmin().getEndStep() instanceof GraphStep) {
             // This is very unfortunate, but I couldn't find another way to make it work. Without the additional
@@ -4691,7 +4723,9 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         public static final String temporalPageRank = "temporalPageRank";
         public static final String peerPressure = "peerPressure";
         public static final String connectedComponent = "connectedComponent";
-        public static final String shortestPath = "shortestPath";
+                public static final String tbfs = "tbfs";
+        public static final String temporalShortestPath = "temporalShortestPath";
+public static final String shortestPath = "shortestPath";
         public static final String program = "program";
 
         public static final String by = "by";

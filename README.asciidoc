@@ -235,3 +235,7 @@ gremlin> g = traversal().withEmbedded(graph)
 gremlin> g.V().has('name','vadas').valueMap()
 ==>[name:[vadas], age:[27]]
 ----
+
+== Temporal Engine TODOs
+
+* **Distributed Temporal PageRank (OLAP):** The current `TemporalPageRankStep` implements the Rozenshtein-Gionis algorithm for in-memory (OLTP) execution via chronological edge-streaming. A future enhancement should introduce `TemporalPageRankVertexProgram` to support this logic in distributed `GraphComputer` environments. This will require passing `(mass, timestamp)` pairs during BSP message passing to properly simulate chronological mass propagation across the cluster.
