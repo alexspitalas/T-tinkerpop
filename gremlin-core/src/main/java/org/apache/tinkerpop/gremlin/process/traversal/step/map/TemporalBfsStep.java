@@ -83,15 +83,10 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                     long bestStart = -1;
                     long bestEnd = -1;
                     
-                    for (Lifetime.Interval interval : lifetime.getIntervals()) {
-                        long intStart = interval.getStart().getTime();
-                        long intEnd = interval.getEnd().getTime();
-                        
-                        if (intStart >= currentTime) {
-                            bestStart = intStart;
-                            bestEnd = intEnd;
-                            break; // Found the earliest valid interval
-                        }
+                    Lifetime.Interval optimal = lifetime.getFirstIntervalStartingAfter(currentTime);
+                    if (optimal != null) {
+                        bestStart = optimal.getStart().getTime();
+                        bestEnd = optimal.getEnd().getTime();
                     }
                     
                     if (bestStart != -1) {

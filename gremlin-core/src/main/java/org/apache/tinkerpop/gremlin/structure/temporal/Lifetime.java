@@ -294,21 +294,24 @@ public final class Lifetime implements Serializable {
         // Fast path on outer bounds
         if (this.getStartDate().after(window.getEndDate()) || this.getEndDate().before(window.getStartDate())) return false;
         
-        final List<Interval> i1s = this.intervals;
-        final List<Interval> i2s = window.intervals;
-        int i = 0, j = 0;
+        final List<Interval> list1 = this.intervals.size() >= window.intervals.size() ? this.intervals : window.intervals;
+        final List<Interval> list2 = this.intervals.size() < window.intervals.size() ? this.intervals : window.intervals;
         
-        // O(N+M) Sweep
-        while (i < i1s.size() && j < i2s.size()) {
-            Interval int1 = i1s.get(i);
-            Interval int2 = i2s.get(j);
-
-            if (int1.intersects(int2)) return true;
-
-            if (int1.getEnd().before(int2.getEnd())) {
-                i++;
-            } else {
-                j++;
+        // Iterate over the smaller list, binary search in the larger list (O(M log N))
+        for (Interval w : list2) {
+            int low = 0;
+            int high = list1.size() - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                Interval midInterval = list1.get(mid);
+                if (midInterval.intersects(w)) {
+                    return true;
+                }
+                if (midInterval.getEnd().getTime() < w.getStart().getTime()) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
             }
         }
         return false;
@@ -322,28 +325,31 @@ public final class Lifetime implements Serializable {
         // Fast path: other cannot be wider than this
         if (other.getStartDate().before(this.getStartDate()) || other.getEndDate().after(this.getEndDate())) return false;
         
-        final List<Interval> subs = other.intervals;
-        final List<Interval> supers = this.intervals;
-        int i = 0, j = 0;
-        
-        // O(N+M) Sweep
-        while (i < subs.size() && j < supers.size()) {
-            Interval intSub = subs.get(i);
-            Interval intSuper = supers.get(j);
-
-            // Is intSub completely contained inside intSuper?
-            if (!intSub.getStart().before(intSuper.getStart()) && !intSub.getEnd().after(intSuper.getEnd())) {
-                i++; // Fully covered, move to next sub-interval
-            } else if (!intSuper.getEnd().after(intSub.getStart())) {
-                j++; // intSuper is completely before intSub, check next super-interval
-            } else {
-                // intSub is overlapping the boundary or falls in a gap. It cannot be fully covered.
-                return false;
+        // O(M log N) Binary Search Sweep
+        for (Interval s : other.intervals) {
+            boolean covered = false;
+            int low = 0;
+            int high = this.intervals.size() - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                Interval midInterval = this.intervals.get(mid);
+                
+                if (!midInterval.getStart().after(s.getStart()) && !midInterval.getEnd().before(s.getEnd())) {
+                    covered = true;
+                    break;
+                }
+                
+                // If this interval ends before the target ends, we need an interval further right
+                if (midInterval.getEnd().before(s.getEnd())) {
+                    low = mid + 1;
+                } else {
+                    // Otherwise we need an interval that starts further left
+                    high = mid - 1;
+                }
             }
+            if (!covered) return false;
         }
-        
-        // If we advanced through all sub-intervals, it is fully contained
-        return i == subs.size();
+        return true;
     }
 
     public Date getStartDate() {
@@ -356,7 +362,55 @@ public final class Lifetime implements Serializable {
         return intervals.get(intervals.size() - 1).getEnd();
     }
 
+
+    /**
+     * O(log N) Binary Search to find the first interval that starts at or after the given time.
+     * Used for forward-sweeping temporal algorithms (Earliest Arrival / Earliest Departure).
+     */
+    public Interval getFirstIntervalStartingAfter(long time) {
+        if (intervals.isEmpty()) return null;
+        int low = 0;
+        int high = intervals.size() - 1;
+        Interval result = null;
+        
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            Interval midInterval = intervals.get(mid);
+            if (midInterval.getStart().getTime() >= time) {
+                result = midInterval;
+                high = mid - 1; // look for an earlier one
+            } else {
+                low = mid + 1;
+            }
+        }
+        return result;
+    }
+
+    /**
+     * O(log N) Binary Search to find the last interval that ends at or before the given time.
+     * Used for backward-sweeping temporal algorithms (Latest Arrival / Latest Departure).
+     */
+    public Interval getLastIntervalEndingBefore(long time) {
+        if (intervals.isEmpty()) return null;
+        int low = 0;
+        int high = intervals.size() - 1;
+        Interval result = null;
+        
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            Interval midInterval = intervals.get(mid);
+            if (midInterval.getEnd().getTime() <= time) {
+                result = midInterval;
+                low = mid + 1; // look for a later one
+            } else {
+                high = mid - 1;
+            }
+        }
+        return result;
+    }
+
     public List<Interval> getIntervals() {
+
         return intervals;
     }
 
