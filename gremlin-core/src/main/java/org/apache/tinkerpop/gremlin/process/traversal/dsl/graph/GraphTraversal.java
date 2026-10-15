@@ -4750,9 +4750,9 @@ public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime,
         public static final String temporalPageRank = "temporalPageRank";
         public static final String peerPressure = "peerPressure";
         public static final String connectedComponent = "connectedComponent";
-                public static final String tbfs = "tbfs";
+        public static final String tbfs = "tbfs";
         public static final String temporalShortestPath = "temporalShortestPath";
-public static final String shortestPath = "shortestPath";
+        public static final String shortestPath = "shortestPath";
         public static final String program = "program";
 
         public static final String by = "by";
