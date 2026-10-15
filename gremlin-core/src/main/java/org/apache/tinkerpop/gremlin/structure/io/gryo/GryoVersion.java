@@ -635,8 +635,6 @@ public enum GryoVersion {
             add(GryoTypeReg.of(LabelledCounter.class, 180));
             add(GryoTypeReg.of(Stack.class, 181));
             add(GryoTypeReg.of(ReferenceMap.class, 182));
-            add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
-            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
         }};
     }
 

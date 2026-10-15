@@ -41,7 +41,7 @@ import java.util.Iterator;
  *
  * @author Alex Spitalas
  */
-public final class TemporalVertexProperty<V> implements VertexProperty<V> {
+public final class TemporalVertexProperty<V> implements VertexProperty<V>, TemporalElement {
 
     private final VertexProperty<V> base;
     private final Lifetime lifetime;

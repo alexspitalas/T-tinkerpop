@@ -21,15 +21,19 @@ package org.apache.tinkerpop.gremlin.tinkergraph.structure;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.util.ElementHelper;
 
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
+
 /**
  * @author Marko A. Rodriguez (http://markorodriguez.com)
  */
-public abstract class TinkerElement implements Element {
+public abstract class TinkerElement implements Element, TemporalElement {
 
     protected final Object id;
     protected final String label;
     protected boolean removed = false;
     protected long currentVersion;
+    protected volatile Lifetime cachedLifetime;
 
     protected TinkerElement(final Object id, final String label) {
         this.id = id;
@@ -67,6 +71,29 @@ public abstract class TinkerElement implements Element {
     }
 
     public long version() { return this.currentVersion; }
+
+    @Override
+    public Lifetime getLifetime() {
+        Lifetime current = cachedLifetime;
+        if (current != null) return current;
+        if (!Lifetime.hasLifetimeProperties(this)) {
+            current = Lifetime.from(null, null);
+            cachedLifetime = current;
+            return current;
+        }
+        current = Lifetime.fromPropertiesRaw(this);
+        cachedLifetime = current;
+        return current;
+    }
+
+    @Override
+    public void setLifetime(final Lifetime lifetime) {
+        this.cachedLifetime = lifetime;
+    }
+
+    public void clearLifetimeCache() {
+        this.cachedLifetime = null;
+    }
 
     protected static IllegalStateException elementAlreadyRemoved(final Class<? extends Element> clazz, final Object id) {
         return new IllegalStateException(String.format("%s with id %s was removed.", clazz.getSimpleName(), id));

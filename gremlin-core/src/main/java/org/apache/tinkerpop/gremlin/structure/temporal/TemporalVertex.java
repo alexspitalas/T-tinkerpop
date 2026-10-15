@@ -47,7 +47,7 @@ import java.util.Iterator;
  *
  * @author Alex Spitalas
  */
-public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
+public final class TemporalVertex implements Vertex, WrappedVertex<Vertex>, TemporalElement {
 
     private final Vertex base;
     private final Lifetime lifetime;

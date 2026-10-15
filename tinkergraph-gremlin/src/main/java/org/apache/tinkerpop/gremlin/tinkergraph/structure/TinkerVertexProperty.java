@@ -97,6 +97,7 @@ public class TinkerVertexProperty<V> extends TinkerElement implements VertexProp
     public Object clone() {
         final TinkerVertexProperty vp = new TinkerVertexProperty(id, vertex, key, value);
         vp.properties = properties;
+        vp.cachedLifetime = this.cachedLifetime;
         return vp;
     }
 
@@ -110,6 +111,7 @@ public class TinkerVertexProperty<V> extends TinkerElement implements VertexProp
             vp.properties = cloned;
         }
 
+        vp.cachedLifetime = this.cachedLifetime;
         return vp;
     }
 
@@ -149,6 +151,8 @@ public class TinkerVertexProperty<V> extends TinkerElement implements VertexProp
         final Property<U> property = new TinkerProperty<>(this, key, value);
         if (this.properties == null) this.properties = new HashMap<>();
         this.properties.put(key, property);
+        clearLifetimeCache();
+        vertex.clearLifetimeCache();
         return property;
     }
 
@@ -176,6 +180,8 @@ public class TinkerVertexProperty<V> extends TinkerElement implements VertexProp
             if (delete.get()) TinkerIndexHelper.removeIndex(this.vertex, this.key, this.value);
             this.properties = null;
             this.removed = true;
+            clearLifetimeCache();
+            this.vertex.clearLifetimeCache();
         }
     }
 

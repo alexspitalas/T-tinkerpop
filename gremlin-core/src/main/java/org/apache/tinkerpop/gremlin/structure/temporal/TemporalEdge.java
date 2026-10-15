@@ -44,7 +44,7 @@ import java.util.Iterator;
  *
  * @author Alex Spitalas
  */
-public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
+public final class TemporalEdge implements Edge, WrappedEdge<Edge>, TemporalElement {
 
     private final Edge base;
     private final Lifetime lifetime;

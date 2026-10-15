@@ -136,7 +136,20 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime fromProperties(final Element element) {
-        Property<Object> tempIntervalsProp = propertyOrEmpty(element, TEMPORAL_INTERVALS);
+        if (element instanceof TemporalElement) {
+            final Lifetime cached = ((TemporalElement) element).getLifetime();
+            if (cached != null)
+                return cached;
+        }
+        final Lifetime parsed = fromPropertiesRaw(element);
+        if (element instanceof TemporalElement) {
+            ((TemporalElement) element).setLifetime(parsed);
+        }
+        return parsed;
+    }
+
+    public static Lifetime fromPropertiesRaw(final Element element) {
+        final Property<Object> tempIntervalsProp = propertyOrEmpty(element, TEMPORAL_INTERVALS);
         if (tempIntervalsProp.isPresent()) {
             final Object value = tempIntervalsProp.value();
             if (!(value instanceof String)) {
@@ -195,7 +208,18 @@ public final class Lifetime implements Serializable {
     }
 
     private static boolean isSignedDecimalInteger(final String value) {
-        return value.matches("[+-]?[0-9]+");
+        if (value == null || value.isEmpty()) return false;
+        int i = 0;
+        final char first = value.charAt(0);
+        if (first == '+' || first == '-') {
+            i = 1;
+            if (value.length() == 1) return false;
+        }
+        for (; i < value.length(); i++) {
+            final char c = value.charAt(i);
+            if (c < '0' || c > '9') return false;
+        }
+        return true;
     }
 
     private static IllegalArgumentException invalidTemporalIntervals(final String value, final String component) {
@@ -247,11 +271,17 @@ public final class Lifetime implements Serializable {
             propertyOrEmpty(element, START_TIME).remove();
             propertyOrEmpty(element, END_TIME).remove();
             propertyOrEmpty(element, TEMPORAL_INTERVALS).remove();
+            if (element instanceof TemporalElement) {
+                ((TemporalElement) element).setLifetime(this);
+            }
             return;
         }
         element.property(START_TIME, getStartDate());
         element.property(END_TIME, getEndDate());
         element.property(TEMPORAL_INTERVALS, toTemporalIntervalsString());
+        if (element instanceof TemporalElement) {
+            ((TemporalElement) element).setLifetime(this);
+        }
     }
 
     public Lifetime addInterval(Object start, Object end) {
@@ -292,6 +322,9 @@ public final class Lifetime implements Serializable {
     }
 
     public boolean contains(Date instant) {
+        if (instant == null || intervals.isEmpty()) return false;
+        if (instant.before(getStartDate()) || instant.after(getEndDate())) return false;
+        if (intervals.size() == 1) return true;
         for (Interval interval : intervals) {
             if (interval.contains(instant)) return true;
             if (interval.getStart().after(instant)) break;
@@ -305,6 +338,7 @@ public final class Lifetime implements Serializable {
         
         // Fast path on outer bounds
         if (this.getStartDate().after(window.getEndDate()) || this.getEndDate().before(window.getStartDate())) return false;
+        if (this.intervals.size() == 1 && window.intervals.size() == 1) return true;
         
         final List<Interval> list1 = this.intervals.size() >= window.intervals.size() ? this.intervals : window.intervals;
         final List<Interval> list2 = this.intervals.size() < window.intervals.size() ? this.intervals : window.intervals;
