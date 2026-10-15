@@ -36,7 +36,10 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     intersects {
         @Override
         public boolean test(final Object val1, final Object val2) {
-            return extractLifetime(val1).intersects(extractLifetime(val2));
+            final Lifetime l1 = extractLifetime(val1);
+            final Lifetime l2 = extractLifetime(val2);
+            if (l1 == null || l2 == null) return false;
+            return l1.intersects(l2);
         }
     },
     
@@ -177,13 +180,26 @@ public enum Temporal implements PBiPredicate<Object, Object> {
         }
     };
 
-    protected static Lifetime extractLifetime(final Object val) {
+    /**
+     * Interprets a value as a {@link Lifetime}. Supported values are a {@link Lifetime}, an {@link Element} (read from
+     * its lifetime properties), a {@link Date} (a point interval) and the persisted {@code temporalIntervals} string
+     * form (so that {@code has("temporalIntervals", TemporalP.xxx(...))} works on the raw property value).
+     *
+     * @return the lifetime, or {@code null} if the value cannot be interpreted as one
+     */
+    public static Lifetime extractLifetime(final Object val) {
         if (val instanceof Lifetime) {
             return (Lifetime) val;
         } else if (val instanceof Element) {
             return Lifetime.fromProperties((Element) val);
         } else if (val instanceof Date) {
             return Lifetime.from(val, val);
+        } else if (val instanceof String) {
+            try {
+                return Lifetime.fromTemporalIntervals((String) val);
+            } catch (final IllegalArgumentException e) {
+                return null;
+            }
         }
         return null;
     }

@@ -149,6 +149,18 @@ public final class Lifetime implements Serializable {
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
+    /**
+     * Parses the persisted {@link #TEMPORAL_INTERVALS} property value (comma-separated {@code start:end} epoch
+     * millisecond pairs) into a {@link Lifetime}.
+     *
+     * @throws IllegalArgumentException if the value is not a valid {@code temporalIntervals} string
+     */
+    public static Lifetime fromTemporalIntervals(final String value) {
+        if (null == value)
+            throw new IllegalArgumentException("temporalIntervals value cannot be null");
+        return fromTemporalIntervalsString(value);
+    }
+
     private static Lifetime fromTemporalIntervalsString(final String value) {
         final List<Interval> parsedIntervals = new ArrayList<>();
         final String[] components = value.split(",", -1);

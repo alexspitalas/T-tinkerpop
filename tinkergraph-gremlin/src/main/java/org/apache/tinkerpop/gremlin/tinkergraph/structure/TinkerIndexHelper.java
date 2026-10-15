@@ -42,6 +42,18 @@ public final class TinkerIndexHelper {
         return graph.edgeIndex.get(key, value);
     }
 
+    /**
+     * Determines if the index of the given element class can narrow down the candidates of a {@code Temporal}
+     * predicate, which is only the case for a {@link TemporalTinkerIndex} and a predicate it
+     * {@link TemporalTinkerIndex#supports supports}.
+     */
+    public static boolean canQueryTemporally(final AbstractTinkerGraph graph, final Class<? extends org.apache.tinkerpop.gremlin.structure.Element> elementClass,
+                                             final java.util.function.BiPredicate<?, ?> predicate) {
+        final Object index = org.apache.tinkerpop.gremlin.structure.Vertex.class.isAssignableFrom(elementClass) ?
+                graph.vertexIndex : graph.edgeIndex;
+        return index instanceof TemporalTinkerIndex && TemporalTinkerIndex.supports(predicate);
+    }
+
     public static void autoUpdateIndex(final TinkerEdge edge, final String key, final Object newValue, final Object oldValue) {
         final AbstractTinkerGraph graph = (AbstractTinkerGraph) edge.graph();
         if (graph.edgeIndex != null)

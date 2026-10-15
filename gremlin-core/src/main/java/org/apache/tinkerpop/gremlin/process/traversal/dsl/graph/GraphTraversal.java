@@ -60,6 +60,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.branch.RepeatStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.branch.UnionStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AndStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AnyStep;
@@ -2126,6 +2127,32 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     }
 
     /**
+     * Filters the current object by comparing the lifetime of the object stored under {@code startKey} with the
+     * lifetime of the object stored under the label given to the {@link TemporalP}, for example
+     * {@code where("t", TemporalP.during("i"))}.
+     *
+     * @param startKey  the key containing the object to filter
+     * @param predicate the temporal predicate whose value is the label of the reference object
+     * @return the traversal with an appended {@link WherePredicateStep}
+     */
+    @SuppressWarnings("unchecked")
+    public default GraphTraversal<S, E> where(final String startKey, final TemporalP predicate) {
+        return this.where(startKey, (P<String>) (P<?>) predicate);
+    }
+
+    /**
+     * Filters the current object by comparing its lifetime with the lifetime of the labeled object given to the
+     * {@link TemporalP}, for example {@code where(TemporalP.intersects("event"))}.
+     *
+     * @param predicate the temporal predicate whose value is the label of the reference object
+     * @return the traversal with an appended {@link WherePredicateStep}
+     */
+    @SuppressWarnings("unchecked")
+    public default GraphTraversal<S, E> where(final TemporalP predicate) {
+        return this.where((P<String>) (P<?>) predicate);
+    }
+
+    /**
      * Filters the current object based on the object itself or the path history.
      *
      * @param whereTraversal the filter to apply
@@ -3932,9 +3959,9 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     /////////////////// GRAPH ALGORITHM STEPS ////////////////
 
     /**
-     * Calculates Temporal PageRank over the entire attached graph using a chronological edge-stream scan. Incoming
-     * vertex traversers are preserved as the downstream result set, but do not scope the graph-wide computation or
-     * the vertices that receive rank properties.
+     * Calculates Temporal PageRank using a chronological edge-stream scan over the vertices arriving at this step.
+     * Only outgoing edges whose endpoints are both in that vertex set are considered, a rank property is written to
+     * each of those vertices, and the incoming vertex traversers are passed on unchanged.
      *
      * @return the traversal with the appended {@link TemporalPageRankStep}
      */

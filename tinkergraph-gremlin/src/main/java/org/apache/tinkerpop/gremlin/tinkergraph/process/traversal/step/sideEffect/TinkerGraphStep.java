@@ -110,10 +110,13 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
     }
 
     private HasContainer getIndexKey(final Class<? extends Element> indexedClass) {
-        final Set<String> indexedKeys = ((AbstractTinkerGraph) this.getTraversal().getGraph().get()).getIndexedKeys(indexedClass);
+        final AbstractTinkerGraph graph = (AbstractTinkerGraph) this.getTraversal().getGraph().get();
+        final Set<String> indexedKeys = graph.getIndexedKeys(indexedClass);
 
         final Iterator<HasContainer> itty = IteratorUtils.filter(hasContainers.iterator(),
-                c -> (c.getPredicate().getBiPredicate() == Compare.eq || c.getPredicate().getBiPredicate() instanceof org.apache.tinkerpop.gremlin.process.traversal.Temporal) && indexedKeys.contains(c.getKey()));
+                c -> (c.getPredicate().getBiPredicate() == Compare.eq ||
+                        TinkerIndexHelper.canQueryTemporally(graph, indexedClass, c.getPredicate().getBiPredicate())) &&
+                        indexedKeys.contains(c.getKey()));
         return itty.hasNext() ? itty.next() : null;
 
     }
