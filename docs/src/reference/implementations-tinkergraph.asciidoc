@@ -138,6 +138,20 @@ type coercion related to element identifiers as described in the <<next section,
 [[tinkergraph-configuration]]
 === Configuration
 
+[[temporal-tinkerindex]]
+=== Temporal Indexing
+
+TinkerGraph natively supports `O(log |E|)` global graph indexing for temporal multi-interval properties. Unlike standard exact-match indexes, if an `Element` is created with a `Lifetime` property, TinkerGraph dynamically routes its timestamps into an augmented `IntervalTree` under the hood via `TemporalTinkerIndex`.
+
+This allows standard Gremlin traversals that use Allen's Interval Algebra predicates (like `TemporalP.overlaps` or `TemporalP.during`) to bypass full table scans and locate matching elements instantly:
+
+[gremlin-groovy]
+----
+// This query automatically triggers the TemporalTinkerIndex to find overlapping edges globally
+g.E().has('temporalIntervals', TemporalP.overlaps(startDate, endDate))
+----
+
+
 TinkerGraph has several settings that can be provided on creation via `Configuration` object:
 
 [width="100%",cols="2,10",options="header"]

@@ -30,6 +30,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.BulkSet;
@@ -175,6 +177,7 @@ public class TypeSerializerRegistry {
             new RegistryEntry<>(AndP.class, new PSerializer<>(DataType.P, AndP.class)),
             new RegistryEntry<>(OrP.class, new PSerializer<>(DataType.P, OrP.class)),
             new RegistryEntry<>(TextP.class, new PSerializer<>(DataType.TEXTP, TextP.class)),
+            new RegistryEntry<>(TemporalP.class, new PSerializer<>(DataType.TEMPORALP, TemporalP.class)),
             new RegistryEntry<>(Scope.class, EnumSerializer.ScopeSerializer),
             new RegistryEntry<>(T.class, EnumSerializer.TSerializer),
             new RegistryEntry<>(Traverser.class, new TraverserSerializer()),

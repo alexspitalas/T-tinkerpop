@@ -4414,6 +4414,69 @@ cross the vertices from the first path.
 
 link:++https://tinkerpop.apache.org/javadocs/x.y.z/core/org/apache/tinkerpop/gremlin/process/traversal/dsl/graph/GraphTraversal.html#simplePath()++[`simplePath()`]
 
+
+[[temporalshortestpath-step]]
+=== TemporalShortestPath step
+
+The `temporalShortestPath()`-step provides a distributed (OLAP) mechanism to find time-respecting shortest paths in a temporal graph. Instead of standard spatial edge weights, it relies on the `Lifetime` property of edges (which supports multi-interval properties representing valid periods of time) to determine path validity.
+
+IMPORTANT: The `temporalShortestPath()`-step is a `VertexComputing`-step and as such, can only be used against a graph that supports `GraphComputer` (OLAP). For local (OLTP) temporal graph searches, use the `tbfs()` step instead.
+
+It is configurable using the `with()`-modulator.
+
+[width="100%",cols="3,3,15,5",options="header"]
+|=========================================================
+| Key | Type | Description | Default
+| `target` | `Traversal` | Sets a filter traversal for the end vertices. | all vertices (`+__.identity()+`)
+| `TemporalShortestPathVertexProgram.TARGET` | `String` | Specifies the temporal constraint strategy (`EARLIEST_ARRIVAL`, `EARLIEST_DEPARTURE`, `LATEST_ARRIVAL`, `LATEST_DEPARTURE`). | `EARLIEST_ARRIVAL`
+| `TemporalShortestPathVertexProgram.INITIAL_TIME` | `Long` | The initial time $T_0$ from which to start the temporal traversal. Accepts Epoch milliseconds, which can be extracted from Java Dates. | `0`
+| `edges` | `Traversal` | Sets a `Traversal` that emits the edges to traverse. | `Direction.OUT`
+| `includeEdges` | `Boolean` | Whether to include edges in the result or not. | `false`
+|=========================================================
+
+[gremlin-groovy,modern]
+----
+g = g.withComputer()
+// Find Earliest Arrival paths from Marko departing after time 1000
+g.V().has('name','marko').
+    temporalShortestPath().
+      with(TemporalShortestPathVertexProgram.INITIAL_TIME, 1000L).
+      with(TemporalShortestPathVertexProgram.TARGET, 'EARLIEST_ARRIVAL')
+
+// Pre-filtering with window(): 
+// You can restrict the distributed traversal to only search edges valid during a specific window
+Date startDate = ...
+Date endDate = ...
+g.withComputer().V().has('name','marko').
+    temporalShortestPath().
+      with(TemporalShortestPathVertexProgram.INITIAL_TIME, startDate.getTime()).
+      with(TemporalShortestPathVertexProgram.TARGET, 'EARLIEST_ARRIVAL').
+      with('~tinkerpop.temporalShortestPathVertexProgram.edges', __.outE().window(startDate, endDate))
+----
+
+[[tbfs-step]]
+=== TBFS step (Temporal BFS)
+
+For standard OLTP graphs, the `tbfs()` (Temporal BFS) step calculates the optimal temporal paths locally by exploring multi-interval edge timelines. The step has native overloads for both `long` timestamps and `java.util.Date`.
+
+[gremlin-groovy,modern]
+----
+// Find the Latest Departure path to Josh that arrives before time 5000
+g.V().has('name', 'josh').
+    tbfs(TemporalPathTarget.LATEST_DEPARTURE, 5000L)
+
+// Find the Earliest Arrival using Java Date
+Date initialTime = ...
+g.V().has('name', 'josh').
+    tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, initialTime)
+
+// Pre-filtering with window(): 
+// To window an OLTP temporal search, restrict the graph using a subgraph first
+g.E().window(startDate, endDate).subgraph('w').cap('w').next().
+    traversal().V().has('name', 'josh').
+    tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, startDate)
+----
+
 [[skip-step]]
 === Skip Step
 

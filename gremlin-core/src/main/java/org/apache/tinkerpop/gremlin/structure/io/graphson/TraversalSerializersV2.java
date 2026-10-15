@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.process.remote.traversal.DefaultRemoteTraver
 import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
@@ -516,4 +517,34 @@ final class TraversalSerializersV2 {
             return new TraversalStrategyProxy<>(this.clazz, new MapConfiguration(data));
         }
     }
+
+    final static class TemporalPJacksonDeserializer extends StdDeserializer<TemporalP> {
+        public TemporalPJacksonDeserializer() {
+            super(TemporalP.class);
+        }
+        @Override
+        public TemporalP deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException, JsonProcessingException {
+            String predicate = null;
+            Object value = null;
+            while (jsonParser.nextToken() != JsonToken.END_OBJECT) {
+                if (jsonParser.getCurrentName().equals(GraphSONTokens.PREDICATE)) {
+                    jsonParser.nextToken();
+                    predicate = jsonParser.getText();
+                } else if (jsonParser.getCurrentName().equals(GraphSONTokens.VALUE)) {
+                    jsonParser.nextToken();
+                    value = deserializationContext.readValue(jsonParser, Object.class);
+                }
+            }
+            try {
+                return (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
+            } catch (final Exception e) {
+                throw new IllegalStateException(e.getMessage(), e);
+            }
+        }
+        @Override
+        public boolean isCachable() {
+            return true;
+        }
+    }
+
 }

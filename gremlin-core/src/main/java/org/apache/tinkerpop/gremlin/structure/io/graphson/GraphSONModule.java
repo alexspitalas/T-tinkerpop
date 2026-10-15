@@ -32,9 +32,11 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.BulkSet;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Tree;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.decoration.ConnectiveStrategy;
@@ -79,6 +81,7 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.star.DirectionalStarGraph;
 import org.apache.tinkerpop.gremlin.structure.util.star.StarGraphGraphSONSerializerV1;
 import org.apache.tinkerpop.gremlin.structure.util.star.StarGraphGraphSONSerializerV2;
@@ -172,6 +175,7 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     put(OrP.class, "P");
                     put(P.class, "P");
                     put(TextP.class, "TextP");
+                    put(TemporalP.class, "TemporalP");
                     Stream.of(
                             VertexProperty.Cardinality.class,
                             Column.class,
@@ -271,7 +275,9 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     SackFunctions.Barrier.class,
                     Scope.class,
                     Pick.class,
-                    T.class).forEach(e -> addSerializer(e, new TraversalSerializersV3.EnumJacksonSerializer()));
+                    T.class,
+                    LifetimeStep.LifetimeMode.class,
+                    Lifetime.DropMode.class).forEach(e -> addSerializer(e, new TraversalSerializersV3.EnumJacksonSerializer()));
             addSerializer(P.class, new TraversalSerializersV3.PJacksonSerializer());
             addSerializer(Lambda.class, new TraversalSerializersV3.LambdaJacksonSerializer());
             addSerializer(Bytecode.Binding.class, new TraversalSerializersV3.BindingJacksonSerializer());
@@ -317,9 +323,12 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     SackFunctions.Barrier.values(),
                     Scope.values(),
                     Pick.values(),
-                    T.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV3.EnumJacksonDeserializer(e.getDeclaringClass())));
+                    T.values(),
+                    LifetimeStep.LifetimeMode.values(),
+                    Lifetime.DropMode.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV3.EnumJacksonDeserializer(e.getDeclaringClass())));
             addDeserializer(P.class, new TraversalSerializersV3.PJacksonDeserializer());
             addDeserializer(TextP.class, new TraversalSerializersV3.TextPJacksonDeserializer());
+            addDeserializer(TemporalP.class, new TraversalSerializersV3.TemporalPJacksonDeserializer());
             addDeserializer(Lambda.class, new TraversalSerializersV3.LambdaJacksonDeserializer());
             addDeserializer(Traverser.class, new TraversalSerializersV3.TraverserJacksonDeserializer());
             Arrays.asList(
@@ -420,6 +429,7 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     put(OrP.class, "P");
                     put(P.class, "P");
                     put(TextP.class, "TextP");
+                    put(TemporalP.class, "TemporalP");
                     Stream.of(
                             VertexProperty.Cardinality.class,
                             Column.class,
@@ -513,7 +523,9 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     SackFunctions.Barrier.class,
                     Scope.class,
                     Pick.class,
-                    T.class).forEach(e -> addSerializer(e, new TraversalSerializersV2.EnumJacksonSerializer()));
+                    T.class,
+                    LifetimeStep.LifetimeMode.class,
+                    Lifetime.DropMode.class).forEach(e -> addSerializer(e, new TraversalSerializersV2.EnumJacksonSerializer()));
             addSerializer(P.class, new TraversalSerializersV2.PJacksonSerializer());
             addSerializer(Lambda.class, new TraversalSerializersV2.LambdaJacksonSerializer());
             addSerializer(Bytecode.Binding.class, new TraversalSerializersV2.BindingJacksonSerializer());
@@ -551,9 +563,12 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     SackFunctions.Barrier.values(),
                     Scope.values(),
                     Pick.values(),
-                    T.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV2.EnumJacksonDeserializer(e.getDeclaringClass())));
+                    T.values(),
+                    LifetimeStep.LifetimeMode.values(),
+                    Lifetime.DropMode.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV2.EnumJacksonDeserializer(e.getDeclaringClass())));
             addDeserializer(P.class, new TraversalSerializersV2.PJacksonDeserializer());
             addDeserializer(TextP.class, new TraversalSerializersV2.TextPJacksonDeserializer());
+            addDeserializer(TemporalP.class, new TraversalSerializersV2.TemporalPJacksonDeserializer());
             addDeserializer(Lambda.class, new TraversalSerializersV2.LambdaJacksonDeserializer());
             addDeserializer(Traverser.class, new TraversalSerializersV2.TraverserJacksonDeserializer());
             Arrays.asList(

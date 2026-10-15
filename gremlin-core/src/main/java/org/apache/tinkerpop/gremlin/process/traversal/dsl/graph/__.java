@@ -20,6 +20,7 @@ package org.apache.tinkerpop.gremlin.process.traversal.dsl.graph;
 
 import org.apache.tinkerpop.gremlin.process.traversal.DT;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
@@ -1037,6 +1038,20 @@ public class __ {
      * @see GraphTraversal#where(P)
      */
     public static <A> GraphTraversal<A, A> where(final P<String> predicate) {
+        return __.<A>start().where(predicate);
+    }
+
+    /**
+     * @see GraphTraversal#where(String, TemporalP)
+     */
+    public static <A> GraphTraversal<A, A> where(final String startKey, final TemporalP predicate) {
+        return __.<A>start().where(startKey, predicate);
+    }
+
+    /**
+     * @see GraphTraversal#where(TemporalP)
+     */
+    public static <A> GraphTraversal<A, A> where(final TemporalP predicate) {
         return __.<A>start().where(predicate);
     }
 

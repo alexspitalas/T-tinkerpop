@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.process.traversal.Text;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
@@ -504,4 +505,23 @@ public final class GryoSerializersV3 {
             output.writeBoolean(properties.hasNext());
         }
     }
+
+    public final static class TemporalPSerializer implements SerializerShim<TemporalP> {
+        @Override
+        public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final TemporalP p) {
+            output.writeString(p.getBiPredicate().toString());
+            kryo.writeObject(output, p.getValue());
+        }
+        @Override
+        public <I extends InputShim> TemporalP read(final KryoShim<I, ?> kryo, final I input, final Class<TemporalP> clazz) {
+            final String predicate = input.readString();
+            final Object value = kryo.readObject(input, Object.class);
+            try {
+                return (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
+            } catch (final Exception e) {
+                throw new IllegalStateException(e.getMessage(), e);
+            }
+        }
+    }
+
 }
