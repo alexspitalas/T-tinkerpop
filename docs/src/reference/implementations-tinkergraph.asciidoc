@@ -139,17 +139,25 @@ type coercion related to element identifiers as described in the <<next section,
 === Configuration
 
 [[temporal-tinkerindex]]
-=== Temporal Indexing
+=== Temporal Indexing and In-Memory Caching
 
-TinkerGraph natively supports `O(log |E|)` global graph indexing for temporal multi-interval properties. Unlike standard exact-match indexes, if an `Element` is created with a `Lifetime` property, TinkerGraph dynamically routes its timestamps into an augmented `IntervalTree` under the hood via `TemporalTinkerIndex`.
+TinkerGraph natively supports `O(log |E| + R)` global graph indexing for temporal multi-interval properties. When an `Element` is created with a `Lifetime` property, TinkerGraph dynamically indexes its timestamps into an augmented AVL `IntervalTree` under the hood via `TemporalTinkerIndex`.
 
-This allows standard Gremlin traversals that use Allen's Interval Algebra predicates (like `TemporalP.overlaps` or `TemporalP.during`) to bypass full table scans and locate matching elements instantly:
+The interval tree operates under standard half-open interval semantics `[start, end)`, where each node maintains the maximum `end` boundary of its subtree (`maxEnd`). This allows subtree pruning during range and point overlap queries.
+
+Gremlin traversals utilizing non-disjoint Allen's Interval Algebra predicates (such as `TemporalP.overlaps`, `TemporalP.during`, `TemporalP.contains`, `TemporalP.starts`, `TemporalP.finishes`, and `TemporalP.eq`) automatically push down predicates to `TemporalTinkerIndex` to locate candidates without scanning non-matching elements:
 
 [gremlin-groovy]
 ----
 // This query automatically triggers the TemporalTinkerIndex to find overlapping edges globally
 g.E().has('temporalIntervals', TemporalP.overlaps(startDate, endDate))
 ----
+
+Disjoint relations under half-open semantics (`Temporal.precedes`, `Temporal.succeeds`, `Temporal.meets`, and `Temporal.metBy`) produce an empty interval intersection for abutting/disjoint boundaries and are safely evaluated as traversal step filters rather than interval tree overlap scans.
+
+==== In-Memory Lifetime Caching
+
+To optimize traversal throughput across deep paths, all TinkerGraph elements (`TinkerVertex`, `TinkerEdge`, `TinkerProperty`, and `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object in memory. This eliminates repeated deserialization and string parsing of the `temporalIntervals` property during traversals. If temporal properties are updated, added, or dropped, the cached lifetime is invalidated automatically.
 
 
 TinkerGraph has several settings that can be provided on creation via `Configuration` object:

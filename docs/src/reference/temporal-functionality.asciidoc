@@ -92,9 +92,9 @@ lifetime must be contained in the lifetimes of both endpoint vertices when it is
 
 === Adding and Dropping Intervals
 
-`addInterval(start, end)` adds an inclusive interval; `dropInterval(start, end)` subtracts one. Overlapping or
-touching intervals are merged. A subtraction may split an interval, with the retained sides ending one millisecond
-before and beginning one millisecond after the removed interval. `lifetime(start, end)` replaces all intervals.
+Temporal validity intervals in T-Gremlin follow the standard half-open convention `[start, end)`, where the start instant is inclusive and the end instant is exclusive (instantaneous point events are represented as `[t, t]`).
+
+`addInterval(start, end)` adds a half-open interval `[start, end)`; `dropInterval(start, end)` subtracts one. Overlapping or abutting (touching) intervals are merged (e.g., `[100, 200)` and `[200, 300)` merge into `[100, 300)`). A subtraction may split an interval cleanly without discrete millisecond offsets: subtracting `[s_d, e_d)` from an existing interval `[s_c, e_c)` yields the exact continuous retained intervals `[s_c, s_d)` and `[e_d, e_c)`. `lifetime(start, end)` replaces all intervals.
 On an element without explicit lifetime properties, `addInterval()` establishes the first bounded interval.
 These interval mutation steps operate on vertices and edges; use `lifetimeProperty()` to assign a vertex-property lifetime.
 
@@ -114,7 +114,7 @@ Removing a vertex also removes its incident edges. A drop that misses all interv
 === Temporal Views
 
 `atTime(instant)` filters elements alive at one instant; `window(start, end)` filters elements whose lifetime
-intersects the inclusive window. Both carry the temporal scope through later vertex, edge, and vertex-property
+intersects the half-open query window `[start, end)`. Both carry the temporal scope through later vertex, edge, and vertex-property
 navigation, including `out()`, `outE()`, `inV()`, `has()`, `values()`, and `properties()`.
 
 [source,java]
@@ -126,7 +126,7 @@ List<Vertex> reports = g.V(employee)
     .out("manages").toList();
 ----
 
-An `atTime(t)` query uses the point interval `[t, t]`. When navigating from a temporal vertex, the edge and both
+An `atTime(t)` query evaluates point containment `start <= t < end` (or exact instant equality for instantaneous point events `[t, t]`). In a `window(start, end)` query, elements whose validity strictly abuts the window boundaries (e.g., ending exactly at `start` or starting exactly at `end`) do not intersect the half-open window and are excluded. When navigating from a temporal vertex, the edge and both
 endpoints must each intersect the current temporal context. In a window query these intersections need not occur
 at one shared instant. A direct `g.E().atTime(...)` or `g.E().window(...)` filters the edge by its own lifetime.
 Both steps reject `null` arguments, and `window()` rejects a reversed range.
@@ -261,7 +261,7 @@ List<Vertex> complexQuery = g.V().hasLabel("Task")
 
 Temporal paths extend standard graph traversals by enforcing temporal constraints across edges in a path. This enables queries like "find paths where all edges overlap" or "find paths that respect causality."
 Each path step follows an outgoing edge and returns its incoming vertex. It accepts zero or more edge labels;
-without labels it considers all outgoing edges. Intervals that meet at a single instant count as overlapping.
+without labels it considers all outgoing edges. Under half-open interval semantics `[start, end)`, intervals must share a non-empty overlapping duration (`s1 < e2 && s2 < e1`); abutting intervals that meet at an exact boundary point (`e1 == s2`) are disjoint and do not overlap.
 
 === Three Path Types
 
@@ -303,11 +303,11 @@ List<Path> teams = g.V().has("name", "Alice")
     .toList();
 
 // Timeline visualization:
-// Edge 1: [10:00-12:00]
-// Edge 2:   [11:00-13:00]
-// Edge 3:     [11:30-12:30]
-// Edge 4:       [12:00-14:00]
-// Common overlap: [12:00-12:00] ✓ Valid continuous path
+// Edge 1: [10:00-12:15)
+// Edge 2:   [11:00-13:00)
+// Edge 3:     [11:30-12:30)
+// Edge 4:       [12:00-14:00)
+// Common overlap: [12:00-12:15) ✓ Valid continuous path
 ----
 
 === Sequential Paths
@@ -446,10 +446,11 @@ Path shortestContinuous = allContinuousPaths.stream()
 
 === Performance Considerations
 
-1. **Indexing**: Available indices depend on the graph provider; outer-bound properties alone do not describe gaps in a multi-interval lifetime
-2. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so an edge with no lifetime properties
+1. **In-Memory Lifetime Caching**: To maximize traversal throughput, in-memory graph elements (`TinkerVertex`, `TinkerEdge`, `TinkerProperty`, `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object in a direct reference field. This eliminates the overhead of repeatedly deserializing or string-parsing `temporalIntervals` properties and allocating `Date` objects during multi-hop graph traversals. The cache is invalidated automatically whenever temporal properties are mutated or removed.
+2. **Indexing**: Available indices depend on the graph provider; outer-bound properties alone do not describe gaps in a multi-interval lifetime. TinkerGraph provides `TemporalTinkerIndex` backed by an AVL `IntervalTree` that indexes half-open intervals `[start, end)` and supports $O(\log N + R)$ retrieval.
+3. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so an edge with no lifetime properties
    has unbounded interval limits
-3. **Path Length**: Longer paths with continuous constraints require more intersection calculations
+4. **Path Length**: Longer paths with continuous constraints require more intersection calculations
 
 === Time Format
 

@@ -38,6 +38,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -295,9 +296,73 @@ public class LifetimeTest {
         lifetime = lifetime.dropInterval(new Date(2000L), new Date(3000L));
         
         assertLifetime(1000L, 4000L, lifetime);
+        assertEquals(Arrays.asList(
+                new Lifetime.Interval(new Date(1000L), new Date(2000L)),
+                new Lifetime.Interval(new Date(3000L), new Date(4000L))),
+                lifetime.getIntervals());
         assertFalse(lifetime.intersects(Lifetime.from(2100L, 2900L)));
         assertTrue(lifetime.intersects(Lifetime.from(1500L, 1800L)));
         assertTrue(lifetime.intersects(Lifetime.from(3500L, 3800L)));
+    }
+
+    @Test
+    public void shouldRespectHalfOpenIntervalSemantics() {
+        Lifetime.Interval interval = new Lifetime.Interval(new Date(100L), new Date(200L));
+        // start is inclusive
+        assertTrue(interval.contains(new Date(100L)));
+        // interior is inclusive
+        assertTrue(interval.contains(new Date(150L)));
+        // end is exclusive
+        assertFalse(interval.contains(new Date(200L)));
+        assertFalse(interval.contains(new Date(99L)));
+        assertFalse(interval.contains(new Date(201L)));
+
+        // Abutting intervals do not intersect
+        Lifetime.Interval abutting = new Lifetime.Interval(new Date(200L), new Date(300L));
+        assertFalse(interval.intersects(abutting));
+        assertFalse(abutting.intersects(interval));
+
+        // Overlapping intervals intersect
+        Lifetime.Interval overlapping = new Lifetime.Interval(new Date(199L), new Date(300L));
+        assertTrue(interval.intersects(overlapping));
+        assertTrue(overlapping.intersects(interval));
+
+        // Point interval containment
+        Lifetime.Interval point = new Lifetime.Interval(new Date(150L), new Date(150L));
+        assertTrue(point.contains(new Date(150L)));
+        assertFalse(point.contains(new Date(151L)));
+        assertTrue(interval.intersects(point));
+        assertTrue(point.intersects(interval));
+
+        Lifetime.Interval pointAtBoundary = new Lifetime.Interval(new Date(200L), new Date(200L));
+        assertFalse(interval.intersects(pointAtBoundary));
+        assertFalse(pointAtBoundary.intersects(interval));
+    }
+
+    @Test
+    public void shouldHandleUnboundedLifetimeSingletonAndStaticElements() {
+        assertSame(Lifetime.UNBOUNDED, Lifetime.from(null, null));
+        assertTrue(Lifetime.UNBOUNDED.isUnbounded());
+
+        final Element staticElement = mock(Element.class);
+        when(staticElement.property(Lifetime.START_TIME)).thenReturn(Property.empty());
+        when(staticElement.property(Lifetime.END_TIME)).thenReturn(Property.empty());
+        when(staticElement.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(Property.empty());
+
+        assertFalse(Lifetime.hasLifetimeProperties(staticElement));
+        assertSame(Lifetime.UNBOUNDED, Lifetime.fromProperties(staticElement));
+
+        // Unbounded properties should be empty
+        assertEquals(0, Lifetime.UNBOUNDED.toProperties().length);
+        assertTrue(Lifetime.UNBOUNDED.toPropertyMap().isEmpty());
+
+        // Fast path operations with unbounded
+        final Lifetime finite = Lifetime.from(100L, 200L);
+        assertTrue(Lifetime.UNBOUNDED.intersects(finite));
+        assertTrue(finite.intersects(Lifetime.UNBOUNDED));
+        assertTrue(Lifetime.UNBOUNDED.contains(finite));
+        assertEquals(finite, Lifetime.UNBOUNDED.intersection(finite));
+        assertEquals(finite, finite.intersection(Lifetime.UNBOUNDED));
     }
 
     private static Element elementWithProperties(final Object startTime, final Object endTime) {

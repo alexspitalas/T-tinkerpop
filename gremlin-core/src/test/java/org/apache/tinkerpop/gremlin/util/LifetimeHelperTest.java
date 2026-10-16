@@ -66,11 +66,12 @@ public class LifetimeHelperTest {
     }
 
     @Test
-    public void shouldIncludeBoundaryIntersections() {
+    public void shouldExcludeAbuttingBoundaryIntersections() {
         final Edge edge = edgeWithLifetime(20L, 30L,
                 elementWithLifetime(20L, 30L), elementWithLifetime(20L, 30L));
 
-        assertTrue(LifetimeHelper.isAliveDuring(edge, Lifetime.from(10L, 20L)));
+        assertFalse(LifetimeHelper.isAliveDuring(edge, Lifetime.from(10L, 20L)));
+        assertTrue(LifetimeHelper.isAliveDuring(edge, Lifetime.from(10L, 25L)));
     }
 
     @Test
@@ -98,7 +99,7 @@ public class LifetimeHelperTest {
     @Test
     public void shouldAcceptNestedWrappedEdgeWhenEdgeAndUnderlyingEndpointsOverlap() {
         final Edge baseEdge = edgeWithLifetime(10L, 20L,
-                elementWithLifetime(0L, 10L), elementWithLifetime(20L, 30L));
+                elementWithLifetime(0L, 15L), elementWithLifetime(15L, 30L));
         final Edge innerWrappedEdge = wrappedEdgeWithLifetime(baseEdge, 10L, 20L,
                 elementWithLifetime(21L, 30L), elementWithLifetime(0L, 9L));
         final Edge outerWrappedEdge = wrappedEdgeWithLifetime(innerWrappedEdge, 10L, 20L,
@@ -151,6 +152,7 @@ public class LifetimeHelperTest {
     private static VertexProperty<Object> propertyOrEmpty(final Object value) {
         final VertexProperty<Object> property = mock(VertexProperty.class);
         when(property.orElse(null)).thenReturn(value);
+        when(property.isPresent()).thenReturn(value != null);
         return property;
     }
 

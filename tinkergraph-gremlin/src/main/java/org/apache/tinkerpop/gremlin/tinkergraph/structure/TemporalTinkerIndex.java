@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.tinkerpop.gremlin.tinkergraph.structure;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
@@ -21,7 +39,8 @@ import java.util.function.BiPredicate;
  * tree, so that {@link Temporal} predicates can be answered without scanning all elements.
  * <p/>
  * Candidates are retrieved by interval overlap, which is a superset of the matches of every {@link Temporal}
- * predicate except {@link Temporal#precedes} and {@link Temporal#succeeds} (see {@link #supports(BiPredicate)}).
+ * predicate except {@link Temporal#precedes}, {@link Temporal#succeeds}, {@link Temporal#meets}, and
+ * {@link Temporal#metBy} (see {@link #supports(BiPredicate)}).
  * Callers must therefore still apply the actual predicate to the returned candidates, which
  * {@code TinkerGraphStep} does by re-testing all of its {@code HasContainer}s.
  */
@@ -34,12 +53,16 @@ public class TemporalTinkerIndex<T extends Element> extends TinkerIndex<T> {
     }
 
     /**
-     * Determines if the index can narrow down the candidates of the given predicate. All {@link Temporal}
-     * predicates require the two lifetimes to share at least one instant, except {@link Temporal#precedes} and
-     * {@link Temporal#succeeds} where they are disjoint by definition and an overlap search is useless.
+     * Determines if the index can narrow down the candidates of the given predicate. Predicates like
+     * {@link Temporal#precedes}, {@link Temporal#succeeds}, {@link Temporal#meets}, and {@link Temporal#metBy}
+     * are disjoint by definition under half-open intervals and an overlap search cannot be used.
      */
     public static boolean supports(final BiPredicate<?, ?> predicate) {
-        return predicate instanceof Temporal && predicate != Temporal.precedes && predicate != Temporal.succeeds;
+        return predicate instanceof Temporal
+                && predicate != Temporal.precedes
+                && predicate != Temporal.succeeds
+                && predicate != Temporal.meets
+                && predicate != Temporal.metBy;
     }
 
     @Override

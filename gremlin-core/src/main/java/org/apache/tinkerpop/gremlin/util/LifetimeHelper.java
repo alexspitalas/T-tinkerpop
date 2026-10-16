@@ -21,6 +21,7 @@ package org.apache.tinkerpop.gremlin.util;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 
 import java.util.Date;
@@ -36,15 +37,19 @@ public final class LifetimeHelper {
     }
 
     /**
-     * Returns {@code true} if the element is alive during the given window (inclusive).
-     * Edges are alive only when both incident vertices are also alive during the window.
+     * Returns {@code true} if the element is alive during the given window
+     * (inclusive).
+     * Edges are alive only when both incident vertices are also alive during the
+     * window.
      */
     public static boolean isAliveDuring(final Element element, final Lifetime window) {
-        if (!intersects(Lifetime.fromProperties(element), window))
+        if (!isElementAlive(element, window))
             return false;
 
         if (element instanceof Edge) {
             final Edge edge = unwrapEdge((Edge) element);
+            if (edge != element && !isElementAlive(edge, window))
+                return false;
             return isAliveDuring(edge.outVertex(), window)
                     && isAliveDuring(edge.inVertex(), window);
         }
@@ -52,24 +57,41 @@ public final class LifetimeHelper {
         return true;
     }
 
+    private static boolean isElementAlive(final Element element, final Lifetime window) {
+        if (element instanceof TemporalElement) {
+            final Lifetime lt = ((TemporalElement) element).getLifetime();
+            if (lt != null) {
+                return lt.isUnbounded() || intersects(lt, window);
+            }
+        }
+        if (!Lifetime.hasLifetimeProperties(element)) {
+            return true;
+        }
+        return intersects(Lifetime.fromProperties(element), window);
+    }
+
     /**
-     * Returns {@code true} if the lifetimes intersect inclusively. A single shared point is an intersection.
+     * Returns {@code true} if the lifetimes intersect inclusively. A single shared
+     * point is an intersection.
      */
     public static boolean intersects(final Lifetime left, final Lifetime right) {
         return left.intersects(right);
     }
 
     /**
-     * Returns the inclusive intersection of two lifetimes, or {@link Optional#empty()} when they are disjoint.
+     * Returns the inclusive intersection of two lifetimes, or
+     * {@link Optional#empty()} when they are disjoint.
      */
     public static Optional<Lifetime> intersection(final Lifetime left, final Lifetime right) {
         Lifetime intersect = left.intersection(right);
-        if (intersect.isEmpty()) return Optional.empty();
+        if (intersect.isEmpty())
+            return Optional.empty();
         return Optional.of(intersect);
     }
 
     /**
-     * Returns {@code true} when {@code previous} ends before or exactly when {@code current} starts.
+     * Returns {@code true} when {@code previous} ends before or exactly when
+     * {@code current} starts.
      */
     public static boolean isSequential(final Lifetime previous, final Lifetime current) {
         return !previous.getEndDate().after(current.getStartDate());

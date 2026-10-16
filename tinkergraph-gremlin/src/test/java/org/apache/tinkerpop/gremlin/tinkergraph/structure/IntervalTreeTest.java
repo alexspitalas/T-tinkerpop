@@ -1,3 +1,21 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.tinkerpop.gremlin.tinkergraph.structure;
 
 import org.junit.Test;
@@ -35,6 +53,21 @@ public class IntervalTreeTest {
         assertEquals(2, result3.size());
         assertTrue(result3.contains("Event4"));
         assertTrue(result3.contains("Event5"));
+
+        // Abutting boundary queries under half-open semantics [start, end)
+        // [200, 300) abuts Event1 [100, 200) and Event3 [300, 400), but strictly overlaps only Event2 [150, 250)
+        Set<String> result4 = tree.searchOverlaps(200, 300);
+        assertEquals(1, result4.size());
+        assertTrue(result4.contains("Event2"));
+
+        // Point query at end boundary 200: Event1 [100, 200) excluded, Event2 [150, 250) included
+        Set<String> result5 = tree.searchOverlaps(200, 200);
+        assertEquals(1, result5.size());
+        assertTrue(result5.contains("Event2"));
+
+        // Point query at end boundary 75: Event4 and Event5 [50, 75) excluded
+        Set<String> result6 = tree.searchOverlaps(75, 75);
+        assertTrue(result6.isEmpty());
     }
 
     @Test

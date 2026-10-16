@@ -182,10 +182,18 @@ public class WindowIntegrationTest {
     }
 
     @Test
-    public void shouldIncludeWindowsTouchingLifetimeBoundaries() {
+    public void shouldExcludeAbuttingWindowBoundariesAndIncludeOverlaps() {
+        // Half-open [2021-01-01, 2022-01-01) abuts bob (starts 2022-01-01), so bob is excluded
         assertThat(g.V().window("2021-01-01", "2022-01-01").values("name").toList(),
-                containsInAnyOrder("alice", "bob", "carol", "eve"));
+                containsInAnyOrder("alice", "carol", "eve"));
+        // Half-open [2030-12-31, 2031-01-01) abuts alice (ends 2030-12-31), so alice is excluded
         assertThat(g.V().window("2030-12-31", "2031-01-01").values("name").toList(),
+                containsInAnyOrder("bob", "carol", "dave"));
+
+        // Strictly overlapping windows include them
+        assertThat(g.V().window("2021-01-01", "2022-01-02").values("name").toList(),
+                containsInAnyOrder("alice", "bob", "carol", "eve"));
+        assertThat(g.V().window("2030-12-30", "2031-01-01").values("name").toList(),
                 containsInAnyOrder("alice", "bob", "carol", "dave"));
     }
 

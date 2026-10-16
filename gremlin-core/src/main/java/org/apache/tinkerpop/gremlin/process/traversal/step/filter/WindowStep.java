@@ -66,17 +66,11 @@ public final class WindowStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
-        Lifetime currentContext;
-        if (current instanceof TemporalVertex) currentContext = ((TemporalVertex) current).getLifetime();
-        else if (current instanceof TemporalEdge) currentContext = ((TemporalEdge) current).getLifetime();
-        else if (current instanceof TemporalVertexProperty) currentContext = ((TemporalVertexProperty<?>) current).getLifetime();
-        else currentContext = Lifetime.fromProperties((Element) current);
-
-        java.util.Optional<Lifetime> intersectOpt = LifetimeHelper.intersection(currentContext, window);
+        final Lifetime currentContext = Lifetime.fromProperties((Element) current);
+        final java.util.Optional<Lifetime> intersectOpt = LifetimeHelper.intersection(currentContext, window);
         if (!intersectOpt.isPresent())
             return false;
-
-        Lifetime newContext = intersectOpt.get();
+        final Lifetime newContext = intersectOpt.get();
 
         if (current instanceof VertexProperty) {
             final VertexProperty<?> base = (current instanceof TemporalVertexProperty)

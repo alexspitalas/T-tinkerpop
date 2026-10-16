@@ -184,8 +184,12 @@ public class AtTimeIntegrationTest {
 
     @Test
     public void shouldIncludeExactLifetimeBoundaries() {
+        // Start boundary is inclusive: alice is alive on 2020-01-01
         assertThat(g.V().atTime("2020-01-01").values("name").toList(), containsInAnyOrder("alice", "carol"));
-        assertThat(g.V().atTime("2030-12-31").values("name").toList(), containsInAnyOrder("alice", "bob", "carol"));
+        // Interior right before end boundary: alice is alive on 2030-12-30
+        assertThat(g.V().atTime("2030-12-30").values("name").toList(), containsInAnyOrder("alice", "bob", "carol"));
+        // End boundary is exclusive under half-open [start, end): alice has ended on 2030-12-31
+        assertThat(g.V().atTime("2030-12-31").values("name").toList(), containsInAnyOrder("bob", "carol"));
     }
 
     @Test

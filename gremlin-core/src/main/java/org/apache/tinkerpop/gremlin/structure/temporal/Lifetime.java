@@ -45,6 +45,9 @@ public final class Lifetime implements Serializable {
     public static final String TEMPORAL_INTERVALS = "temporalIntervals";
     public static final String MAX_END_TIME = "+292278994-08-17T07:12:55.807Z";
     public static final String MIN_START_TIME = "-292275055-05-16T16:47:04.192Z";
+    public static final Date MIN_DATE = toDate(MIN_START_TIME, "Start time");
+    public static final Date MAX_DATE = toDate(MAX_END_TIME, "End time");
+    public static final Lifetime UNBOUNDED = new Lifetime(MIN_DATE, MAX_DATE);
 
     public static class Interval implements Serializable, Comparable<Interval> {
         private final Date start;
@@ -61,11 +64,32 @@ public final class Lifetime implements Serializable {
         public Date getEnd() { return new Date(end.getTime()); }
 
         public boolean contains(Date instant) {
-            return !instant.before(start) && !instant.after(end);
+            if (instant == null) return false;
+            if (this.start.equals(this.end)) return this.start.equals(instant);
+            return !instant.before(start) && instant.before(end); // start <= t < end
+        }
+
+        public boolean contains(Interval other) {
+            if (other == null) return false;
+            if (other.start.equals(other.end)) {
+                return this.contains(other.start);
+            }
+            if (this.start.equals(this.end)) {
+                return false;
+            }
+            return !this.start.after(other.start) && !this.end.before(other.end);
         }
 
         public boolean intersects(Interval other) {
-            return !this.start.after(other.end) && !this.end.before(other.start);
+            if (other == null) return false;
+            if (this.start.equals(this.end)) {
+                if (other.start.equals(other.end)) return this.start.equals(other.start);
+                return !other.start.after(this.start) && this.start.before(other.end);
+            }
+            if (other.start.equals(other.end)) {
+                return !this.start.after(other.start) && other.start.before(this.end);
+            }
+            return this.start.before(other.end) && other.start.before(this.end);
         }
 
         public Interval intersection(Interval other) {
@@ -128,6 +152,8 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime from(final Object startDate, final Object endDate) {
+        if (startDate == null && endDate == null)
+            return UNBOUNDED;
         return new Lifetime(toStartDate(startDate), toEndDate(endDate));
     }
 
@@ -140,6 +166,9 @@ public final class Lifetime implements Serializable {
             final Lifetime cached = ((TemporalElement) element).getLifetime();
             if (cached != null)
                 return cached;
+        }
+        if (!hasLifetimeProperties(element)) {
+            return UNBOUNDED;
         }
         final Lifetime parsed = fromPropertiesRaw(element);
         if (element instanceof TemporalElement) {
@@ -159,6 +188,9 @@ public final class Lifetime implements Serializable {
         }
         final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
         final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
+        if (!startTimeProperty.isPresent() && !endTimeProperty.isPresent()) {
+            return UNBOUNDED;
+        }
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
@@ -248,7 +280,7 @@ public final class Lifetime implements Serializable {
     }
 
     public Object[] toProperties() {
-        if (intervals.isEmpty()) return new Object[0];
+        if (intervals.isEmpty() || isUnbounded()) return new Object[0];
         return new Object[] {
                 START_TIME, getStartDate(),
                 END_TIME, getEndDate(),
@@ -258,7 +290,7 @@ public final class Lifetime implements Serializable {
 
     public Map<String, Object> toPropertyMap() {
         final Map<String, Object> properties = new LinkedHashMap<>();
-        if (!intervals.isEmpty()) {
+        if (!intervals.isEmpty() && !isUnbounded()) {
             properties.put(START_TIME, getStartDate());
             properties.put(END_TIME, getEndDate());
             properties.put(TEMPORAL_INTERVALS, toTemporalIntervalsString());
@@ -296,10 +328,10 @@ public final class Lifetime implements Serializable {
         for (Interval current : this.intervals) {
             if (current.intersects(drop)) {
                 if (current.getStart().before(drop.getStart())) {
-                    newIntervals.add(new Interval(current.getStart(), new Date(drop.getStart().getTime() - 1)));
+                    newIntervals.add(new Interval(current.getStart(), drop.getStart()));
                 }
                 if (current.getEnd().after(drop.getEnd())) {
-                    newIntervals.add(new Interval(new Date(drop.getEnd().getTime() + 1), current.getEnd()));
+                    newIntervals.add(new Interval(drop.getEnd(), current.getEnd()));
                 }
             } else {
                 newIntervals.add(current);
@@ -309,6 +341,9 @@ public final class Lifetime implements Serializable {
     }
 
     public Lifetime intersection(Lifetime window) {
+        if (window == null || this.isEmpty() || window.isEmpty()) return new Lifetime(Collections.emptyList());
+        if (this.isUnbounded()) return window;
+        if (window.isUnbounded()) return this;
         List<Interval> result = new ArrayList<>();
         for (Interval myInt : this.intervals) {
             for (Interval winInt : window.intervals) {
@@ -324,7 +359,6 @@ public final class Lifetime implements Serializable {
     public boolean contains(Date instant) {
         if (instant == null || intervals.isEmpty()) return false;
         if (instant.before(getStartDate()) || instant.after(getEndDate())) return false;
-        if (intervals.size() == 1) return true;
         for (Interval interval : intervals) {
             if (interval.contains(instant)) return true;
             if (interval.getStart().after(instant)) break;
@@ -335,10 +369,13 @@ public final class Lifetime implements Serializable {
     public boolean intersects(Lifetime window) {
         if (window == null) return false;
         if (this.isEmpty() || window.isEmpty()) return false;
+        if (this.isUnbounded() || window.isUnbounded()) return true;
         
         // Fast path on outer bounds
         if (this.getStartDate().after(window.getEndDate()) || this.getEndDate().before(window.getStartDate())) return false;
-        if (this.intervals.size() == 1 && window.intervals.size() == 1) return true;
+        if (this.intervals.size() == 1 && window.intervals.size() == 1) {
+            return this.intervals.get(0).intersects(window.intervals.get(0));
+        }
         
         final List<Interval> list1 = this.intervals.size() >= window.intervals.size() ? this.intervals : window.intervals;
         final List<Interval> list2 = this.intervals.size() < window.intervals.size() ? this.intervals : window.intervals;
@@ -353,7 +390,7 @@ public final class Lifetime implements Serializable {
                 if (midInterval.intersects(w)) {
                     return true;
                 }
-                if (midInterval.getEnd().getTime() < w.getStart().getTime()) {
+                if (midInterval.getEnd().getTime() <= w.getStart().getTime()) {
                     low = mid + 1;
                 } else {
                     high = mid - 1;
@@ -367,6 +404,7 @@ public final class Lifetime implements Serializable {
         if (other == null) return false;
         if (other.isEmpty()) return true;
         if (this.isEmpty()) return false;
+        if (this.isUnbounded()) return true;
         
         // Fast path: other cannot be wider than this
         if (other.getStartDate().before(this.getStartDate()) || other.getEndDate().after(this.getEndDate())) return false;
@@ -380,7 +418,7 @@ public final class Lifetime implements Serializable {
                 int mid = (low + high) >>> 1;
                 Interval midInterval = this.intervals.get(mid);
                 
-                if (!midInterval.getStart().after(s.getStart()) && !midInterval.getEnd().before(s.getEnd())) {
+                if (midInterval.contains(s)) {
                     covered = true;
                     break;
                 }
@@ -464,8 +502,15 @@ public final class Lifetime implements Serializable {
         return intervals.isEmpty();
     }
 
+    public boolean isUnbounded() {
+        return this.equals(UNBOUNDED) ||
+                (intervals.size() == 1 &&
+                 intervals.get(0).getStart().getTime() <= MIN_DATE.getTime() &&
+                 intervals.get(0).getEnd().getTime() >= MAX_DATE.getTime());
+    }
+
     public static Date toStartDate(final Object value) {
-        return (null == value)? toDate(MIN_START_TIME, "Start time"): toDate(value, "Start time");
+        return (null == value)? new Date(MIN_DATE.getTime()): toDate(value, "Start time");
     }
 
     public static Date getStartTimeFromProperty(final Element element) {
@@ -483,7 +528,7 @@ public final class Lifetime implements Serializable {
     }
 
     public static Date toEndDate(final Object value) {
-        return (null == value)? toDate(MAX_END_TIME, "End time"): toDate(value, "End time");
+        return (null == value)? new Date(MAX_DATE.getTime()): toDate(value, "End time");
     }
 
     public static Date toTemporalDate(final Object value) {

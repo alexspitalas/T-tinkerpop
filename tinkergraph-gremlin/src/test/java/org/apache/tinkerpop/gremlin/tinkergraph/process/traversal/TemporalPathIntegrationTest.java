@@ -67,7 +67,7 @@ public class TemporalPathIntegrationTest {
      * Edge 3:     [11:30-12:30]
      * Edge 4:       [12:00-13:00]
      * 
-     * Common intersection: [12:00-12:00] (single point) 
+     * Common intersection: [12:00-12:15)
      */
     @Test
     public void testFourEdgeContinuousPath() {
@@ -79,7 +79,7 @@ public class TemporalPathIntegrationTest {
         Vertex vE = graph.addVertex("name", "alice");
         
         // Add edges with overlapping time intervals
-        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:00:00");
+        vA.addEdge("follows", vB, Lifetime.START_TIME, "2023-01-01T10:00:00", Lifetime.END_TIME, "2023-01-01T12:15:00");
         vB.addEdge("follows", vC, Lifetime.START_TIME, "2023-01-01T11:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
         vC.addEdge("follows", vD, Lifetime.START_TIME, "2023-01-01T11:30:00", Lifetime.END_TIME, "2023-01-01T12:30:00");
         vD.addEdge("follows", vE, Lifetime.START_TIME, "2023-01-01T12:00:00", Lifetime.END_TIME, "2023-01-01T13:00:00");
