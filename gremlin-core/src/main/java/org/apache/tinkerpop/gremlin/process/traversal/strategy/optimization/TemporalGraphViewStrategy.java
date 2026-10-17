@@ -81,20 +81,28 @@ public final class TemporalGraphViewStrategy
         if (isComputerTraversal) return;
 
         // Configure the GraphComputer's GraphFilter for temporal constraints
-        final boolean isWindow = !windowSteps.isEmpty();
-        final Date start = isWindow ? windowSteps.get(0).getWindowStart() : atTimeSteps.get(0).getInstant();
-        final Date end = isWindow ? windowSteps.get(0).getWindowEnd() : start;
+        final boolean isWindow = !windowSteps.isEmpty() || atTimeSteps.size() > 1;
+        Lifetime effectiveWindow = null;
+        for (final WindowStep<?> ws : windowSteps) {
+            effectiveWindow = effectiveWindow == null ? ws.getWindow() : effectiveWindow.intersection(ws.getWindow());
+        }
+        for (final AtTimeStep<?> as : atTimeSteps) {
+            final Date inst = as.getInstant();
+            final Lifetime pt = Lifetime.from(inst, inst);
+            effectiveWindow = effectiveWindow == null ? pt : effectiveWindow.intersection(pt);
+        }
 
         for (final VertexProgramStep step : TraversalHelper.getStepsOfAssignableClass(VertexProgramStep.class, traversal)) {
             Computer computer = step.getComputer();
             
             if (isWindow) {
-                computer = computer.vertices(__.window(start, end))
-                                   .edges((Traversal) __.outE().window(start, end))
-                                   .vertexProperties((Traversal) __.properties().window(start, end));
+                computer = computer.vertices(__.window(effectiveWindow))
+                                   .edges((Traversal) __.bothE().window(effectiveWindow))
+                                   .vertexProperties((Traversal) __.properties().window(effectiveWindow));
             } else {
+                final Date start = atTimeSteps.get(0).getInstant();
                 computer = computer.vertices(__.atTime(start))
-                                   .edges((Traversal) __.outE().atTime(start))
+                                   .edges((Traversal) __.bothE().atTime(start))
                                    .vertexProperties((Traversal) __.properties().atTime(start));
             }
             

@@ -58,7 +58,13 @@ import org.apache.tinkerpop.shaded.kryo.Registration;
 import org.apache.tinkerpop.shaded.kryo.Serializer;
 import org.apache.tinkerpop.shaded.kryo.io.Input;
 import org.apache.tinkerpop.shaded.kryo.io.Output;
+import org.apache.tinkerpop.gremlin.jsr223.JavaTranslator;
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphViewStrategy;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.junit.Test;
+
+import java.time.Instant;
+import java.util.Date;
 
 import java.awt.Color;
 import java.io.BufferedOutputStream;
@@ -921,6 +927,68 @@ public class TinkerGraphTest {
                 addV("person").property(T.id, uuid).iterate();
 
         assertEquals(3, g.V(100, "1000", uuid).count().next().intValue());
+    }
+
+    @Test
+    public void shouldSupportTemporalDslOverloadsAndMultiIntervalWindow() {
+        final TinkerGraph graph = TinkerGraph.open();
+        final GraphTraversalSource g = graph.traversal();
+
+        // Create vertices with Date, Instant, Long, null, and Lifetime bounds
+        final Vertex v1 = g.addV("person").property("name", "alice")
+                .lifetime(new Date(100L), new Date(200L))
+                .addInterval(Instant.ofEpochMilli(300L), Instant.ofEpochMilli(400L))
+                .next();
+        final Vertex v2 = g.addV("person").property("name", "bob")
+                .lifetime(150L, null)
+                .dropInterval(500L, null)
+                .next();
+
+        assertEquals(Lifetime.from(Arrays.asList(
+                new Lifetime.Interval(new Date(100L), new Date(200L)),
+                new Lifetime.Interval(new Date(300L), new Date(400L)))), Lifetime.fromProperties(v1));
+        assertEquals(Lifetime.from(150L, 500L), Lifetime.fromProperties(v2));
+
+        // Add edge with Lifetime object directly via lifetime(Object)
+        final Lifetime edgeLt = Lifetime.from(Arrays.asList(
+                new Lifetime.Interval(new Date(160L), new Date(190L)),
+                new Lifetime.Interval(new Date(320L), new Date(380L))));
+        g.V(v1).addE("knows").to(v2).lifetime(edgeLt).iterate();
+
+        // Test lifetimeProperty with non-String bounds and null
+        g.V(v1).lifetimeProperty("role", "researcher", 100L, 180L).iterate();
+        final VertexProperty<Object> vp = v1.property("role");
+        assertEquals(Lifetime.from(100L, 180L), Lifetime.fromProperties(vp));
+
+        // Test window(Lifetime) and temporalIntersects / Allen Lifetime overloads
+        final Lifetime multiWindow = Lifetime.from(Arrays.asList(
+                new Lifetime.Interval(new Date(170L), new Date(180L)),
+                new Lifetime.Interval(new Date(350L), new Date(360L))));
+        assertEquals(1L, g.V(v1).window(multiWindow).out("knows").count().next().longValue());
+        assertEquals(2L, g.V().temporalIntersects(multiWindow).count().next().longValue());
+        assertEquals(1L, g.V().temporalOverlaps(Lifetime.from(180L, 450L)).count().next().longValue());
+
+        // Test TemporalGraphViewStrategy with multi-interval Lifetime in OLTP and OLAP (including in())
+        assertEquals(1L, g.V(v2).window(multiWindow).in("knows").count().next().longValue());
+        assertEquals(1L, g.withComputer().V(v2).window(multiWindow).in("knows").count().next().longValue());
+
+        // Test multi-interval addInterval and dropInterval via Lifetime and child Traversal
+        final Vertex v3 = g.addV("person").property("name", "charlie")
+                .lifetime(50L, 60L)
+                .addInterval(__.V(v1).getLifetime(), null)
+                .dropInterval(multiWindow, null)
+                .next();
+        assertEquals(Lifetime.from(Arrays.asList(
+                new Lifetime.Interval(new Date(50L), new Date(60L)),
+                new Lifetime.Interval(new Date(100L), new Date(170L)),
+                new Lifetime.Interval(new Date(180L), new Date(200L)),
+                new Lifetime.Interval(new Date(300L), new Date(350L)),
+                new Lifetime.Interval(new Date(360L), new Date(400L)))), Lifetime.fromProperties(v3));
+
+        // Test JavaTranslator bytecode translation with null bounds and Lifetime arguments
+        final Traversal.Admin<?, ?> translated = JavaTranslator.of(g).translate(
+                g.V(v1).window(multiWindow).out("knows").temporalIntersects(multiWindow).asAdmin().getBytecode());
+        assertEquals(1, IteratorUtils.count(translated));
     }
 
     /**

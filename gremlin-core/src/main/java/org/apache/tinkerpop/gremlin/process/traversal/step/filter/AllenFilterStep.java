@@ -24,22 +24,24 @@ import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
+import java.util.Objects;
+
 /**
  * A filter step that implements all of Allen's temporal relationships.
- * This step evaluates temporal intervals between the current element and a reference element
+ * This step evaluates temporal intervals between the current element and a reference element or {@link Lifetime}
  * by delegating to the highly optimized, multi-interval safe {@link Temporal} predicates.
  */
 public final class AllenFilterStep<S, E> extends FilterStep<S> {
 
     private final Temporal relation;
-    private final Element referenceElement;
+    private final Object referenceTarget;
 
     public AllenFilterStep(final Traversal.Admin<S, E> traversal, 
                           final Temporal relation, 
-                          final Element referenceElement) {
+                          final Object referenceTarget) {
         super(traversal);
         this.relation = relation;
-        this.referenceElement = referenceElement;
+        this.referenceTarget = referenceTarget;
     }
 
     @Override
@@ -50,13 +52,15 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         }
         
         // Delegate all multi-interval overlap sweep logic directly to the Temporal engine
-        return relation.test(Lifetime.unwrapElement((Element) currentObject),
-                referenceElement != null ? Lifetime.unwrapElement(referenceElement) : null);
+        final Object target = referenceTarget instanceof Element
+                ? Lifetime.unwrapElement((Element) referenceTarget)
+                : referenceTarget;
+        return relation.test(Lifetime.unwrapElement((Element) currentObject), target);
     }
 
     @Override
     public String toString() {
-        return "AllenFilterStep(" + relation.name() + ", " + referenceElement + ")";
+        return "AllenFilterStep(" + relation.name() + ", " + referenceTarget + ")";
     }
 
     @Override
@@ -64,11 +68,28 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         return (AllenFilterStep<S, E>) super.clone();
     }
 
+    @Override
+    public int hashCode() {
+        return super.hashCode() ^ Objects.hash(this.relation, this.referenceTarget);
+    }
+
+    @Override
+    public boolean equals(final Object other) {
+        if (!super.equals(other)) return false;
+        final AllenFilterStep<?, ?> that = (AllenFilterStep<?, ?>) other;
+        return Objects.equals(this.relation, that.relation)
+                && Objects.equals(this.referenceTarget, that.referenceTarget);
+    }
+
     public Temporal getRelation() {
         return relation;
     }
 
     public Element getReferenceElement() {
-        return referenceElement;
+        return referenceTarget instanceof Element ? (Element) referenceTarget : null;
+    }
+
+    public Object getReferenceTarget() {
+        return referenceTarget;
     }
 }

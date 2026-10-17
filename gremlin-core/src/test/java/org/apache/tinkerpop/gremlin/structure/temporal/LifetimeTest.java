@@ -381,6 +381,182 @@ public class LifetimeTest {
         assertEquals(new Lifetime.Interval(new Date(100L), new Date(300L)), lifetime.getIntervals().get(0));
     }
 
+    @Test
+    public void shouldRoundTripGraphBinaryForTemporalTypes() throws Exception {
+        final org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryWriter writer =
+                new org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryWriter();
+        final org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryReader reader =
+                new org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryReader();
+
+        final Lifetime multi = Lifetime.from(1000L, 2000L).addInterval(new Date(3000L), new Date(4000L));
+        for (final Object obj : Arrays.asList(
+                multi,
+                Lifetime.UNBOUNDED,
+                Lifetime.EMPTY,
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(multi),
+                org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep.LifetimeMode.ADD,
+                Lifetime.DropMode.HARD,
+                org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_ARRIVAL,
+                __.window(multi).dropInterval(1000L, 2000L, Lifetime.DropMode.HARD).temporalIntersects(multi).asAdmin().getBytecode()
+        )) {
+            final org.apache.tinkerpop.gremlin.structure.io.Buffer buffer = createTestBuffer(4096);
+            writer.write(obj, buffer);
+            final Object read = reader.read(buffer);
+            assertEquals(obj, read);
+            if (obj == Lifetime.UNBOUNDED || obj == Lifetime.EMPTY) {
+                assertSame(obj, read);
+            }
+        }
+    }
+
+    @Test
+    public void shouldRoundTripGraphSONV2AndV3ForTemporalTypes() throws Exception {
+        final Lifetime multi = Lifetime.from(1000L, 2000L).addInterval(new Date(3000L), new Date(4000L));
+        for (final org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion version : Arrays.asList(
+                org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion.V2_0,
+                org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion.V3_0)) {
+            final org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper mapper =
+                    org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONMapper.build()
+                            .version(version)
+                            .typeInfo(org.apache.tinkerpop.gremlin.structure.io.graphson.TypeInfo.PARTIAL_TYPES)
+                            .create()
+                            .createMapper();
+
+            for (final Object obj : Arrays.asList(
+                    multi,
+                    Lifetime.UNBOUNDED,
+                    Lifetime.EMPTY,
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(multi),
+                    org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep.LifetimeMode.DROP,
+                    Lifetime.DropMode.HARD,
+                    org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.LATEST_DEPARTURE,
+                    __.window(multi).dropInterval(1000L, 2000L, Lifetime.DropMode.HARD).temporalIntersects(multi).asAdmin().getBytecode()
+            )) {
+                final String json = mapper.writeValueAsString(obj);
+                final Object read = mapper.readValue(json, Object.class);
+                assertEquals(obj, read);
+                if (obj == Lifetime.UNBOUNDED || obj == Lifetime.EMPTY) {
+                    assertSame(obj, read);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void shouldRoundTripGryoV1AndV3ForTemporalTypes() throws Exception {
+        final Lifetime multi = Lifetime.from(1000L, 2000L).addInterval(new Date(3000L), new Date(4000L));
+        for (final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion version : Arrays.asList(
+                org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion.V1_0,
+                org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion.V3_0)) {
+            final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper mapper =
+                    org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper.build().version(version).create();
+            final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter writer =
+                    org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter.build().mapper(mapper).create();
+            final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader reader =
+                    org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader.build().mapper(mapper).create();
+
+            for (final Object obj : Arrays.asList(
+                    multi,
+                    Lifetime.UNBOUNDED,
+                    Lifetime.EMPTY,
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(multi),
+                    org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphViewStrategy.instance(),
+                    org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep.LifetimeMode.ADD,
+                    Lifetime.DropMode.HARD,
+                    org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_DEPARTURE,
+                    __.window(multi).dropInterval(1000L, 2000L, Lifetime.DropMode.HARD).temporalIntersects(multi).asAdmin().getBytecode()
+            )) {
+                final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                writer.writeObject(out, obj);
+                final Object read = reader.readObject(new java.io.ByteArrayInputStream(out.toByteArray()), Object.class);
+                assertEquals(obj, read);
+                if (obj == Lifetime.UNBOUNDED || obj == Lifetime.EMPTY) {
+                    assertSame(obj, read);
+                }
+            }
+        }
+    }
+
+    private static org.apache.tinkerpop.gremlin.structure.io.Buffer createTestBuffer(final int capacity) {
+        final java.nio.ByteBuffer bb = java.nio.ByteBuffer.allocate(capacity);
+        return new org.apache.tinkerpop.gremlin.structure.io.Buffer() {
+            private int rIdx = 0;
+            private int wIdx = 0;
+            private int markWIdx = 0;
+            @Override public int readableBytes() { return wIdx - rIdx; }
+            @Override public int readerIndex() { return rIdx; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer readerIndex(final int idx) { rIdx = idx; return this; }
+            @Override public int writerIndex() { return wIdx; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writerIndex(final int idx) { wIdx = idx; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer markWriterIndex() { markWIdx = wIdx; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer resetWriterIndex() { wIdx = markWIdx; return this; }
+            @Override public int capacity() { return bb.capacity(); }
+            @Override public boolean isDirect() { return false; }
+            @Override public boolean readBoolean() { return readByte() != 0; }
+            @Override public byte readByte() { return bb.get(rIdx++); }
+            @Override public short readShort() { final short v = bb.getShort(rIdx); rIdx += 2; return v; }
+            @Override public int readInt() { final int v = bb.getInt(rIdx); rIdx += 4; return v; }
+            @Override public long readLong() { final long v = bb.getLong(rIdx); rIdx += 8; return v; }
+            @Override public float readFloat() { final float v = bb.getFloat(rIdx); rIdx += 4; return v; }
+            @Override public double readDouble() { final double v = bb.getDouble(rIdx); rIdx += 8; return v; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer readBytes(final byte[] dst) { return readBytes(dst, 0, dst.length); }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer readBytes(final byte[] dst, final int dstIdx, final int len) {
+                for (int i = 0; i < len; i++) dst[dstIdx + i] = bb.get(rIdx++);
+                return this;
+            }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer readBytes(final java.nio.ByteBuffer dst) {
+                while (dst.hasRemaining()) dst.put(bb.get(rIdx++));
+                return this;
+            }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer readBytes(final java.io.OutputStream out, final int len) throws java.io.IOException {
+                final byte[] tmp = new byte[len]; readBytes(tmp); out.write(tmp); return this;
+            }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeBoolean(final boolean v) { return writeByte(v ? 1 : 0); }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeByte(final int v) { bb.put(wIdx++, (byte) v); return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeShort(final int v) { bb.putShort(wIdx, (short) v); wIdx += 2; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeInt(final int v) { bb.putInt(wIdx, v); wIdx += 4; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeLong(final long v) { bb.putLong(wIdx, v); wIdx += 8; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeFloat(final float v) { bb.putFloat(wIdx, v); wIdx += 4; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeDouble(final double v) { bb.putDouble(wIdx, v); wIdx += 8; return this; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeBytes(final byte[] src) { return writeBytes(src, 0, src.length); }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeBytes(final java.nio.ByteBuffer src) {
+                while (src.hasRemaining()) bb.put(wIdx++, src.get());
+                return this;
+            }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer writeBytes(final byte[] src, final int srcIdx, final int len) {
+                for (int i = 0; i < len; i++) bb.put(wIdx++, src[srcIdx + i]);
+                return this;
+            }
+            @Override public boolean release() { return true; }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer retain() { return this; }
+            @Override public int referenceCount() { return 1; }
+            @Override public int nioBufferCount() { return 1; }
+            @Override public java.nio.ByteBuffer[] nioBuffers() { return new java.nio.ByteBuffer[]{nioBuffer()}; }
+            @Override public java.nio.ByteBuffer[] nioBuffers(final int idx, final int len) { return new java.nio.ByteBuffer[]{nioBuffer(idx, len)}; }
+            @Override public java.nio.ByteBuffer nioBuffer() { return nioBuffer(rIdx, readableBytes()); }
+            @Override public java.nio.ByteBuffer nioBuffer(final int idx, final int len) {
+                final java.nio.ByteBuffer dup = bb.duplicate(); dup.position(idx); dup.limit(idx + len); return dup.slice();
+            }
+            @Override public org.apache.tinkerpop.gremlin.structure.io.Buffer getBytes(final int idx, final byte[] dst) {
+                for (int i = 0; i < dst.length; i++) dst[i] = bb.get(idx + i);
+                return this;
+            }
+        };
+    }
+
+    @Test
+    public void shouldTreatStarAdjacentVertexAsUnboundedWithoutThrowing() {
+        final org.apache.tinkerpop.gremlin.structure.util.star.StarGraph starGraph =
+                org.apache.tinkerpop.gremlin.structure.util.star.StarGraph.open();
+        final org.apache.tinkerpop.gremlin.structure.Vertex v1 = starGraph.addVertex("person");
+        final org.apache.tinkerpop.gremlin.structure.Vertex v2 = starGraph.addVertex("person");
+        final org.apache.tinkerpop.gremlin.structure.Edge e = v1.addEdge("knows", v2);
+        final org.apache.tinkerpop.gremlin.structure.Vertex adjacent = e.inVertex();
+
+        assertFalse(Lifetime.hasLifetimeProperties(adjacent));
+        assertSame(Lifetime.UNBOUNDED, Lifetime.fromProperties(adjacent));
+    }
+
     private static Element elementWithProperties(final Object startTime, final Object endTime) {
         final Element element = mock(Element.class);
         final Property<Object> startTimeProperty = null == startTime ? Property.empty() : property(startTime);

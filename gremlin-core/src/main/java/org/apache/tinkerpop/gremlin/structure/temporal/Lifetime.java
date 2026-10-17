@@ -18,11 +18,13 @@
  */
 package org.apache.tinkerpop.gremlin.structure.temporal;
 
+import org.apache.tinkerpop.gremlin.process.computer.util.ComputerGraph;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.star.StarGraph;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertex;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertexProperty;
@@ -54,6 +56,11 @@ public final class Lifetime implements Serializable {
     public static final Date MIN_DATE = toDate(MIN_START_TIME, "Start time");
     public static final Date MAX_DATE = toDate(MAX_END_TIME, "End time");
     public static final Lifetime UNBOUNDED = new Lifetime(MIN_DATE, MAX_DATE);
+    public static final Lifetime EMPTY = new Lifetime(Collections.emptyList());
+
+    public static Lifetime empty() {
+        return EMPTY;
+    }
 
     public static class Interval implements Serializable, Comparable<Interval> {
         private final Date start;
@@ -177,7 +184,10 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime from(List<Interval> intervals) {
-        return new Lifetime(intervals);
+        if (intervals.isEmpty())
+            return EMPTY;
+        final Lifetime lt = new Lifetime(intervals);
+        return lt.isUnbounded() ? UNBOUNDED : lt;
     }
 
     public static Lifetime fromProperties(final Element element) {
@@ -255,7 +265,8 @@ public final class Lifetime implements Serializable {
             }
             parsedIntervals.add(new Interval(new Date(start), new Date(end)));
         }
-        return new Lifetime(parsedIntervals);
+        final Lifetime lt = new Lifetime(parsedIntervals);
+        return lt.isUnbounded() ? UNBOUNDED : lt;
     }
 
     private static boolean isSignedDecimalInteger(final String value) {
@@ -278,7 +289,7 @@ public final class Lifetime implements Serializable {
                 "Invalid temporalIntervals component '" + component + "' in value '" + value + "'");
     }
 
-    private String toTemporalIntervalsString() {
+    public String toTemporalIntervalsString() {
         StringBuilder sb = new StringBuilder();
         for (int i=0; i<intervals.size(); i++) {
             Interval iv = intervals.get(i);
@@ -395,7 +406,7 @@ public final class Lifetime implements Serializable {
     public Lifetime addInterval(Object start, Object end) {
         List<Interval> newIntervals = new ArrayList<>(this.intervals);
         newIntervals.add(new Interval(toStartDate(start), toEndDate(end)));
-        return new Lifetime(newIntervals);
+        return from(newIntervals);
     }
 
     public Lifetime dropInterval(Object start, Object end) {
@@ -413,11 +424,11 @@ public final class Lifetime implements Serializable {
                 newIntervals.add(current);
             }
         }
-        return new Lifetime(newIntervals);
+        return from(newIntervals);
     }
 
     public Lifetime intersection(Lifetime window) {
-        if (window == null || this.isEmpty() || window.isEmpty()) return new Lifetime(Collections.emptyList());
+        if (window == null || this.isEmpty() || window.isEmpty()) return EMPTY;
         if (this.isUnbounded()) return window;
         if (window.isUnbounded()) return this;
         List<Interval> result = new ArrayList<>();
@@ -429,7 +440,7 @@ public final class Lifetime implements Serializable {
                 }
             }
         }
-        return new Lifetime(result);
+        return from(result);
     }
 
     public boolean contains(Date instant) {
@@ -643,7 +654,15 @@ public final class Lifetime implements Serializable {
     }
 
     private static Property<Object> propertyOrEmpty(final Element element, final String key) {
-        final Property<Object> property = element.property(key);
+        if (element instanceof StarGraph.StarAdjacentVertex) {
+            return Property.empty();
+        }
+        final Element target = element instanceof ComputerGraph.ComputerAdjacentVertex
+                ? unwrapElement(element) : element;
+        if (target instanceof StarGraph.StarAdjacentVertex) {
+            return Property.empty();
+        }
+        final Property<Object> property = target.property(key);
         return null == property ? Property.empty() : property;
     }
 

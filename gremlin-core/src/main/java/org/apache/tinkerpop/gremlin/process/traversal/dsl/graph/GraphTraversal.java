@@ -3260,163 +3260,43 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     }
 
 
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final String startTime, final String endTime)
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Object startTime, final Object endTime)
     {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
+        this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
     }
 
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final String endTime)
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Object startTime, final Object endTime)
     {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
-    }
-    
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final String startTime, final Traversal<?, String> endTime)
-    {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
-    }
-    
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Traversal<?, String> startTime, final Traversal<?, String> endTime)
-    {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
-    }
-    
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String startTime, final String endTime)
-    {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
+        this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
+        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
     }
 
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Traversal<?, String> startTime, final String endTime)
-    {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
-    }
-    
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String startTime, final Traversal<?, String> endTime)
-    {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
-    }
-    
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Traversal<?, String> startTime, final Traversal<?, String> endTime)
-    {
-      this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, startTime, endTime);
-      return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, null));
-    }
-
-    public default GraphTraversal<S, E> lifetime(final String startTime, final String endTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
-    }
-    
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime, final String endTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
-    }
-    
-    public default GraphTraversal<S, E> lifetime(final String startTime, final Traversal<?, String> endTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
-    }
-    
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime)
+    public default GraphTraversal<S, E> lifetime(final Object startTime, final Object endTime)
     {
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null));
     }
 
-    public default GraphTraversal<S, E> lifetime(final String startTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
-    }
-    
-    public default GraphTraversal<S, E> lifetime(final Traversal<?, ?> startTime)
+    public default GraphTraversal<S, E> lifetime(final Object startTime)
     {
         this.asAdmin().getBytecode().addStep(Symbols.lifetime, startTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, null, null, null));
     }
 
-    public default GraphTraversal<S, E> addInterval(final String startTime, final String endTime)
+    public default GraphTraversal<S, E> addInterval(final Object startTime, final Object endTime)
     {
         this.asAdmin().getBytecode().addStep(Symbols.addInterval, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.ADD));
     }
 
-    public default GraphTraversal<S, E> addInterval(final Traversal<?, ?> startTime, final String endTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.addInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.ADD));
-    }
-
-    public default GraphTraversal<S, E> addInterval(final String startTime, final Traversal<?, String> endTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.addInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.ADD));
-    }
-
-    public default GraphTraversal<S, E> addInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime)
-    {
-        this.asAdmin().getBytecode().addStep(Symbols.addInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null, LifetimeStep.LifetimeMode.ADD));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final String startTime, final String endTime) {
+    public default GraphTraversal<S, E> dropInterval(final Object startTime, final Object endTime) {
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
                 LifetimeStep.LifetimeMode.DROP));
     }
 
-    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final String endTime) {
-        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final String startTime, final Traversal<?, String> endTime) {
-        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
-        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final String startTime, final String endTime,
-                                                     final Lifetime.DropMode dropMode) {
-        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
-        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, dropMode));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final String endTime,
-                                                     final Lifetime.DropMode dropMode) {
-        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
-        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, dropMode));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final String startTime, final Traversal<?, String> endTime,
-                                                     final Lifetime.DropMode dropMode) {
-        java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
-        this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
-        return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, null, null,
-                LifetimeStep.LifetimeMode.DROP, dropMode));
-    }
-
-    public default GraphTraversal<S, E> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime,
+    public default GraphTraversal<S, E> dropInterval(final Object startTime, final Object endTime,
                                                      final Lifetime.DropMode dropMode) {
         java.util.Objects.requireNonNull(dropMode, "dropMode cannot be null");
         this.asAdmin().getBytecode().addStep(Symbols.dropInterval, startTime, endTime, dropMode);
@@ -3493,6 +3373,18 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         return this.asAdmin().addStep(new org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep<>(this.asAdmin(), Lifetime.from(start, end)));
     }
 
+    /**
+     * Filters the traversal to elements whose lifetime intersects the given {@link Lifetime} window.
+     *
+     * @param window the temporal window (single- or multi-interval)
+     * @return the traversal with an appended {@link org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep}
+     */
+    public default GraphTraversal<S, E> window(final Lifetime window) {
+        if (null == window) throw new IllegalArgumentException("Temporal window cannot be null");
+        this.asAdmin().getBytecode().addStep(Symbols.window, window);
+        return this.asAdmin().addStep(new org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep<>(this.asAdmin(), window));
+    }
+
 
     // =============================================================================
     // ALLEN TEMPORAL RELATIONSHIP METHODS
@@ -3510,6 +3402,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.precedes, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalBefore(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalBefore, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.precedes, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval is AFTER the reference element's interval.
      *
@@ -3521,6 +3419,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.temporalAfter, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
                 (Traversal.Admin) this.asAdmin(), Temporal.succeeds, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalAfter(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalAfter, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.succeeds, referenceLifetime));
     }
 
     /**
@@ -3536,6 +3440,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.meets, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalMeets(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalMeets, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.meets, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval is MET BY the reference element's interval.
      *
@@ -3547,6 +3457,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.temporalMetBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
                 (Traversal.Admin) this.asAdmin(), Temporal.metBy, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalMetBy(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalMetBy, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.metBy, referenceLifetime));
     }
 
     /**
@@ -3562,6 +3478,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.overlaps, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalOverlaps(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalOverlaps, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.overlaps, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval is OVERLAPPED BY the reference element's interval.
      *
@@ -3573,6 +3495,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.temporalOverlappedBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
                 (Traversal.Admin) this.asAdmin(), Temporal.overlappedBy, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalOverlappedBy(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalOverlappedBy, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.overlappedBy, referenceLifetime));
     }
 
     /**
@@ -3588,6 +3516,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.starts, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalStarts(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalStarts, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.starts, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval is STARTED BY the reference element's interval.
      *
@@ -3599,6 +3533,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.temporalStartedBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
                 (Traversal.Admin) this.asAdmin(), Temporal.startedBy, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalStartedBy(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalStartedBy, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.startedBy, referenceLifetime));
     }
 
     /**
@@ -3614,6 +3554,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.finishes, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalFinishes(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalFinishes, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.finishes, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval is FINISHED BY the reference element's interval.
      *
@@ -3625,6 +3571,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.temporalFinishedBy, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
                 (Traversal.Admin) this.asAdmin(), Temporal.finishedBy, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalFinishedBy(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalFinishedBy, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.finishedBy, referenceLifetime));
     }
 
     /**
@@ -3640,6 +3592,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.during, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalDuring(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalDuring, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.during, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval CONTAINS the reference element's interval.
      *
@@ -3653,6 +3611,12 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
                 (Traversal.Admin) this.asAdmin(), Temporal.contains, referenceElement));
     }
 
+    public default GraphTraversal<S, E> temporalContains(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalContains, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.contains, referenceLifetime));
+    }
+
     /**
      * Filters elements where the element's temporal interval EQUALS the reference element's interval.
      *
@@ -3664,6 +3628,31 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
         this.asAdmin().getBytecode().addStep(Symbols.temporalEquals, referenceElement);
         return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
                 (Traversal.Admin) this.asAdmin(), Temporal.eq, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalEquals(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalEquals, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.eq, referenceLifetime));
+    }
+
+    /**
+     * Filters elements where the element's temporal interval INTERSECTS the reference element's interval.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the traversal with temporal filter applied
+     * @since 4.0.0-temporal
+     */
+    public default GraphTraversal<S, E> temporalIntersects(final Element referenceElement) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalIntersects, referenceElement);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.intersects, referenceElement));
+    }
+
+    public default GraphTraversal<S, E> temporalIntersects(final Lifetime referenceLifetime) {
+        this.asAdmin().getBytecode().addStep(Symbols.temporalIntersects, referenceLifetime);
+        return (GraphTraversal<S, E>) this.asAdmin().addStep(new AllenFilterStep(
+                (Traversal.Admin) this.asAdmin(), Temporal.intersects, referenceLifetime));
     }
 
     
@@ -4733,6 +4722,7 @@ public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime,
         public static final String temporalOverlappedBy = "temporalOverlappedBy";
         public static final String temporalStarts = "temporalStarts";
         public static final String temporalStartedBy = "temporalStartedBy";
+        public static final String temporalIntersects = "temporalIntersects";
 
         public static final String continuousPath = "continuousPath";
         public static final String sequentialPath = "sequentialPath";

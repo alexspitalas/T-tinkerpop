@@ -26,6 +26,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pick;
 import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
 import org.apache.tinkerpop.gremlin.structure.io.binary.DataType;
 import org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryReader;
 import org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryWriter;
@@ -34,6 +36,7 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.io.Buffer;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.io.IOException;
 import java.util.function.Function;
@@ -57,6 +60,9 @@ public class EnumSerializer<E extends Enum> extends SimpleTypeSerializer<E> {
     public static final EnumSerializer<Pop> PopSerializer = new EnumSerializer<>(DataType.POP, Pop::valueOf);
     public static final EnumSerializer<Scope> ScopeSerializer = new EnumSerializer<>(DataType.SCOPE, Scope::valueOf);
     public static final EnumSerializer<T> TSerializer = new EnumSerializer<>(DataType.T, T::valueOf);
+    public static final EnumSerializer<LifetimeStep.LifetimeMode> LifetimeModeSerializer = new EnumSerializer<>(DataType.LIFETIMEMODE, LifetimeStep.LifetimeMode::valueOf);
+    public static final EnumSerializer<Lifetime.DropMode> DropModeSerializer = new EnumSerializer<>(DataType.DROPMODE, Lifetime.DropMode::valueOf);
+    public static final EnumSerializer<TemporalPathTarget> TemporalPathTargetSerializer = new EnumSerializer<>(DataType.TEMPORALPATHTARGET, TemporalPathTarget::valueOf);
 
     private final Function<String, E> readFunc;
 

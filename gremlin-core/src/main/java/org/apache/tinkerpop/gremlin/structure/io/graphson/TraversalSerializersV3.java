@@ -34,6 +34,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.strategy.TraversalStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.OrP;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.function.Lambda;
 import org.apache.tinkerpop.shaded.jackson.core.JsonGenerator;
 import org.apache.tinkerpop.shaded.jackson.core.JsonParser;
@@ -634,6 +635,35 @@ final class TraversalSerializersV3 {
                 throw new IllegalStateException(e.getMessage(), e);
             }
         }
+        @Override
+        public boolean isCachable() {
+            return true;
+        }
+    }
+
+    final static class LifetimeJacksonSerializer extends StdScalarSerializer<Lifetime> {
+        public LifetimeJacksonSerializer() {
+            super(Lifetime.class);
+        }
+
+        @Override
+        public void serialize(final Lifetime lifetime, final JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
+                throws IOException {
+            jsonGenerator.writeString(lifetime.toTemporalIntervalsString());
+        }
+    }
+
+    final static class LifetimeJacksonDeserializer extends StdDeserializer<Lifetime> {
+        public LifetimeJacksonDeserializer() {
+            super(Lifetime.class);
+        }
+
+        @Override
+        public Lifetime deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException {
+            final String text = jsonParser.getText();
+            return text.isEmpty() ? Lifetime.empty() : Lifetime.fromTemporalIntervals(text);
+        }
+
         @Override
         public boolean isCachable() {
             return true;
