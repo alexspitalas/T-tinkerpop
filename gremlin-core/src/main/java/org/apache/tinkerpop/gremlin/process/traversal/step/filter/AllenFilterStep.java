@@ -22,6 +22,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 /**
  * A filter step that implements all of Allen's temporal relationships.
@@ -49,7 +50,8 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
         }
         
         // Delegate all multi-interval overlap sweep logic directly to the Temporal engine
-        return relation.test(currentObject, referenceElement);
+        return relation.test(Lifetime.unwrapElement((Element) currentObject),
+                referenceElement != null ? Lifetime.unwrapElement(referenceElement) : null);
     }
 
     @Override

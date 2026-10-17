@@ -446,7 +446,7 @@ Path shortestContinuous = allContinuousPaths.stream()
 
 === Performance Considerations
 
-1. **In-Memory Lifetime Caching**: To maximize traversal throughput, in-memory graph elements (`TinkerVertex`, `TinkerEdge`, `TinkerProperty`, `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object in a direct reference field. This eliminates the overhead of repeatedly deserializing or string-parsing `temporalIntervals` properties and allocating `Date` objects during multi-hop graph traversals. The cache is invalidated automatically whenever temporal properties are mutated or removed.
+1. **In-Memory Lifetime Caching**: To maximize traversal throughput, in-memory graph elements (`TinkerVertex`, `TinkerEdge`, `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object in a direct reference field. This eliminates the overhead of repeatedly deserializing or string-parsing `temporalIntervals` properties and allocating `Date` objects during multi-hop graph traversals. The cache is invalidated automatically whenever temporal properties are mutated or removed.
 2. **Indexing**: Available indices depend on the graph provider; outer-bound properties alone do not describe gaps in a multi-interval lifetime. TinkerGraph provides `TemporalTinkerIndex` backed by an AVL `IntervalTree` that indexes half-open intervals `[start, end)` and supports $O(\log N + R)$ retrieval.
 3. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so an edge with no lifetime properties
    has unbounded interval limits

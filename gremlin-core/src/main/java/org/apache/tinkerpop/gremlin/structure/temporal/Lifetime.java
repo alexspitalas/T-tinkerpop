@@ -18,8 +18,14 @@
  */
 package org.apache.tinkerpop.gremlin.structure.temporal;
 
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertex;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertexProperty;
 import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 
 import java.io.Serializable;
@@ -139,9 +145,14 @@ public final class Lifetime implements Serializable {
         Interval current = sorted.get(0);
         for (int i = 1; i < sorted.size(); i++) {
             Interval next = sorted.get(i);
-            if (!current.getEnd().before(next.getStart())) { // overlapping or adjacent
+            if (canMerge(current, next)) {
                 Date maxEnd = current.getEnd().after(next.getEnd()) ? current.getEnd() : next.getEnd();
                 current = new Interval(current.getStart(), maxEnd);
+                if (!merged.isEmpty() && canMerge(merged.get(merged.size() - 1), current)) {
+                    Interval prev = merged.remove(merged.size() - 1);
+                    Date prevMaxEnd = prev.getEnd().after(current.getEnd()) ? prev.getEnd() : current.getEnd();
+                    current = new Interval(prev.getStart(), prevMaxEnd);
+                }
             } else {
                 merged.add(current);
                 current = next;
@@ -149,6 +160,14 @@ public final class Lifetime implements Serializable {
         }
         merged.add(current);
         return merged;
+    }
+
+    private static boolean canMerge(final Interval left, final Interval right) {
+        if (left.getEnd().before(right.getStart()))
+            return false;
+        boolean leftIsHalfOpen = !left.getStart().equals(left.getEnd());
+        boolean rightIsPoint = right.getStart().equals(right.getEnd());
+        return !(leftIsHalfOpen && rightIsPoint && left.getEnd().equals(right.getStart()));
     }
 
     public static Lifetime from(final Object startDate, final Object endDate) {
@@ -276,7 +295,57 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime getLifetimeFromProperties(final Element element) {
-        return fromProperties(element);
+        return fromProperties(unwrapElement(element));
+    }
+
+    public static Element unwrapElement(final Element element) {
+        Element current = element;
+        while (true) {
+            if (current instanceof WrappedVertex) {
+                final Object base = ((WrappedVertex<?>) current).getBaseVertex();
+                if (!(base instanceof Vertex) || base == current)
+                    break;
+                current = (Vertex) base;
+            } else if (current instanceof WrappedEdge) {
+                final Object base = ((WrappedEdge<?>) current).getBaseEdge();
+                if (!(base instanceof Edge) || base == current)
+                    break;
+                current = (Edge) base;
+            } else if (current instanceof WrappedVertexProperty) {
+                final Object base = ((WrappedVertexProperty<?>) current).getBaseVertexProperty();
+                if (!(base instanceof VertexProperty) || base == current)
+                    break;
+                current = (VertexProperty<?>) base;
+            } else {
+                break;
+            }
+        }
+        return current;
+    }
+
+    public static Element unwrapTemporalElement(final Element element) {
+        Element current = element;
+        while (true) {
+            if (current instanceof TemporalVertex) {
+                final Vertex base = ((TemporalVertex) current).getBaseVertex();
+                if (base == null || base == current)
+                    break;
+                current = base;
+            } else if (current instanceof TemporalEdge) {
+                final Edge base = ((TemporalEdge) current).getBaseEdge();
+                if (base == null || base == current)
+                    break;
+                current = base;
+            } else if (current instanceof TemporalVertexProperty) {
+                final VertexProperty<?> base = ((TemporalVertexProperty<?>) current).getBaseVertexProperty();
+                if (base == null || base == current)
+                    break;
+                current = base;
+            } else {
+                break;
+            }
+        }
+        return current;
     }
 
     public Object[] toProperties() {
@@ -308,9 +377,16 @@ public final class Lifetime implements Serializable {
             }
             return;
         }
-        element.property(START_TIME, getStartDate());
-        element.property(END_TIME, getEndDate());
-        element.property(TEMPORAL_INTERVALS, toTemporalIntervalsString());
+        if (element instanceof Vertex) {
+            final Vertex vertex = (Vertex) element;
+            vertex.property(VertexProperty.Cardinality.single, START_TIME, getStartDate());
+            vertex.property(VertexProperty.Cardinality.single, END_TIME, getEndDate());
+            vertex.property(VertexProperty.Cardinality.single, TEMPORAL_INTERVALS, toTemporalIntervalsString());
+        } else {
+            element.property(START_TIME, getStartDate());
+            element.property(END_TIME, getEndDate());
+            element.property(TEMPORAL_INTERVALS, toTemporalIntervalsString());
+        }
         if (element instanceof TemporalElement) {
             ((TemporalElement) element).setLifetime(this);
         }
@@ -514,16 +590,18 @@ public final class Lifetime implements Serializable {
     }
 
     public static Date getStartTimeFromProperty(final Element element) {
-        if (propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent())
-            return fromProperties(element).getStartDate();
-        final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
+        final Element base = unwrapElement(element);
+        if (propertyOrEmpty(base, TEMPORAL_INTERVALS).isPresent())
+            return fromProperties(base).getStartDate();
+        final Property<Object> startTimeProperty = propertyOrEmpty(base, START_TIME);
         return toStartDate(startTimeProperty.orElse(null));
     }
 
     public static Date getEndTimeFromProperty(final Element element) {
-        if (propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent())
-            return fromProperties(element).getEndDate();
-        final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
+        final Element base = unwrapElement(element);
+        if (propertyOrEmpty(base, TEMPORAL_INTERVALS).isPresent())
+            return fromProperties(base).getEndDate();
+        final Property<Object> endTimeProperty = propertyOrEmpty(base, END_TIME);
         return toEndDate(endTimeProperty.orElse(null));
     }
 

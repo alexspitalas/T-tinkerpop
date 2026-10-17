@@ -4047,13 +4047,26 @@ public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime,
         return this.asAdmin().addStep(new TemporalBfsStep(this.asAdmin(), initialTime, target, direction, edgeLabels));
     }
 
-        public default GraphTraversal<S, Path> temporalShortestPath() {
+    public default GraphTraversal<S, Path> temporalShortestPath() {
         if (this.asAdmin().getEndStep() instanceof GraphStep) {
             this.identity();
         }
         this.asAdmin().getBytecode().addStep(Symbols.temporalShortestPath);
         return (GraphTraversal<S, Path>) ((Traversal.Admin) this.asAdmin())
                 .addStep(new TemporalShortestPathVertexProgramStep(this.asAdmin()));
+    }
+
+    public default GraphTraversal<S, Path> temporalShortestPath(final TemporalPathTarget target, final long initialTime) {
+        if (this.asAdmin().getEndStep() instanceof GraphStep) {
+            this.identity();
+        }
+        this.asAdmin().getBytecode().addStep(Symbols.temporalShortestPath, target, initialTime);
+        return (GraphTraversal<S, Path>) ((Traversal.Admin) this.asAdmin())
+                .addStep(new TemporalShortestPathVertexProgramStep(this.asAdmin(), target, initialTime));
+    }
+
+    public default GraphTraversal<S, Path> temporalShortestPath(final TemporalPathTarget target, final Date initialTime) {
+        return this.temporalShortestPath(target, initialTime.getTime());
     }
 
     public default GraphTraversal<S, Path> shortestPath() {

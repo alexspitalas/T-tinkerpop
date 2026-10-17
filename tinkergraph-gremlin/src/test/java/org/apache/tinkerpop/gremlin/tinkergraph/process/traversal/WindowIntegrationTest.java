@@ -481,6 +481,50 @@ public class WindowIntegrationTest {
         assertThat(paths.get(0).objects(), contains("alice", "bob"));
     }
 
+    @Test
+    public void shouldPreserveQueryWindowAcrossMultiHopTraversal() {
+        // dave (2023–forever) --[recommends, 2023–2024]--> bob (2022–2035)
+        // Add a second-hop edge from bob to alice active in [2024-06-01, 2025-06-01]
+        final Vertex bob = g.V().has("name", "bob").next();
+        final Vertex alice = g.V().has("name", "alice").next();
+        g.addE("replies").from(bob).to(alice).lifetime("2024-06-01", "2025-06-01").next();
+
+        // Within window [2023-01-01, 2026-01-01], both hops are alive inside the query window
+        final List<Object> reached = g.V().has("name", "dave")
+                .window("2023-01-01", "2026-01-01")
+                .out("recommends")
+                .out("replies")
+                .values("name")
+                .toList();
+        assertThat(reached, contains("alice"));
+    }
+
+    @Test
+    public void shouldFilterTargetBaseLifetimeWhenAtTimeFollowsWindowOut() {
+        // Connect alice (2020–2030) to eve (alive until 2025-01-01) with an edge alive [2022-01-01, 2025-01-01]
+        final Vertex alice = g.V().has("name", "alice").next();
+        final Vertex eve = g.V().has("name", "eve").next();
+        g.addE("collaborates").from(alice).to(eve).lifetime("2022-01-01", "2025-01-01").next();
+
+        // Walking out("collaborates") in window [2022-01-01, 2029-01-01] reaches eve (since eve is alive in 2022–2025),
+        // but subsequent .atTime(T_2028) must check eve's own base lifetime and filter her out.
+        final List<Object> at2028 = g.V(alice)
+                .window("2022-01-01", "2029-01-01")
+                .out("collaborates")
+                .atTime(T_2028)
+                .values("name")
+                .toList();
+        assertThat(at2028, empty());
+
+        final List<Object> at2024 = g.V(alice)
+                .window("2022-01-01", "2029-01-01")
+                .out("collaborates")
+                .atTime(T_2024)
+                .values("name")
+                .toList();
+        assertThat(at2024, contains("eve"));
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // EFFICIENCY: Step list must stay lean (no injected filter steps)
     // ════════════════════════════════════════════════════════════════════════

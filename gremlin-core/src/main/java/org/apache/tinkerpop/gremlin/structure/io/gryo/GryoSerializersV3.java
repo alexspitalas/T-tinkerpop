@@ -510,12 +510,12 @@ public final class GryoSerializersV3 {
         @Override
         public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final TemporalP p) {
             output.writeString(p.getBiPredicate().toString());
-            kryo.writeObject(output, p.getValue());
+            kryo.writeClassAndObject(output, p.getValue());
         }
         @Override
         public <I extends InputShim> TemporalP read(final KryoShim<I, ?> kryo, final I input, final Class<TemporalP> clazz) {
             final String predicate = input.readString();
-            final Object value = kryo.readObject(input, Object.class);
+            final Object value = kryo.readClassAndObject(input);
             try {
                 return (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
             } catch (final Exception e) {

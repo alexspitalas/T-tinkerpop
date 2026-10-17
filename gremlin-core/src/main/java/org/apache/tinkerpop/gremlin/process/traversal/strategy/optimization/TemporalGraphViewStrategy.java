@@ -111,11 +111,12 @@ public final class TemporalGraphViewStrategy
 
         for (final Step<?, ?> step : new ArrayList<>(traversal.getSteps())) {
             if (step instanceof WindowStep) {
-                final WindowStep<?> windowStep = (WindowStep<?>) step;
-                currentBounds = Lifetime.from(windowStep.getWindowStart(), windowStep.getWindowEnd());
+                final Lifetime stepBounds = ((WindowStep<?>) step).getWindow();
+                currentBounds = currentBounds == null ? stepBounds : currentBounds.intersection(stepBounds);
             } else if (step instanceof AtTimeStep) {
                 final Date instant = ((AtTimeStep<?>) step).getInstant();
-                currentBounds = Lifetime.from(instant, instant);
+                final Lifetime stepBounds = Lifetime.from(instant, instant);
+                currentBounds = currentBounds == null ? stepBounds : currentBounds.intersection(stepBounds);
             } else if (currentBounds != null && step instanceof VertexStep && ((VertexStep<?>) step).returnsVertex()) {
                 rewriteVertexMove(traversal, (VertexStep<Vertex>) step, currentBounds);
             }

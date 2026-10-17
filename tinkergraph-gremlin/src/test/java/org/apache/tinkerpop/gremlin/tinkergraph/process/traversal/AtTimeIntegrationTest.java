@@ -375,6 +375,17 @@ public class AtTimeIntegrationTest {
         assertThat(paths.get(0).objects(), contains("alice", "bob"));
     }
 
+    @Test
+    public void shouldReturnBaseElementLifetimeAndStartEndTimeAfterAtTime() {
+        final org.apache.tinkerpop.gremlin.structure.temporal.Lifetime expected =
+                org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.from("2020-01-01", "2030-12-31");
+        final org.apache.tinkerpop.gremlin.structure.temporal.Lifetime actual =
+                g.V().has("name", "alice").atTime(T_2024).getLifetime().next();
+        assertEquals(expected, actual);
+        assertEquals(expected.getStartDate(), g.V().has("name", "alice").atTime(T_2024).getStartTime().next());
+        assertEquals(expected.getEndDate(), g.V().has("name", "alice").atTime(T_2024).getEndTime().next());
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // EFFICIENCY: Step list must stay lean (no injected filter steps)
     // ════════════════════════════════════════════════════════════════════════

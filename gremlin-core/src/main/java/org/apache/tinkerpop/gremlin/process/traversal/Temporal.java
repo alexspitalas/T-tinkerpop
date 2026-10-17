@@ -110,8 +110,8 @@ public enum Temporal implements PBiPredicate<Object, Object> {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            // A must be a subset, and outer bounds cannot be exactly identical to count as strictly 'during'
-            return l2.contains(l1) && (l1.getStartDate().after(l2.getStartDate()) || l1.getEndDate().before(l2.getEndDate()));
+            // A must be a subset, and outer bounds must be strictly inside B's outer bounds to count as strictly 'during'
+            return l2.contains(l1) && (l1.getStartDate().after(l2.getStartDate()) && l1.getEndDate().before(l2.getEndDate()));
         }
     },
     
@@ -128,17 +128,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            if (!l1.getStartDate().equals(l2.getStartDate()) || !l1.getEndDate().equals(l2.getEndDate())) return false;
-            
-            List<Lifetime.Interval> i1s = l1.getIntervals();
-            List<Lifetime.Interval> i2s = l2.getIntervals();
-            if (i1s.size() != i2s.size()) return false;
-            
-            for (int i = 0; i < i1s.size(); i++) {
-                if (!i1s.get(i).getStart().equals(i2s.get(i).getStart()) || 
-                    !i1s.get(i).getEnd().equals(i2s.get(i).getEnd())) return false;
-            }
-            return true;
+            return !l1.isEmpty() && l1.equals(l2);
         }
     },
     
@@ -191,7 +181,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
         if (val instanceof Lifetime) {
             return (Lifetime) val;
         } else if (val instanceof Element) {
-            return Lifetime.fromProperties((Element) val);
+            return Lifetime.getLifetimeFromProperties((Element) val);
         } else if (val instanceof Date) {
             return Lifetime.from(val, val);
         } else if (val instanceof String) {

@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 
 import java.util.*;
@@ -60,52 +61,52 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
     protected Map<Vertex, Long> map(final Traverser.Admin<Vertex> traverser) {
         final Vertex source = traverser.get();
         final Map<Object, Long> gamma = new HashMap<>();
+        final Map<Object, Long> causalTime = new HashMap<>();
         final Queue<Vertex> queue = new LinkedList<>();
         
         gamma.put(source.id(), this.initialTime);
+        causalTime.put(source.id(), this.initialTime);
         queue.add(source);
         
-        final List<Vertex> reachable = new ArrayList<>();
+        final Set<Vertex> reachable = new LinkedHashSet<>();
         
         if (target == TemporalPathTarget.EARLIEST_ARRIVAL || target == TemporalPathTarget.EARLIEST_DEPARTURE) {
             // Forward BFS
             while (!queue.isEmpty()) {
                 Vertex u = queue.poll();
-                long currentTime = gamma.get(u.id());
+                long currentTime = causalTime.get(u.id());
                 
                 Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
                 while (edges.hasNext()) {
                     Edge e = edges.next();
-                    Lifetime lifetime = Lifetime.fromProperties(e);
+                    Lifetime lifetime = resolveEdgeLifetime(e);
                     if (lifetime.isEmpty()) continue;
                     
                     // Multi-interval sweep: find the first valid interval after currentTime
-                    long bestStart = -1;
-                    long bestEnd = -1;
-                    
                     Lifetime.Interval optimal = lifetime.getFirstIntervalStartingAfter(currentTime);
                     if (optimal != null) {
-                        bestStart = optimal.getStart().getTime();
-                        bestEnd = optimal.getEnd().getTime();
-                    }
-                    
-                    if (bestStart != -1) {
-                        Vertex v = e.inVertex(); // Assuming OUT direction for forward BFS, to be precise we should use e.vertices(direction.opposite())
-                        // Fix for direction
+                        long bestStart = optimal.getStart().getTime();
+                        long bestEnd = optimal.getEnd().getTime();
                         Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
 
                         if (target == TemporalPathTarget.EARLIEST_ARRIVAL) {
                             if (!gamma.containsKey(nextVertex.id()) || bestEnd < gamma.get(nextVertex.id())) {
                                 gamma.put(nextVertex.id(), bestEnd);
+                                causalTime.put(nextVertex.id(), bestEnd);
                                 queue.add(nextVertex);
-                                if (!reachable.contains(nextVertex) && !nextVertex.equals(source)) reachable.add(nextVertex);
+                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         } else if (target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-                            long existing = gamma.containsKey(nextVertex.id()) ? gamma.get(nextVertex.id()) : Long.MAX_VALUE;
-                            if (bestStart < existing) {
+                            long existingMetric = gamma.getOrDefault(nextVertex.id(), Long.MAX_VALUE);
+                            long existingCausal = causalTime.getOrDefault(nextVertex.id(), Long.MAX_VALUE);
+                            if (bestStart < existingMetric) {
                                 gamma.put(nextVertex.id(), bestStart);
+                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
+                            }
+                            if (bestEnd < existingCausal) {
+                                causalTime.put(nextVertex.id(), bestEnd);
                                 queue.add(nextVertex);
-                                if (!reachable.contains(nextVertex) && !nextVertex.equals(source)) reachable.add(nextVertex);
+                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         }
                     }
@@ -116,47 +117,40 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
             // Initial time is treated as a deadline.
             while (!queue.isEmpty()) {
                 Vertex u = queue.poll();
-                long currentTime = gamma.get(u.id());
+                long currentTime = causalTime.get(u.id());
                 
                 Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
                 while (edges.hasNext()) {
                     Edge e = edges.next();
-                    Lifetime lifetime = Lifetime.fromProperties(e);
+                    Lifetime lifetime = resolveEdgeLifetime(e);
                     if (lifetime.isEmpty()) continue;
                     
-                    // Multi-interval sweep backwards: find the last valid interval before currentTime
-                    long bestStart = -1;
-                    long bestEnd = -1;
-                    
-                    List<Lifetime.Interval> intervals = lifetime.getIntervals();
-                    for (int i = intervals.size() - 1; i >= 0; i--) {
-                        Lifetime.Interval interval = intervals.get(i);
-                        long intStart = interval.getStart().getTime();
-                        long intEnd = interval.getEnd().getTime();
-                        
-                        if (intEnd <= currentTime) {
-                            bestStart = intStart;
-                            bestEnd = intEnd;
-                            break; 
-                        }
-                    }
-                    
-                    if (bestEnd != -1) {
+                    // Multi-interval sweep backwards: find the last valid interval ending at or before currentTime
+                    Lifetime.Interval optimal = lifetime.getLastIntervalEndingBefore(currentTime);
+                    if (optimal != null) {
+                        long bestStart = optimal.getStart().getTime();
+                        long bestEnd = optimal.getEnd().getTime();
                         Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
 
                         if (target == TemporalPathTarget.LATEST_DEPARTURE) {
-                            long existing = gamma.containsKey(nextVertex.id()) ? gamma.get(nextVertex.id()) : -1;
+                            long existing = gamma.getOrDefault(nextVertex.id(), -1L);
                             if (bestStart > existing) {
                                 gamma.put(nextVertex.id(), bestStart);
+                                causalTime.put(nextVertex.id(), bestStart);
                                 queue.add(nextVertex);
-                                if (!reachable.contains(nextVertex) && !nextVertex.equals(source)) reachable.add(nextVertex);
+                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         } else if (target == TemporalPathTarget.LATEST_ARRIVAL) {
-                            long existing = gamma.containsKey(nextVertex.id()) ? gamma.get(nextVertex.id()) : -1;
-                            if (bestEnd > existing) {
+                            long existingMetric = gamma.getOrDefault(nextVertex.id(), -1L);
+                            long existingCausal = causalTime.getOrDefault(nextVertex.id(), -1L);
+                            if (bestEnd > existingMetric) {
                                 gamma.put(nextVertex.id(), bestEnd);
+                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
+                            }
+                            if (bestStart > existingCausal) {
+                                causalTime.put(nextVertex.id(), bestStart);
                                 queue.add(nextVertex);
-                                if (!reachable.contains(nextVertex) && !nextVertex.equals(source)) reachable.add(nextVertex);
+                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         }
                     }
@@ -164,13 +158,19 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
             }
         }
         
-        
         Map<Vertex, Long> resultMap = new HashMap<>();
         for (Vertex v : reachable) {
             resultMap.put(v, gamma.get(v.id()));
         }
         return resultMap;
+    }
 
+    private static Lifetime resolveEdgeLifetime(final Edge edge) {
+        final Lifetime persisted = Lifetime.getLifetimeFromProperties(edge);
+        if (edge instanceof TemporalElement) {
+            return persisted.intersection(((TemporalElement) edge).getLifetime());
+        }
+        return persisted;
     }
 
     @Override

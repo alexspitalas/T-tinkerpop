@@ -329,31 +329,38 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
                     }
 
                     if (isBetter || isEqual) {
-                        newPath = extendPath(sourcePath, triplet.getValue1(), vertex);
-                        if (isBetter) {
-                            // if the path length is smaller than the current shortest path's length, replace the
-                            // current set of shortest paths
-                            final Set<Path> pathSet = new HashSet<>();
-                            pathSet.add(newPath);
-                            paths.put(sourceVertex, Pair.with(distance, pathSet));
-                        } else {
-                            // if the path length is equal to the current shortest path's length, add the new path
-                            // to the set of shortest paths
-                            paths.get(sourceVertex).getValue1().add(newPath);
+                        final Path candidatePath = extendPath(sourcePath, this.includeEdges ? triplet.getValue1() : null, vertex);
+                        if (!exceedsMaxDistance(candidatePath, distance)) {
+                            newPath = candidatePath;
+                            if (isBetter) {
+                                // if the path length is smaller than the current shortest path's length, replace the
+                                // current set of shortest paths
+                                final Set<Path> pathSet = new HashSet<>();
+                                pathSet.add(newPath);
+                                paths.put(sourceVertex, Pair.with(distance, pathSet));
+                            } else {
+                                // if the path length is equal to the current shortest path's length, add the new path
+                                // to the set of shortest paths
+                                paths.get(sourceVertex).getValue1().add(newPath);
+                            }
                         }
                     }
-                } else if (!exceedsMaxDistance(distance)) {
-                    // store the new path as the shortest path from the source vertex to the current vertex
-                    final Set<Path> pathSet = new HashSet<>();
-                    pathSet.add(newPath = extendPath(sourcePath, triplet.getValue1(), vertex));
-                    paths.put(sourceVertex, Pair.with(distance, pathSet));
+                } else {
+                    final Path candidatePath = extendPath(sourcePath, this.includeEdges ? triplet.getValue1() : null, vertex);
+                    if (!exceedsMaxDistance(candidatePath, distance)) {
+                        // store the new path as the shortest path from the source vertex to the current vertex
+                        final Set<Path> pathSet = new HashSet<>();
+                        pathSet.add(newPath = candidatePath);
+                        paths.put(sourceVertex, Pair.with(distance, pathSet));
+                    }
                 }
 
                 // if a new path was found, send messages to adjacent vertices, otherwise do nothing as there's no
                 // chance to find any new paths going forward
                 if (newPath != null) {
                     vertex.property(VertexProperty.Cardinality.single, PATHS, paths);
-                    processEdges(vertex, newPath, distance, messenger);
+                    final Number nextCausalTime = resolveNextCausalTime(triplet.getValue1(), distance);
+                    processEdges(vertex, newPath, nextCausalTime, messenger);
                     voteToHalt = false;
                 }
             }
@@ -509,9 +516,21 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
                 else if (this.target == TemporalPathTarget.LATEST_ARRIVAL) passTime = bestEnd;
                 
                 messenger.sendMessage(MessageScope.Global.of(otherV),
-                        Triplet.with(currentPath, this.includeEdges ? edge : null, passTime));
+                        Triplet.with(currentPath, edge, passTime));
             }
         }
+    }
+
+    private Number resolveNextCausalTime(final Edge edge, final Number distance) {
+        if (edge == null || distance == null) return distance;
+        if (this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
+            final Lifetime.Interval iv = Lifetime.fromProperties(edge).getFirstIntervalStartingAfter(distance.longValue());
+            if (iv != null) return iv.getEnd().getTime();
+        } else if (this.target == TemporalPathTarget.LATEST_ARRIVAL) {
+            final Lifetime.Interval iv = Lifetime.fromProperties(edge).getLastIntervalEndingBefore(distance.longValue());
+            if (iv != null) return iv.getStart().getTime();
+        }
+        return distance;
     }
 
     private void updateHaltedTraversers(final Vertex vertex, final Memory memory) {
@@ -542,12 +561,13 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
         return traversal.tryNext().orElse(0);
     }
 
-    private boolean exceedsMaxDistance(final Number distance) {
-        // This method is used to stop the message sending for paths that exceed the specified maximum distance. Since
-        // custom distances can be negative, this method should only return true if the distance is calculated based on
-        // the number of hops.
-        return this.distanceEqualsNumberOfHops && this.maxDistance != null
-                && NumberHelper.compare(distance, this.maxDistance) > 0;
+    private boolean exceedsMaxDistance(final Path path, final Number distance) {
+        if (this.maxDistance == null) return false;
+        if (this.distanceEqualsNumberOfHops) {
+            final int hops = this.includeEdges ? (path.size() - 1) / 2 : path.size() - 1;
+            return NumberHelper.compare(hops, this.maxDistance) > 0;
+        }
+        return NumberHelper.compare(distance, this.maxDistance) > 0;
     }
 
     /**
@@ -567,9 +587,7 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
             for (final Pair<Number, Set<Path>> pair : paths.values()) {
                 for (final Path path : pair.getValue1()) {
                     if (isEndVertex(vertex)) {
-                        if (this.distanceEqualsNumberOfHops ||
-                                this.maxDistance == null ||
-                                NumberHelper.compare(pair.getValue0(), this.maxDistance) <= 0) {
+                        if (!exceedsMaxDistance(path, pair.getValue0())) {
                             result.add(path);
                         }
                     }

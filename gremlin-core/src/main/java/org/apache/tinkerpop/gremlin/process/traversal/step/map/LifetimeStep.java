@@ -159,7 +159,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
         // Evaluate traversal parameters at runtime
         final Lifetime actualLifetime = resolveLifetime(traverser);
-        final Element element = (Element) traverser.get();
+        final Element element = Lifetime.unwrapElement((Element) traverser.get());
 
         Lifetime finalLifetime = actualLifetime;
         if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {

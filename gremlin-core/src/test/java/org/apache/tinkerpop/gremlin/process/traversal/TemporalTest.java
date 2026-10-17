@@ -101,4 +101,23 @@ public class TemporalTest {
         assertTrue(Temporal.overlaps.test(a, b));
         assertFalse("B starts after A, so it does not strictly overlap A", Temporal.overlaps.test(b, a));
     }
+
+    @Test
+    public void shouldDistinguishDuringFromStartsAndFinishes() {
+        Lifetime outer = makeLifetime(100, 300);
+        Lifetime startsInner = makeLifetime(100, 200);
+        Lifetime finishesInner = makeLifetime(200, 300);
+        Lifetime strictInner = makeLifetime(150, 250);
+
+        assertTrue(Temporal.starts.test(startsInner, outer));
+        assertFalse("starts should not also satisfy strict during", Temporal.during.test(startsInner, outer));
+        assertFalse("startedBy should not also satisfy strict contains", Temporal.contains.test(outer, startsInner));
+
+        assertTrue(Temporal.finishes.test(finishesInner, outer));
+        assertFalse("finishes should not also satisfy strict during", Temporal.during.test(finishesInner, outer));
+        assertFalse("finishedBy should not also satisfy strict contains", Temporal.contains.test(outer, finishesInner));
+
+        assertTrue(Temporal.during.test(strictInner, outer));
+        assertTrue(Temporal.contains.test(outer, strictInner));
+    }
 }

@@ -20,6 +20,7 @@ package org.apache.tinkerpop.gremlin.structure.io.gryo;
 
 import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
 import org.apache.tinkerpop.gremlin.process.computer.MapReduce;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.decoration.VertexProgramStrategy;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.optimization.GraphFilterStrategy;
 import org.apache.tinkerpop.gremlin.process.computer.util.MapMemory;
@@ -340,6 +341,9 @@ public enum GryoVersion {
             add(GryoTypeReg.of(Pick.class, 137));
             add(GryoTypeReg.of(DT.class, 198));
             add(GryoTypeReg.of(Merge.class, 196));
+            add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
+            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
+            add(GryoTypeReg.of(TemporalPathTarget.class, 202));
             add(GryoTypeReg.of(HashSetSupplier.class, 136, new UtilSerializers.HashSetSupplierSerializer()));
             add(GryoTypeReg.of(MultiComparator.class, 165));
 
@@ -545,7 +549,8 @@ public enum GryoVersion {
             add(GryoTypeReg.of(DT.class, 198));
             add(GryoTypeReg.of(Merge.class, 196));
             add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
-            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));          // ***LAST ID***
+            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
+            add(GryoTypeReg.of(TemporalPathTarget.class, 202));          // ***LAST ID***
             add(GryoTypeReg.of(HashSetSupplier.class, 136, new UtilSerializers.HashSetSupplierSerializer()));
             add(GryoTypeReg.of(MultiComparator.class, 165));
 

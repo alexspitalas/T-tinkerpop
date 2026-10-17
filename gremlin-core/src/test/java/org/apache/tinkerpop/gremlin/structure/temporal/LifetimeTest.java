@@ -365,6 +365,22 @@ public class LifetimeTest {
         assertEquals(finite, finite.intersection(Lifetime.UNBOUNDED));
     }
 
+    @Test
+    public void shouldPreservePointIntervalAbuttingHalfOpenEndDuringNormalization() {
+        // [100, 200) is half-open (200 excluded); adding point interval [200, 200] must keep 200 active
+        Lifetime lifetime = Lifetime.from(100L, 200L).addInterval(new Date(200L), new Date(200L));
+        assertTrue("Instant 200 must remain contained after adding point interval [200, 200] to [100, 200)",
+                lifetime.contains(new Date(200L)));
+        assertTrue(lifetime.contains(new Date(100L)));
+        assertTrue(lifetime.contains(new Date(150L)));
+        assertFalse(lifetime.contains(new Date(201L)));
+
+        // Adding [200, 300) afterwards should merge all three into a single [100, 300) interval
+        lifetime = lifetime.addInterval(new Date(200L), new Date(300L));
+        assertEquals(1, lifetime.getIntervals().size());
+        assertEquals(new Lifetime.Interval(new Date(100L), new Date(300L)), lifetime.getIntervals().get(0));
+    }
+
     private static Element elementWithProperties(final Object startTime, final Object endTime) {
         final Element element = mock(Element.class);
         final Property<Object> startTimeProperty = null == startTime ? Property.empty() : property(startTime);

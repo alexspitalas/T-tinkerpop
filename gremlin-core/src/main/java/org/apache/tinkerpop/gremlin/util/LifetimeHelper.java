@@ -46,10 +46,12 @@ public final class LifetimeHelper {
         if (!isElementAlive(element, window))
             return false;
 
-        if (element instanceof Edge) {
-            final Edge edge = unwrapEdge((Edge) element);
-            if (edge != element && !isElementAlive(edge, window))
-                return false;
+        final Element base = Lifetime.unwrapElement(element);
+        if (base != element && !isElementAlive(base, window))
+            return false;
+
+        if (base instanceof Edge) {
+            final Edge edge = (Edge) base;
             return isAliveDuring(edge.outVertex(), window)
                     && isAliveDuring(edge.inVertex(), window);
         }

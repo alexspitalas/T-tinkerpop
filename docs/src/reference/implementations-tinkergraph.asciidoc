@@ -149,7 +149,8 @@ Gremlin traversals utilizing non-disjoint Allen's Interval Algebra predicates (s
 
 [gremlin-groovy]
 ----
-// This query automatically triggers the TemporalTinkerIndex to find overlapping edges globally
+// Create a temporal index on edges and query overlapping intervals globally via TemporalTinkerIndex
+graph.createIndex('temporalIntervals', Edge.class)
 g.E().has('temporalIntervals', TemporalP.overlaps(startDate, endDate))
 ----
 
@@ -157,7 +158,7 @@ Disjoint relations under half-open semantics (`Temporal.precedes`, `Temporal.suc
 
 ==== In-Memory Lifetime Caching
 
-To optimize traversal throughput across deep paths, all TinkerGraph elements (`TinkerVertex`, `TinkerEdge`, `TinkerProperty`, and `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object in memory. This eliminates repeated deserialization and string parsing of the `temporalIntervals` property during traversals. If temporal properties are updated, added, or dropped, the cached lifetime is invalidated automatically.
+To optimize traversal throughput across deep paths, TinkerGraph elements (`TinkerVertex`, `TinkerEdge`, and `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object in memory. This eliminates repeated deserialization and string parsing of the `temporalIntervals` property during traversals. If temporal properties are updated, added, or dropped, the cached lifetime is invalidated automatically.
 
 
 TinkerGraph has several settings that can be provided on creation via `Configuration` object:
