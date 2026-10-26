@@ -558,20 +558,21 @@ public final class StarGraph implements Graph, Serializable {
                         final Map<String, List<Edge>> outEdges = new HashMap<>();
                         final Map<String, List<Edge>> inEdges = new HashMap<>();
                         graphFilter.legalEdges(this).forEachRemaining(edge -> {
-                            if (edge instanceof StarGraph.StarOutEdge) {
-                                List<Edge> edges = outEdges.get(edge.label());
+                            final Edge baseEdge = (Edge) org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.unwrapElement(edge);
+                            if (baseEdge instanceof StarGraph.StarOutEdge) {
+                                List<Edge> edges = outEdges.get(baseEdge.label());
                                 if (null == edges) {
                                     edges = new ArrayList<>();
-                                    outEdges.put(edge.label(), edges);
+                                    outEdges.put(baseEdge.label(), edges);
                                 }
-                                edges.add(edge);
+                                edges.add(baseEdge);
                             } else {
-                                List<Edge> edges = inEdges.get(edge.label());
+                                List<Edge> edges = inEdges.get(baseEdge.label());
                                 if (null == edges) {
                                     edges = new ArrayList<>();
-                                    inEdges.put(edge.label(), edges);
+                                    inEdges.put(baseEdge.label(), edges);
                                 }
-                                edges.add(edge);
+                                edges.add(baseEdge);
                             }
                         });
 

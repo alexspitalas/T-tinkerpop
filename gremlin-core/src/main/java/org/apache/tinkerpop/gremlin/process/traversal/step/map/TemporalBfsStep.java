@@ -166,11 +166,7 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
     }
 
     private static Lifetime resolveEdgeLifetime(final Edge edge) {
-        final Lifetime persisted = Lifetime.getLifetimeFromProperties(edge);
-        if (edge instanceof TemporalElement) {
-            return persisted.intersection(((TemporalElement) edge).getLifetime());
-        }
-        return persisted;
+        return org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
     }
 
     @Override

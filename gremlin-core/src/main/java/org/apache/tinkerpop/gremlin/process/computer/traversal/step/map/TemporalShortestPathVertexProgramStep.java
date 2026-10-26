@@ -77,7 +77,11 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
         this.targetVertexFilter = new PureTraversal<>(this.integrateChild(filterTraversal.asAdmin()));
     }
 
-    void setEdgeTraversal(final Traversal edgeTraversal) {
+    public Traversal.Admin<Vertex, Edge> getEdgeTraversal() {
+        return this.edgeTraversal.getPure();
+    }
+
+    public void setEdgeTraversal(final Traversal edgeTraversal) {
         this.edgeTraversal = new PureTraversal<>(this.integrateChild(edgeTraversal.asAdmin()));
     }
 

@@ -140,6 +140,90 @@ public class MultipleIntervalLifetimeIntegrationTest {
         assertEquals(2, Lifetime.fromProperties(unbounded).getIntervals().size());
     }
 
+    @Test
+    public void shouldSupportMultiIntervalSequentialPathAndWindowedPathFiltering() {
+        final Vertex a = g.addV("person").property("name", "a").next();
+        final Vertex b = g.addV("person").property("name", "b").next();
+        final Vertex c = g.addV("person").property("name", "c").next();
+
+        // Edge a->b has an early interval [2020, 2021) and a late interval [2028, 2029)
+        g.addE("knows").from(a).to(b)
+                .lifetime("2020-01-01", "2021-01-01")
+                .addInterval("2028-01-01", "2029-01-01")
+                .next();
+        // Edge b->c is active [2023, 2024), which is after a->b's first interval [2020, 2021)
+        g.addE("knows").from(b).to(c)
+                .lifetime("2023-01-01", "2024-01-01")
+                .next();
+
+        assertEquals(Arrays.asList("c"),
+                g.V(a).sequentialPath("knows").sequentialPath("knows").values("name").toList());
+
+        // Restricting to window [2022, 2030) excludes a->b's [2020, 2021) interval, leaving only [2028, 2029),
+        // which cannot precede b->c [2023, 2024)
+        assertTrue(g.V(a).window("2022-01-01", "2030-01-01")
+                .sequentialPath("knows").sequentialPath("knows").toList().isEmpty());
+    }
+
+    @Test
+    public void shouldSupportMultiIntervalAndWindowedTemporalPageRank() {
+        final Vertex a = g.addV("person").property("name", "a").next();
+        final Vertex b = g.addV("person").property("name", "b").next();
+        final Vertex c = g.addV("person").property("name", "c").next();
+
+        // a->b active in [2020, 2021) and [2025, 2026)
+        g.addE("knows").from(a).to(b)
+                .lifetime("2020-01-01", "2021-01-01")
+                .addInterval("2025-01-01", "2026-01-01")
+                .next();
+        // b->c active in [2022, 2023)
+        g.addE("knows").from(b).to(c)
+                .lifetime("2022-01-01", "2023-01-01")
+                .next();
+
+        // In window [2024, 2027), only a->b [2025, 2026) is active; b->c is outside the window
+        g.V().window("2024-01-01", "2027-01-01")
+                .temporalPageRank()
+                .with(org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRank.propertyName, "winRank")
+                .iterate();
+
+        assertTrue(g.V(b).<Double>values("winRank").next() > 0.0d);
+        assertEquals(0.0d, g.V(c).<Double>values("winRank").next(), 1e-9);
+    }
+
+    @Test
+    public void shouldSupportWindowedMultiIntervalTemporalShortestPathOnGraphComputer() {
+        final Vertex a = g.addV("person").property("name", "a").next();
+        final Vertex b = g.addV("person").property("name", "b").next();
+
+        // Edge a->b has two intervals: [100, 200) and [500, 600)
+        g.addE("knows").from(a).to(b)
+                .lifetime(100L, 200L)
+                .addInterval(500L, 600L)
+                .next();
+
+        // Without window, starting at t=250 reaches b via [500, 600) (paths: [a] and [a, b])
+        assertEquals(2, g.withComputer().V(a)
+                .temporalShortestPath(
+                        org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_ARRIVAL,
+                        250L)
+                .toList().size());
+
+        // Window [0, 300) restricts a->b to [100, 200); starting at t=250 cannot use [500, 600) (only [a] returned)
+        assertEquals(1, g.withComputer().V(a).window(0L, 300L)
+                .temporalShortestPath(
+                        org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_ARRIVAL,
+                        250L)
+                .toList().size());
+
+        // Starting at t=50 within window [0, 300) reaches b via [100, 200)
+        assertEquals(2, g.withComputer().V(a).window(0L, 300L)
+                .temporalShortestPath(
+                        org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_ARRIVAL,
+                        50L)
+                .toList().size());
+    }
+
     private static Lifetime.Interval interval(final Object startTime, final Object endTime) {
         final Date start = Lifetime.toStartDate(startTime);
         final Date end = Lifetime.toEndDate(endTime);

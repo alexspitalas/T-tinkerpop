@@ -76,10 +76,6 @@ public abstract class TinkerElement implements Element, TemporalElement {
     public Lifetime getLifetime() {
         Lifetime current = cachedLifetime;
         if (current != null) return current;
-        if (!Lifetime.hasLifetimeProperties(this)) {
-            cachedLifetime = Lifetime.UNBOUNDED;
-            return Lifetime.UNBOUNDED;
-        }
         current = Lifetime.fromPropertiesRaw(this);
         cachedLifetime = current;
         return current;

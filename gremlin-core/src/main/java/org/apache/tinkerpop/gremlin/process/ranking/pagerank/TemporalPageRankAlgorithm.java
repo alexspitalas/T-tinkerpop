@@ -18,10 +18,12 @@
  */
 package org.apache.tinkerpop.gremlin.process.ranking.pagerank;
 
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -56,7 +58,21 @@ public final class TemporalPageRankAlgorithm {
     public static Map<Object, Double> execute(final Collection<TemporalEdge> temporalEdges,
                                               final double alpha, final double beta, final boolean normalize) {
         validate(alpha, beta);
-        final List<TemporalEdge> sortedTemporalEdges = new ArrayList<>(temporalEdges);
+        final List<TemporalEdge> sortedTemporalEdges = new ArrayList<>();
+        for (final TemporalEdge temporalEdge : temporalEdges) {
+            final Lifetime lt = temporalEdge.getLifetime();
+            if (lt.getIntervals().size() <= 1) {
+                if (!lt.isEmpty()) {
+                    sortedTemporalEdges.add(temporalEdge);
+                }
+            } else {
+                for (final Lifetime.Interval interval : lt.getIntervals()) {
+                    sortedTemporalEdges.add(new TemporalEdge(
+                            temporalEdge.getBaseEdge(),
+                            Lifetime.from(Collections.singletonList(interval))));
+                }
+            }
+        }
         sortedTemporalEdges.sort(Comparator.comparing(TemporalEdge::getStartInstant)
                 .thenComparing(edge -> String.valueOf(edge.id())));
 

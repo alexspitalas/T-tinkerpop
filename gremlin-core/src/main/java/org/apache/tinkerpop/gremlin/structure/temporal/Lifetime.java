@@ -196,9 +196,6 @@ public final class Lifetime implements Serializable {
             if (cached != null)
                 return cached;
         }
-        if (!hasLifetimeProperties(element)) {
-            return UNBOUNDED;
-        }
         final Lifetime parsed = fromPropertiesRaw(element);
         if (element instanceof TemporalElement) {
             ((TemporalElement) element).setLifetime(parsed);
@@ -217,9 +214,6 @@ public final class Lifetime implements Serializable {
         }
         final Property<Object> startTimeProperty = propertyOrEmpty(element, START_TIME);
         final Property<Object> endTimeProperty = propertyOrEmpty(element, END_TIME);
-        if (!startTimeProperty.isPresent() && !endTimeProperty.isPresent()) {
-            return UNBOUNDED;
-        }
         return from(startTimeProperty.orElse(null), endTimeProperty.orElse(null));
     }
 
@@ -300,9 +294,12 @@ public final class Lifetime implements Serializable {
     }
 
     public static boolean hasLifetimeProperties(final Element element) {
-        return propertyOrEmpty(element, START_TIME).isPresent() ||
-                propertyOrEmpty(element, END_TIME).isPresent() ||
-                propertyOrEmpty(element, TEMPORAL_INTERVALS).isPresent();
+        final Property<Object> startProp = propertyOrEmpty(element, START_TIME);
+        if (startProp.isPresent() || startProp.orElse(null) != null) return true;
+        final Property<Object> endProp = propertyOrEmpty(element, END_TIME);
+        if (endProp.isPresent() || endProp.orElse(null) != null) return true;
+        final Property<Object> ivProp = propertyOrEmpty(element, TEMPORAL_INTERVALS);
+        return ivProp.isPresent() || ivProp.orElse(null) != null;
     }
 
     public static Lifetime getLifetimeFromProperties(final Element element) {

@@ -246,6 +246,30 @@ public class WindowIntegrationTest {
 
         assertTrue("bob should outrank carol when the future dave->carol edge is excluded",
                 ranks.get("bob") > ranks.get("carol"));
+        assertEquals("carol should have the same baseline rank as eve when future edge is filtered out",
+                ranks.get("eve"), ranks.get("carol"), 1e-6);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void shouldPreserveStarOutEdgesWhenApplyingTemporalGraphFilterOnStarGraph() {
+        final Vertex dave = g.V().has("name", "dave").next();
+        final org.apache.tinkerpop.gremlin.structure.util.star.StarGraph starGraph =
+                org.apache.tinkerpop.gremlin.structure.util.star.StarGraph.of(dave);
+        final org.apache.tinkerpop.gremlin.process.computer.GraphFilter filter =
+                new org.apache.tinkerpop.gremlin.process.computer.GraphFilter();
+        final Lifetime window = Lifetime.from(T_2021, T_2024);
+        filter.setVertexFilter( org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.window(window));
+        filter.setEdgeFilter((org.apache.tinkerpop.gremlin.process.traversal.Traversal)
+                org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.bothE().window(window));
+
+        final java.util.Optional<org.apache.tinkerpop.gremlin.structure.util.star.StarGraph> filtered =
+                starGraph.applyGraphFilter(filter);
+        assertTrue(filtered.isPresent());
+        final List<Edge> outEdges = org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils.asList(
+                filtered.get().getStarVertex().edges(org.apache.tinkerpop.gremlin.structure.Direction.OUT));
+        assertThat(outEdges, hasSize(1));
+        assertThat(outEdges.get(0).label(), is("recommends"));
     }
 
     @Test

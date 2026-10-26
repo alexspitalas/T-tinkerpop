@@ -487,7 +487,7 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
                 
             if (currentPath.objects().contains(otherV)) continue;
                 
-            Lifetime lifetime = Lifetime.fromProperties(edge);
+            Lifetime lifetime = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
             if (lifetime.isEmpty()) continue;
             
             long cTime = currentDistance.longValue();
@@ -524,10 +524,10 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
     private Number resolveNextCausalTime(final Edge edge, final Number distance) {
         if (edge == null || distance == null) return distance;
         if (this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-            final Lifetime.Interval iv = Lifetime.fromProperties(edge).getFirstIntervalStartingAfter(distance.longValue());
+            final Lifetime.Interval iv = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge).getFirstIntervalStartingAfter(distance.longValue());
             if (iv != null) return iv.getEnd().getTime();
         } else if (this.target == TemporalPathTarget.LATEST_ARRIVAL) {
-            final Lifetime.Interval iv = Lifetime.fromProperties(edge).getLastIntervalEndingBefore(distance.longValue());
+            final Lifetime.Interval iv = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge).getLastIntervalEndingBefore(distance.longValue());
             if (iv != null) return iv.getStart().getTime();
         }
         return distance;

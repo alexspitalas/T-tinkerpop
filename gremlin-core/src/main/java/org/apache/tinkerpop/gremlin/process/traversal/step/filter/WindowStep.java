@@ -80,7 +80,7 @@ public final class WindowStep<S> extends FilterStep<S> {
         } else {
             newContext = window;
         }
-        if (!LifetimeHelper.intersects(Lifetime.fromProperties(baseElement), newContext))
+        if (!LifetimeHelper.isAliveDuring(baseElement, newContext))
             return false;
 
         if (unwrappedTemporal instanceof VertexProperty) {

@@ -92,11 +92,30 @@ public final class LifetimeHelper {
     }
 
     /**
-     * Returns {@code true} when {@code previous} ends before or exactly when
-     * {@code current} starts.
+     * Resolves the effective {@link Lifetime} of an element during a traversal by intersecting its persisted
+     * lifetime from properties with any active temporal decorator scope (from {@code atTime()} or {@code window()}).
+     */
+    public static Lifetime resolveEffectiveLifetime(final Element element) {
+        final Lifetime persisted = Lifetime.getLifetimeFromProperties(element);
+        final Element unwrappedTemporal = Lifetime.unwrapTemporalElement(element);
+        if (element != unwrappedTemporal && element instanceof TemporalElement) {
+            final Lifetime contextWindow = ((TemporalElement) element).getLifetime();
+            if (contextWindow != null) {
+                return persisted.intersection(contextWindow);
+            }
+        }
+        return persisted;
+    }
+
+    /**
+     * Returns {@code true} when at least one interval of {@code previous} ends before or exactly when
+     * an interval of {@code current} starts.
      */
     public static boolean isSequential(final Lifetime previous, final Lifetime current) {
-        return !previous.getEndDate().after(current.getStartDate());
+        if (previous.isEmpty() || current.isEmpty())
+            return false;
+        return !previous.getIntervals().get(0).getEnd().after(
+                current.getIntervals().get(current.getIntervals().size() - 1).getStart());
     }
 
     private static Edge unwrapEdge(final Edge edge) {
