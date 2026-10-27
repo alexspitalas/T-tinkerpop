@@ -66,14 +66,14 @@ g.V().has("name", "Alice")
 [source,java]
 ----
 Vertex employee = g.V().has("name", "Alice").next();
-Date startTime = g.V(employee).getStartTime().next();
-Date endTime = g.V(employee).getEndTime().next();
+long startTime = g.V(employee).getStartTime().next();
+long endTime = g.V(employee).getEndTime().next();
 Lifetime lifetime = g.V(employee).getLifetime().next();
 List<Lifetime.Interval> intervals = lifetime.getIntervals();
 ----
 
 The getter steps work on vertices, edges, and vertex properties. `getStartTime()` and `getEndTime()` return
-`java.util.Date` values; for multiple intervals they return the earliest start and latest end.
+epoch-millisecond `Long` values; for multiple intervals they return the earliest start and latest end.
 
 === Internal Representation
 
@@ -431,18 +431,19 @@ Path shortestContinuous = allContinuousPaths.stream()
 
 === Time Format
 
-The implementation uses `java.util.Date` values. `Lifetime` accepts `Date`, `Instant`, epoch milliseconds as a
-`Number`, and parseable date strings. String forms include `2023-06-15`, `2023-06-15T14:30:00`, and
-`2023-06-15T14:30:00Z`. The `lifetime()`, `addInterval()`, and `dropInterval()` traversal methods expose string
-and child-traversal overloads; `atTime()` and `window()` accept the supported temporal values directly.
+The implementation stores temporal bounds as primitive epoch-millisecond values. `Lifetime` accepts `Date`,
+`Instant`, epoch milliseconds as a `Number`, and parseable date strings, converting each input at the API boundary.
+String forms include `2023-06-15`, `2023-06-15T14:30:00`, and `2023-06-15T14:30:00Z`. The `lifetime()`,
+`addInterval()`, and `dropInterval()` traversal methods accept supported temporal values or child traversals;
+`atTime()` and `window()` accept the supported temporal values directly.
 
 === Null Handling
 
 - An absent `startTime` is treated as an unbounded start when represented as a `Lifetime`
 - An absent `endTime` is treated as an open-ended end when represented as a `Lifetime`
 - Elements with no lifetime properties are treated as always valid by temporal view helpers
-- When neither `startTime` nor `temporalIntervals` is present, `getStartTime()` returns the date represented by `Lifetime.MIN_START_TIME`
-- When neither `endTime` nor `temporalIntervals` is present, `getEndTime()` returns the date represented by `Lifetime.MAX_END_TIME`
+- When neither `startTime` nor `temporalIntervals` is present, `getStartTime()` returns `Lifetime.MIN_START_TIME`
+- When neither `endTime` nor `temporalIntervals` is present, `getEndTime()` returns `Lifetime.MAX_END_TIME`
 
 == Advanced Examples
 

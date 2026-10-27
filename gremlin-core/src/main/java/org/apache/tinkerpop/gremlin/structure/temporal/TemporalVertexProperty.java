@@ -23,7 +23,6 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 
-import java.util.Date;
 import java.util.Iterator;
 
 /**
@@ -52,9 +51,9 @@ public final class TemporalVertexProperty<V> implements VertexProperty<V> {
     }
 
     public VertexProperty<V> getBaseVertexProperty() { return base; }
-    public Date              getInstant()            { return lifetime.getStartDate(); }
-    public Date              getStartInstant()       { return lifetime.getStartDate(); }
-    public Date              getEndInstant()         { return lifetime.getEndDate(); }
+    public long              getInstant()            { return lifetime.getStartTime(); }
+    public long              getStartInstant()       { return lifetime.getStartTime(); }
+    public long              getEndInstant()         { return lifetime.getEndTime(); }
     public Lifetime          getLifetime()           { return lifetime; }
 
     // ── Key overrides ─────────────────────────────────────────────────────

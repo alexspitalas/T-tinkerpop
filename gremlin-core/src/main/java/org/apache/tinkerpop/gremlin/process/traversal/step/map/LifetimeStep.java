@@ -51,8 +51,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     private final DropMode dropMode;
     private Lifetime lifetime;
     private Traversal.Admin<S, ?> lifetimeTraversal;
-    private Object startTime;
-    private Object endTime;
+    private Long startTime;
+    private Long endTime;
     private Traversal.Admin<S, ?> startTimeTraversal;
     private Traversal.Admin<S, ?> endTimeTraversal;
     private boolean useTemporalParameters;
@@ -91,13 +91,13 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         if (startTime instanceof Traversal) {
             this.startTimeTraversal = this.integrateChild(((Traversal<S, ?>) startTime).asAdmin());
         } else {
-            this.startTime = startTime;
+            this.startTime = Lifetime.toStartTime(startTime);
         }
 
         if (endTime instanceof Traversal) {
             this.endTimeTraversal = this.integrateChild(((Traversal<S, ?>) endTime).asAdmin());
         } else {
-            this.endTime = endTime;
+            this.endTime = Lifetime.toEndTime(endTime);
         }
 
         this.propertyKey = propertyKey;
@@ -165,9 +165,9 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {
             Lifetime currentLifetime = Lifetime.fromProperties(element);
             if (mode == LifetimeMode.ADD) {
-                finalLifetime = currentLifetime.addInterval(actualLifetime.getStartDate(), actualLifetime.getEndDate());
+                finalLifetime = currentLifetime.addInterval(actualLifetime.getStartTime(), actualLifetime.getEndTime());
             } else if (mode == LifetimeMode.DROP) {
-                finalLifetime = currentLifetime.dropInterval(actualLifetime.getStartDate(), actualLifetime.getEndDate());
+                finalLifetime = currentLifetime.dropInterval(actualLifetime.getStartTime(), actualLifetime.getEndTime());
             }
         }
 
@@ -222,7 +222,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                     operation = "drop an interval from";
                 }
                 throw new IllegalArgumentException(
-                        "Cannot " + operation + " edge lifetime [" + finalLifetime.getStartDate() + ", " + finalLifetime.getEndDate() +
+                        "Cannot " + operation + " edge lifetime [" + finalLifetime.getStartTime() + ", " + finalLifetime.getEndTime() +
                                 "] because one or both vertices do not exist during this time period.");
             }
         }

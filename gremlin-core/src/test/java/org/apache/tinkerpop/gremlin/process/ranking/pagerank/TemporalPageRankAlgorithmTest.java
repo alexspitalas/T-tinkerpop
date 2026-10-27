@@ -27,13 +27,11 @@ import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
-import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -189,24 +187,13 @@ public class TemporalPageRankAlgorithmTest {
     }
 
     @Test
-    public void shouldDefensivelyCopyTemporalEdgeDates() {
-        final Date start = DatetimeHelper.parse("2024-01-01T09:00:00Z");
-        final Date end = DatetimeHelper.parse("2024-01-01T10:00:00Z");
+    public void shouldReadTemporalEdgeTimeValues() {
+        final long start = Lifetime.toStartTime("2024-01-01T09:00:00Z");
+        final long end = Lifetime.toEndTime("2024-01-01T10:00:00Z");
         final TemporalEdge edge = edge("A", "B", "e1", start, end);
-        final Date expectedStart = new Date(start.getTime());
-        final Date expectedEnd = new Date(end.getTime());
 
-        start.setTime(end.getTime() + 1_000L);
-        end.setTime(start.getTime() + 1_000L);
-
-        assertEquals(expectedStart, edge.getStartInstant());
-        assertEquals(expectedEnd, edge.getEndInstant());
-
-        edge.getStartInstant().setTime(expectedEnd.getTime());
-        edge.getEndInstant().setTime(expectedStart.getTime());
-
-        assertEquals(expectedStart, edge.getStartInstant());
-        assertEquals(expectedEnd, edge.getEndInstant());
+        assertEquals(start, edge.getStartInstant());
+        assertEquals(end, edge.getEndInstant());
     }
 
     @Test
@@ -424,18 +411,18 @@ public class TemporalPageRankAlgorithmTest {
                                                                          final String inVertexId,
                                                                          final String edgeId,
                                                                          final int sequence) {
-        final Date start = new Date(DatetimeHelper.parse("2024-01-01T00:00:00Z").getTime() + sequence * 2_000L);
-        return edge(outVertexId, inVertexId, edgeId, start, new Date(start.getTime() + 1_000L));
+        final long start = Lifetime.toStartTime("2024-01-01T00:00:00Z") + sequence * 2_000L;
+        return edge(outVertexId, inVertexId, edgeId, start, start + 1_000L);
     }
 
     private static TemporalEdge edge(final String outVertexId, final String inVertexId,
                                                                final String edgeId, final String startTime,
                                                                final String endTime) {
-        return edge(outVertexId, inVertexId, edgeId, DatetimeHelper.parse(startTime), DatetimeHelper.parse(endTime));
+        return edge(outVertexId, inVertexId, edgeId, Lifetime.toStartTime(startTime), Lifetime.toEndTime(endTime));
     }
 
     private static TemporalEdge edge(final String outVertexId, final String inVertexId, final String edgeId,
-                                     final Date startTime, final Date endTime) {
+                                     final long startTime, final long endTime) {
         final Vertex outVertex = mock(Vertex.class);
         final Vertex inVertex = mock(Vertex.class);
         final Edge edge = mock(Edge.class);
@@ -462,9 +449,9 @@ public class TemporalPageRankAlgorithmTest {
         final Vertex vertex = mock(Vertex.class);
         final VertexProperty<Boolean> selectedProperty = mock(VertexProperty.class);
         final VertexProperty<Object> startTimeProperty = null == startTime ?
-                VertexProperty.empty() : vertexProperty(DatetimeHelper.parse(startTime));
+                VertexProperty.empty() : vertexProperty(Lifetime.toStartTime(startTime));
         final VertexProperty<Object> endTimeProperty = null == endTime ?
-                VertexProperty.empty() : vertexProperty(DatetimeHelper.parse(endTime));
+                VertexProperty.empty() : vertexProperty(Lifetime.toEndTime(endTime));
 
         when(vertex.id()).thenReturn(id);
         when(vertex.property(Lifetime.START_TIME)).thenReturn(startTimeProperty);
@@ -482,8 +469,8 @@ public class TemporalPageRankAlgorithmTest {
     private static Edge edge(final TemporalEdge temporalEdge,
                              final Vertex outVertex, final Vertex inVertex) {
         final Object edgeId = temporalEdge.id();
-        final Date startInstant = temporalEdge.getStartInstant();
-        final Date endInstant = temporalEdge.getEndInstant();
+        final long startInstant = temporalEdge.getStartInstant();
+        final long endInstant = temporalEdge.getEndInstant();
         final Edge edge = mock(Edge.class);
         final Property<Object> startTime = property(startInstant);
         final Property<Object> endTime = property(endInstant);

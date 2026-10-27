@@ -23,8 +23,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
-import java.util.Date;
-
 /**
  * A filter step that implements all of Allen's temporal relationships.
  * This step compares temporal intervals between the current element and a reference element.
@@ -80,8 +78,8 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
     private final Element referenceElement;
     
     // Lazy caching of reference element temporal properties
-    private transient Date cachedRefStart = null;
-    private transient Date cachedRefEnd = null;
+    private transient long cachedRefStart;
+    private transient long cachedRefEnd;
     private transient boolean refPropertiesInitialized = false;
 
     public AllenFilterStep(final Traversal.Admin<S, E> traversal, 
@@ -109,8 +107,8 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
 
         // Missing temporal bounds are normalized by Lifetime.
         final Lifetime currentLifetime = Lifetime.fromProperties(currentElement);
-        final Date currentStart = currentLifetime.getStartDate();
-        final Date currentEnd = currentLifetime.getEndDate();
+        final long currentStart = currentLifetime.getStartTime();
+        final long currentEnd = currentLifetime.getEndTime();
 
         return evaluate(relation, currentStart, currentEnd, cachedRefStart, cachedRefEnd);
     }
@@ -120,8 +118,8 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
      */
     private void initializeReferenceProperties() {
         final Lifetime referenceLifetime = Lifetime.fromProperties(referenceElement);
-        cachedRefStart = referenceLifetime.getStartDate();
-        cachedRefEnd = referenceLifetime.getEndDate();
+        cachedRefStart = referenceLifetime.getStartTime();
+        cachedRefEnd = referenceLifetime.getEndTime();
         
         refPropertiesInitialized = true;
     }
@@ -130,35 +128,35 @@ public final class AllenFilterStep<S, E> extends FilterStep<S> {
      * Static evaluation method for Allen relations.
      */
     public static boolean evaluate(final AllenRelation relation, 
-                                   final Date start1, final Date end1,
-                                   final Date start2, final Date end2) {
+                                   final long start1, final long end1,
+                                   final long start2, final long end2) {
         switch (relation) {
             case BEFORE:
-                return end1.before(start2);
+                return end1 < start2;
             case AFTER:
-                return start1.after(end2);
+                return start1 > end2;
             case MEETS:
-                return end1.equals(start2);
+                return end1 == start2;
             case MET_BY:
-                return start1.equals(end2);
+                return start1 == end2;
             case OVERLAPS:
-                return start1.before(start2) && end1.after(start2) && end1.before(end2);
+                return start1 < start2 && end1 > start2 && end1 < end2;
             case OVERLAPPED_BY:
-                return start2.before(start1) && end2.after(start1) && end2.before(end1);
+                return start2 < start1 && end2 > start1 && end2 < end1;
             case STARTS:
-                return start1.equals(start2) && end1.before(end2);
+                return start1 == start2 && end1 < end2;
             case STARTED_BY:
-                return start1.equals(start2) && end1.after(end2);
+                return start1 == start2 && end1 > end2;
             case FINISHES:
-                return start1.after(start2) && end1.equals(end2);
+                return start1 > start2 && end1 == end2;
             case FINISHED_BY:
-                return start1.before(start2) && end1.equals(end2);
+                return start1 < start2 && end1 == end2;
             case DURING:
-                return start1.after(start2) && end1.before(end2);
+                return start1 > start2 && end1 < end2;
             case CONTAINS:
-                return start1.before(start2) && end1.after(end2);
+                return start1 < start2 && end1 > end2;
             case EQUALS:
-                return start1.equals(start2) && end1.equals(end2);
+                return start1 == start2 && end1 == end2;
             default:
                 return false;
         }

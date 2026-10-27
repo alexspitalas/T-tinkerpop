@@ -43,8 +43,8 @@ public class TemporalGraphViewStrategyTest {
 
         final List<WindowStep> windowSteps = TraversalHelper.getStepsOfClass(WindowStep.class, traversal);
         assertEquals(1, windowSteps.size());
-        assertEquals(instant, windowSteps.get(0).getWindowStart());
-        assertEquals(instant, windowSteps.get(0).getWindowEnd());
+        assertEquals(instant.getTime(), windowSteps.get(0).getWindowStart());
+        assertEquals(instant.getTime(), windowSteps.get(0).getWindowEnd());
     }
 
     @Test
@@ -55,8 +55,8 @@ public class TemporalGraphViewStrategyTest {
 
         final List<WindowStep> windowSteps = TraversalHelper.getStepsOfClass(WindowStep.class, traversal);
         assertEquals(2, windowSteps.size());
-        assertEquals(start, windowSteps.get(1).getWindowStart());
-        assertEquals(end, windowSteps.get(1).getWindowEnd());
+        assertEquals(start.getTime(), windowSteps.get(1).getWindowStart());
+        assertEquals(end.getTime(), windowSteps.get(1).getWindowEnd());
     }
 
     private static Traversal.Admin<?, ?> applyStrategyToComputerChild(final Traversal.Admin<?, ?> traversal) {
