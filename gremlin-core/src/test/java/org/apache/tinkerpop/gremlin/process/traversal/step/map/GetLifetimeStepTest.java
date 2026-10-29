@@ -58,8 +58,8 @@ public class GetLifetimeStepTest extends StepTest {
 
         final Lifetime lifetime = step.map(traverser);
 
-        assertEquals(startTime, lifetime.getStartDate());
-        assertEquals(endTime, lifetime.getEndDate());
+        assertEquals(startTime.getTime(), lifetime.getStartTime());
+        assertEquals(endTime.getTime(), lifetime.getEndTime());
     }
 
     @Test
@@ -74,8 +74,8 @@ public class GetLifetimeStepTest extends StepTest {
 
         final Lifetime lifetime = step.map(traverser);
 
-        assertEquals(Lifetime.toStartDate(Lifetime.MIN_START_TIME), lifetime.getStartDate());
-        assertEquals(Lifetime.toEndDate(Lifetime.MAX_END_TIME), lifetime.getEndDate());
+        assertEquals(Lifetime.MIN_START_TIME, lifetime.getStartTime());
+        assertEquals(Lifetime.MAX_END_TIME, lifetime.getEndTime());
     }
 
     private static <V> Property<V> property(final V value) {

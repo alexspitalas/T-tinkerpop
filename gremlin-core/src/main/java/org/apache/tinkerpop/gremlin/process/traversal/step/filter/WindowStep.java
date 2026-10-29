@@ -31,7 +31,6 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
-import java.util.Date;
 import java.util.Objects;
 
 /**
@@ -98,8 +97,8 @@ public final class WindowStep<S> extends FilterStep<S> {
         return true;
     }
 
-    public Date getWindowStart() { return window.getStartDate(); }
-    public Date getWindowEnd() { return window.getEndDate(); }
+    public long getWindowStart() { return window.getStartTime(); }
+    public long getWindowEnd() { return window.getEndTime(); }
 
     @Override
     public String toString() { return StringFactory.stepString(this, window); }

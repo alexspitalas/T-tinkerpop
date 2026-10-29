@@ -28,7 +28,6 @@ import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
 import java.util.Collections;
-import java.util.Date;
 import java.util.Optional;
 import java.util.Set;
 
@@ -124,15 +123,15 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             return true;
 
         final Lifetime prevLifetime = Lifetime.fromProperties(prevEdge);
-        final Date prevEnd = prevLifetime.getEndDate();
-        final Date edgeStart = edgeLifetime.getStartDate();
+        final long prevEnd = prevLifetime.getEndTime();
+        final long edgeStart = edgeLifetime.getStartTime();
 
         // Previous edge must be BEFORE or MEET current edge.
         if (!LifetimeHelper.isSequential(prevLifetime, edgeLifetime)) return false;
 
         // Check Min/Max delay
         if (minDelay > 0 || maxDelay < Long.MAX_VALUE) {
-            final long delay = edgeStart.getTime() - prevEnd.getTime();
+            final long delay = edgeStart - prevEnd;
             if (delay < minDelay) return false;
             if (delay > maxDelay) return false;
         }
@@ -155,13 +154,13 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             return true;
 
         final Lifetime prevLifetime = Lifetime.fromProperties(prevEdge);
-        final Date prevStart = prevLifetime.getStartDate();
+        final long prevStart = prevLifetime.getStartTime();
 
         if (!LifetimeHelper.intersects(prevLifetime, edgeLifetime)) return false;
 
         if (monotone) {
             // Monotone: current edge start >= previous edge start
-            if (edgeLifetime.getStartDate().before(prevStart)) return false;
+            if (edgeLifetime.getStartTime() < prevStart) return false;
         }
 
         return true;

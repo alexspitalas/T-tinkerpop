@@ -490,14 +490,14 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
             if (this.target == TemporalPathTarget.EARLIEST_ARRIVAL || this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
                 Lifetime.Interval optimal = lifetime.getFirstIntervalStartingAfter(cTime);
                 if (optimal != null) {
-                    bestStart = optimal.getStart().getTime();
-                    bestEnd = optimal.getEnd().getTime();
+                    bestStart = optimal.getStartTime();
+                    bestEnd = optimal.getEndTime();
                 }
             } else {
                 Lifetime.Interval optimal = lifetime.getLastIntervalEndingBefore(cTime);
                 if (optimal != null) {
-                    bestStart = optimal.getStart().getTime();
-                    bestEnd = optimal.getEnd().getTime();
+                    bestStart = optimal.getStartTime();
+                    bestEnd = optimal.getEndTime();
                 }
             }
             

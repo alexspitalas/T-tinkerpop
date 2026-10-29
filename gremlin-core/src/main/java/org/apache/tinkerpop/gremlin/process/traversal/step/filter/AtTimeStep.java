@@ -31,7 +31,6 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
-import java.util.Date;
 import java.util.Objects;
 
 /**
@@ -51,13 +50,13 @@ import java.util.Objects;
  */
 public final class AtTimeStep<S> extends FilterStep<S> {
 
-    private final Date instant;
+    private final long instant;
 
     public AtTimeStep(final Traversal.Admin traversal, final Object instant) {
         super(traversal);
         if (null == instant)
             throw new IllegalArgumentException("Temporal instant cannot be null");
-        this.instant = Lifetime.toTemporalDate(instant);
+        this.instant = Lifetime.toTemporalTime(instant);
     }
 
     @Override
@@ -101,7 +100,7 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         return true;
     }
 
-    public Date getInstant() { return instant; }
+    public long getInstant() { return instant; }
 
     @Override
     public String toString() { return StringFactory.stepString(this, instant); }
@@ -113,15 +112,9 @@ public final class AtTimeStep<S> extends FilterStep<S> {
     public boolean equals(final Object o) {
         if (this == o) return true;
         if (!(o instanceof AtTimeStep)) return false;
-        return super.equals(o) && instant.equals(((AtTimeStep<?>) o).instant);
+        return super.equals(o) && instant == ((AtTimeStep<?>) o).instant;
     }
 
-    /**
-     * {@code instant} is {@code final} and treated as effectively immutable within this class
-     * (we never call {@link Date#setTime}), so the default bitwise clone from
-     * {@link org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep#clone()}
-     * is safe.
-     */
     @Override
     @SuppressWarnings("CloneDoesntDeclareCloneNotSupportedException")
     public AtTimeStep<S> clone() {

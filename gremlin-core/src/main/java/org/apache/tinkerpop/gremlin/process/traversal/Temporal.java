@@ -27,7 +27,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * {@link Temporal} is a {@code BiPredicate} that implements Allen's Interval Algebra 
+ * {@link Temporal} is a {@code BiPredicate} that implements Allen's Interval Algebra
  * extended with algorithmic sweeps to perfectly support multi-interval lifetimes.
  */
 public enum Temporal implements PBiPredicate<Object, Object> {
@@ -42,40 +42,40 @@ public enum Temporal implements PBiPredicate<Object, Object> {
             return l1.intersects(l2);
         }
     },
-    
+
     /** Allen's strict Overlaps: A starts before B, ends before B, but they intersect. */
-    overlaps { 
+    overlaps {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getStartDate().before(l2.getStartDate()) && 
-                   l1.getEndDate().before(l2.getEndDate()) && 
+            return l1.getStartTime() < l2.getStartTime() &&
+                   l1.getEndTime() < l2.getEndTime() &&
                    l1.intersects(l2);
         }
     },
-    
+
     precedes {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getEndDate().before(l2.getStartDate());
+            return l1.getEndTime() < l2.getStartTime();
         }
     },
-    
+
     succeeds {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getStartDate().after(l2.getEndDate());
+            return l1.getStartTime() > l2.getEndTime();
         }
     },
-    
+
     overlappedBy {
         @Override
         public boolean test(final Object val1, final Object val2) {
@@ -89,20 +89,20 @@ public enum Temporal implements PBiPredicate<Object, Object> {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getEndDate().equals(l2.getStartDate());
+            return l1.getEndTime() == l2.getStartTime();
         }
     },
-    
+
     metBy {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getStartDate().equals(l2.getEndDate());
+            return l1.getStartTime() == l2.getEndTime();
         }
     },
-    
+
     /** A is strictly contained within B (Multi-interval: every interval of A is fully inside an interval of B) */
     during {
         @Override
@@ -111,68 +111,68 @@ public enum Temporal implements PBiPredicate<Object, Object> {
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
             // A must be a subset, and outer bounds cannot be exactly identical to count as strictly 'during'
-            return l2.contains(l1) && (l1.getStartDate().after(l2.getStartDate()) || l1.getEndDate().before(l2.getEndDate()));
+            return l2.contains(l1) && (l1.getStartTime() > l2.getStartTime() || l1.getEndTime() < l2.getEndTime());
         }
     },
-    
+
     contains {
         @Override
         public boolean test(final Object val1, final Object val2) {
             return during.test(val2, val1);
         }
     },
-    
+
     eq {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            if (!l1.getStartDate().equals(l2.getStartDate()) || !l1.getEndDate().equals(l2.getEndDate())) return false;
-            
+            if (l1.getStartTime() != l2.getStartTime() || l1.getEndTime() != l2.getEndTime()) return false;
+
             List<Lifetime.Interval> i1s = l1.getIntervals();
             List<Lifetime.Interval> i2s = l2.getIntervals();
             if (i1s.size() != i2s.size()) return false;
-            
+
             for (int i = 0; i < i1s.size(); i++) {
-                if (!i1s.get(i).getStart().equals(i2s.get(i).getStart()) || 
-                    !i1s.get(i).getEnd().equals(i2s.get(i).getEnd())) return false;
+                if (i1s.get(i).getStartTime() != i2s.get(i).getStartTime() ||
+                    i1s.get(i).getEndTime() != i2s.get(i).getEndTime()) return false;
             }
             return true;
         }
     },
-    
+
     starts {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getStartDate().equals(l2.getStartDate()) && 
-                   l1.getEndDate().before(l2.getEndDate()) && 
+            return l1.getStartTime() == l2.getStartTime() &&
+                   l1.getEndTime() < l2.getEndTime() &&
                    l2.contains(l1);
         }
     },
-    
+
     startedBy {
         @Override
         public boolean test(final Object val1, final Object val2) {
             return starts.test(val2, val1);
         }
     },
-    
+
     finishes {
         @Override
         public boolean test(final Object val1, final Object val2) {
             final Lifetime l1 = extractLifetime(val1);
             final Lifetime l2 = extractLifetime(val2);
             if (l1 == null || l2 == null) return false;
-            return l1.getEndDate().equals(l2.getEndDate()) && 
-                   l1.getStartDate().after(l2.getStartDate()) && 
+            return l1.getEndTime() == l2.getEndTime() &&
+                   l1.getStartTime() > l2.getStartTime() &&
                    l2.contains(l1);
         }
     },
-    
+
     finishedBy {
         @Override
         public boolean test(final Object val1, final Object val2) {

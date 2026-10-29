@@ -23,7 +23,6 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 
-import java.util.Date;
 import java.util.Optional;
 
 public final class LifetimeHelper {
@@ -72,7 +71,7 @@ public final class LifetimeHelper {
      * Returns {@code true} when {@code previous} ends before or exactly when {@code current} starts.
      */
     public static boolean isSequential(final Lifetime previous, final Lifetime current) {
-        return !previous.getEndDate().after(current.getStartDate());
+        return previous.getEndTime() <= current.getStartTime();
     }
 
     private static Edge unwrapEdge(final Edge edge) {
