@@ -195,7 +195,14 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             final Vertex vertex = (Vertex) element;
 
             if (this.propertyKey != null && this.propertyValue != null) {
-                vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue,
+                final List<VertexProperty<Object>> untimedProps = new ArrayList<>();
+                vertex.properties(this.propertyKey).forEachRemaining(vp -> {
+                    if (!Lifetime.hasLifetimeProperties(vp)) {
+                        untimedProps.add(vp);
+                    }
+                });
+                untimedProps.forEach(VertexProperty::remove);
+                vertex.property(VertexProperty.Cardinality.list, this.propertyKey, this.propertyValue,
                         finalLifetime.toProperties());
             } else if (this.propertyKey != null) {
 

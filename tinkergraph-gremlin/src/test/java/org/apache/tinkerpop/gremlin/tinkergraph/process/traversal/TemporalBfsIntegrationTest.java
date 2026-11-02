@@ -116,4 +116,83 @@ public class TemporalBfsIntegrationTest {
         // The latest we can depart from A is 1800.
         assertEquals(Long.valueOf(1800L), result.get(a));
     }
+
+    @Test
+    public void shouldSupportNegativeEpochTimestampsInOltpAndOlap() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        // Pre-1970 negative epoch timestamps (including -1L sentinel boundary)
+        g.addE("flight").from(a).to(b).lifetime(-5000L, -3000L).next();
+        g.addE("flight").from(b).to(c).lifetime(-2000L, -1L).next();
+
+        Map<Vertex, Long> earliestArrival = g.V(a).tbfs(-6000L, TemporalPathTarget.EARLIEST_ARRIVAL, Direction.OUT, "flight").next();
+        assertEquals(Long.valueOf(-3000L), earliestArrival.get(b));
+        assertEquals(Long.valueOf(-1L), earliestArrival.get(c));
+
+        Map<Vertex, Long> latestDeparture = g.V(c).tbfs(0L, TemporalPathTarget.LATEST_DEPARTURE, Direction.IN, "flight").next();
+        assertEquals(Long.valueOf(-2000L), latestDeparture.get(b));
+        assertEquals(Long.valueOf(-5000L), latestDeparture.get(a));
+
+        Map<Vertex, Long> latestArrival = g.V(c).tbfs(0L, TemporalPathTarget.LATEST_ARRIVAL, Direction.IN, "flight").next();
+        assertEquals(Long.valueOf(-1L), latestArrival.get(b));
+        assertEquals(Long.valueOf(-3000L), latestArrival.get(a));
+
+        assertEquals(3, g.withComputer().V(a)
+                .temporalShortestPath(TemporalPathTarget.EARLIEST_ARRIVAL, -6000L)
+                .toList().size());
+        assertEquals(3, g.withComputer().V(c)
+                .temporalShortestPath(TemporalPathTarget.LATEST_DEPARTURE, 0L)
+                .toList().size());
+    }
+
+    @Test
+    public void shouldDecoupleCausalTimeFromTargetMetricInOlapTemporalShortestPath() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        // Edge 1: departs earlier (100) so it wins EARLIEST_DEPARTURE at B, but arrives too late (500) for B->C
+        // Edge 2: departs slightly later (120), but arrives earlier (200) so it unlocks B->C [250, 300)
+        g.addE("flight").from(a).to(b)
+                .lifetime(100L, 500L)
+                .next();
+        g.addE("flight").from(a).to(b)
+                .lifetime(120L, 200L)
+                .next();
+        g.addE("flight").from(b).to(c)
+                .lifetime(250L, 300L)
+                .next();
+
+        Map<Vertex, Long> oltpResult = g.V(a).tbfs(0L, TemporalPathTarget.EARLIEST_DEPARTURE, Direction.OUT, "flight").next();
+        assertEquals(Long.valueOf(100L), oltpResult.get(b));
+        assertEquals(Long.valueOf(250L), oltpResult.get(c));
+
+        // OLAP TemporalShortestPathVertexProgram must also reach C (paths to A, B, and C = 3 paths)
+        assertEquals(3, g.withComputer().V(a)
+                .temporalShortestPath(TemporalPathTarget.EARLIEST_DEPARTURE, 0L)
+                .toList().size());
+    }
+
+    @Test
+    public void shouldPreserveMultiVersionLifetimePropertiesOnSameKey() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex alice = g.addV("person").property("name", "alice")
+                .lifetimeProperty("title", "Junior", "2020-01-01", "2022-01-01")
+                .lifetimeProperty("title", "Senior", "2022-01-01", "2024-01-01")
+                .next();
+
+        assertEquals("Junior", g.V(alice).atTime("2021-01-01").values("title").next());
+        assertEquals("Senior", g.V(alice).atTime("2023-01-01").values("title").next());
+        assertEquals(2, g.V(alice).window("2020-01-01", "2024-01-01").values("title").toList().size());
+    }
 }

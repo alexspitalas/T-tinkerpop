@@ -103,13 +103,11 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         } else if (target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-                            long existingMetric = gamma.getOrDefault(nextId, Long.MAX_VALUE);
-                            long existingCausal = causalTime.getOrDefault(nextId, Long.MAX_VALUE);
-                            if (bestStart < existingMetric) {
+                            if (!gamma.containsKey(nextId) || bestStart < gamma.get(nextId)) {
                                 gamma.put(nextId, bestStart);
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
-                            if (bestEnd < existingCausal) {
+                            if (!causalTime.containsKey(nextId) || bestEnd < causalTime.get(nextId)) {
                                 causalTime.put(nextId, bestEnd);
                                 if (inQueue.add(nextId)) {
                                     queue.add(nextVertex);
@@ -143,8 +141,7 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                         Object nextId = nextVertex.id();
 
                         if (target == TemporalPathTarget.LATEST_DEPARTURE) {
-                            long existing = gamma.getOrDefault(nextId, -1L);
-                            if (bestStart > existing) {
+                            if (!gamma.containsKey(nextId) || bestStart > gamma.get(nextId)) {
                                 gamma.put(nextId, bestStart);
                                 causalTime.put(nextId, bestStart);
                                 if (inQueue.add(nextId)) {
@@ -153,13 +150,11 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         } else if (target == TemporalPathTarget.LATEST_ARRIVAL) {
-                            long existingMetric = gamma.getOrDefault(nextId, -1L);
-                            long existingCausal = causalTime.getOrDefault(nextId, -1L);
-                            if (bestEnd > existingMetric) {
+                            if (!gamma.containsKey(nextId) || bestEnd > gamma.get(nextId)) {
                                 gamma.put(nextId, bestEnd);
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
-                            if (bestStart > existingCausal) {
+                            if (!causalTime.containsKey(nextId) || bestStart > causalTime.get(nextId)) {
                                 causalTime.put(nextId, bestStart);
                                 if (inQueue.add(nextId)) {
                                     queue.add(nextVertex);

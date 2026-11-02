@@ -54,10 +54,19 @@ import java.util.stream.Collectors;
 public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E> implements HasContainerHolder, AutoCloseable {
 
     private final List<HasContainer> hasContainers = new ArrayList<>();
+    private boolean temporalIndexEnabled = false;
     /**
      * List of iterators opened by this step.
      */
     private final List<Iterator> iterators = new ArrayList<>();
+
+    public void enableTemporalIndex() {
+        this.temporalIndexEnabled = true;
+    }
+
+    public boolean isTemporalIndexEnabled() {
+        return this.temporalIndexEnabled;
+    }
 
     public TinkerGraphStep(final GraphStep<S, E> originalGraphStep) {
         super(originalGraphStep.getTraversal(), originalGraphStep.getReturnClass(), originalGraphStep.isStartStep(), originalGraphStep.getIds());
@@ -136,6 +145,7 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
     }
 
     public AllenFilterStep getIndexAllenStep(final Class<? extends Element> indexedClass) {
+        if (!this.temporalIndexEnabled) return null;
         final AbstractTinkerGraph graph = (AbstractTinkerGraph) this.getTraversal().getGraph().get();
         final Set<String> indexedKeys = graph.getIndexedKeys(indexedClass);
         if (!indexedKeys.contains(Lifetime.TEMPORAL_INTERVALS)) return null;

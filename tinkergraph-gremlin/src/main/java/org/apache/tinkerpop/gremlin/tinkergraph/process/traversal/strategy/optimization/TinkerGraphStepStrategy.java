@@ -58,10 +58,6 @@ public final class TinkerGraphStepStrategy extends AbstractTraversalStrategy<Tra
                     }
                     TraversalHelper.copyLabels(currentStep, currentStep.getPreviousStep(), false);
                     traversal.removeStep(currentStep);
-                } else if (currentStep instanceof AllenFilterStep) {
-                    tinkerGraphStep.addAllenFilterStep((AllenFilterStep) currentStep);
-                    TraversalHelper.copyLabels(currentStep, currentStep.getPreviousStep(), false);
-                    traversal.removeStep(currentStep);
                 }
                 currentStep = currentStep.getNextStep();
             }

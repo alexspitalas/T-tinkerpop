@@ -57,6 +57,7 @@ public final class TemporalIndexOptimizationStrategy
             return;
 
         for (final TinkerGraphStep<?, ?> tinkerGraphStep : TraversalHelper.getStepsOfClass(TinkerGraphStep.class, traversal)) {
+            tinkerGraphStep.enableTemporalIndex();
             Step<?, ?> currentStep = tinkerGraphStep.getNextStep();
             while (currentStep instanceof AllenFilterStep || currentStep instanceof HasStep || currentStep instanceof NoOpBarrierStep) {
                 if (currentStep instanceof AllenFilterStep) {
