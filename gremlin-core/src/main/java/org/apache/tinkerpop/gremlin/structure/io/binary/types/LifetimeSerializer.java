@@ -41,22 +41,21 @@ public class LifetimeSerializer extends SimpleTypeSerializer<Lifetime> {
     @Override
     protected Lifetime readValue(final Buffer buffer, final GraphBinaryReader context) throws IOException {
         final int size = buffer.readInt();
-        final List<Lifetime.Interval> intervals = new ArrayList<>(size);
+        final long[] raw = new long[size << 1];
         for (int i = 0; i < size; i++) {
-            final long start = buffer.readLong();
-            final long end = buffer.readLong();
-            intervals.add(new Lifetime.Interval(new Date(start), new Date(end)));
+            raw[i << 1] = buffer.readLong();
+            raw[(i << 1) + 1] = buffer.readLong();
         }
-        return Lifetime.from(intervals);
+        return Lifetime.fromRawIntervals(raw);
     }
 
     @Override
     protected void writeValue(final Lifetime value, final Buffer buffer, final GraphBinaryWriter context) throws IOException {
-        final List<Lifetime.Interval> intervals = value.getIntervals();
-        buffer.writeInt(intervals.size());
-        for (final Lifetime.Interval interval : intervals) {
-            buffer.writeLong(interval.getStart().getTime());
-            buffer.writeLong(interval.getEnd().getTime());
+        final int count = value.getIntervalCount();
+        buffer.writeInt(count);
+        for (int i = 0; i < count; i++) {
+            buffer.writeLong(value.getStartMillis(i));
+            buffer.writeLong(value.getEndMillis(i));
         }
     }
 }

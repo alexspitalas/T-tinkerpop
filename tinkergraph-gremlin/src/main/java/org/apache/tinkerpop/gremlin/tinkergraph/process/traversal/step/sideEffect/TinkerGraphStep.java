@@ -22,6 +22,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Compare;
 import org.apache.tinkerpop.gremlin.process.traversal.GremlinTypeErrorException;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.step.HasContainerHolder;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.FilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
@@ -29,9 +30,11 @@ import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.AbstractTinkerGraph;
+import org.apache.tinkerpop.gremlin.tinkergraph.structure.TemporalTinkerIndex;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraphIterator;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerIndexHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
@@ -59,6 +62,7 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
     public TinkerGraphStep(final GraphStep<S, E> originalGraphStep) {
         super(originalGraphStep.getTraversal(), originalGraphStep.getReturnClass(), originalGraphStep.isStartStep(), originalGraphStep.getIds());
         originalGraphStep.getLabels().forEach(this::addLabel);
+        originalGraphStep.getAllenFilterSteps().forEach(this::addAllenFilterStep);
 
         // we used to only setIteratorSupplier() if there were no ids OR the first id was instanceof Element,
         // but that allowed the filter in g.V(v).has('k','v') to be ignored.  this created problems for
@@ -67,22 +71,29 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
         this.setIteratorSupplier(() -> (Iterator<E>) (Vertex.class.isAssignableFrom(this.returnClass) ? this.vertices() : this.edges()));
     }
 
+    @Override
+    protected boolean isAllenFilteredByIterator() {
+        return true;
+    }
+
     private Iterator<? extends Edge> edges() {
         final AbstractTinkerGraph graph = (AbstractTinkerGraph) this.getTraversal().getGraph().get();
         final HasContainer indexedContainer = getIndexKey(Edge.class);
-        Iterator<Edge> iterator;
+        final AllenFilterStep indexedAllenStep = indexedContainer == null ? getIndexAllenStep(Edge.class) : null;
+        Iterator<? extends Edge> iterator;
         // ids are present, filter on them first
         if (null == this.ids)
             iterator = Collections.emptyIterator();
         else if (this.ids.length > 0)
             iterator = this.iteratorList(graph.edges(this.ids));
+        else if (null != indexedContainer)
+            iterator = IteratorUtils.filter(TinkerIndexHelper.queryEdgeIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getBiPredicate(), indexedContainer.getPredicate().getValue()).iterator(),
+                                edge -> HasContainer.testAll(edge, this.hasContainers) && testAllAllen(edge, this.allenFilterSteps));
+        else if (null != indexedAllenStep)
+            iterator = IteratorUtils.filter(TinkerIndexHelper.queryEdgeIndex(graph, Lifetime.TEMPORAL_INTERVALS, indexedAllenStep.getRelation(), indexedAllenStep.getReferenceTarget()).iterator(),
+                                edge -> HasContainer.testAll(edge, this.hasContainers) && testAllAllen(edge, this.allenFilterSteps));
         else
-            iterator = null == indexedContainer ?
-                    this.iteratorList(graph.edges()) :
-                    TinkerIndexHelper.queryEdgeIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getBiPredicate(), indexedContainer.getPredicate().getValue()).stream()
-                                .filter(edge -> HasContainer.testAll(edge, this.hasContainers))
-                                .collect(Collectors.<Edge>toList()).iterator();
-
+            iterator = this.iteratorList(graph.edges());
 
         iterators.add(iterator);
 
@@ -92,17 +103,21 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
     private Iterator<? extends Vertex> vertices() {
         final AbstractTinkerGraph graph = (AbstractTinkerGraph) this.getTraversal().getGraph().get();
         final HasContainer indexedContainer = getIndexKey(Vertex.class);
+        final AllenFilterStep indexedAllenStep = indexedContainer == null ? getIndexAllenStep(Vertex.class) : null;
         Iterator<? extends Vertex> iterator;
         // ids are present, filter on them first
         if (null == this.ids)
             iterator = Collections.emptyIterator();
         else if (this.ids.length > 0)
             iterator = this.iteratorList(graph.vertices(this.ids));
+        else if (null != indexedContainer)
+            iterator = IteratorUtils.filter(TinkerIndexHelper.queryVertexIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getBiPredicate(), indexedContainer.getPredicate().getValue()).iterator(),
+                                         vertex -> HasContainer.testAll(vertex, this.hasContainers) && testAllAllen(vertex, this.allenFilterSteps));
+        else if (null != indexedAllenStep)
+            iterator = IteratorUtils.filter(TinkerIndexHelper.queryVertexIndex(graph, Lifetime.TEMPORAL_INTERVALS, indexedAllenStep.getRelation(), indexedAllenStep.getReferenceTarget()).iterator(),
+                                         vertex -> HasContainer.testAll(vertex, this.hasContainers) && testAllAllen(vertex, this.allenFilterSteps));
         else
-            iterator = (null == indexedContainer ?
-                    this.iteratorList(graph.vertices()) :
-                    IteratorUtils.filter(TinkerIndexHelper.queryVertexIndex(graph, indexedContainer.getKey(), indexedContainer.getPredicate().getBiPredicate(), indexedContainer.getPredicate().getValue()).iterator(),
-                                         vertex -> HasContainer.testAll(vertex, this.hasContainers)));
+            iterator = this.iteratorList(graph.vertices());
 
         iterators.add(iterator);
 
@@ -118,17 +133,32 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
                         TinkerIndexHelper.canQueryTemporally(graph, indexedClass, c.getPredicate().getBiPredicate())) &&
                         indexedKeys.contains(c.getKey()));
         return itty.hasNext() ? itty.next() : null;
+    }
 
+    public AllenFilterStep getIndexAllenStep(final Class<? extends Element> indexedClass) {
+        final AbstractTinkerGraph graph = (AbstractTinkerGraph) this.getTraversal().getGraph().get();
+        final Set<String> indexedKeys = graph.getIndexedKeys(indexedClass);
+        if (!indexedKeys.contains(Lifetime.TEMPORAL_INTERVALS)) return null;
+
+        for (final AllenFilterStep step : this.allenFilterSteps) {
+            if (TinkerIndexHelper.canQueryTemporally(graph, indexedClass, step.getRelation())) {
+                return step;
+            }
+        }
+        return null;
     }
 
     @Override
     public String toString() {
-        if (this.hasContainers.isEmpty())
+        if (this.hasContainers.isEmpty() && this.allenFilterSteps.isEmpty())
             return super.toString();
-        else
+        else {
+            final List<Object> filters = new ArrayList<>(this.hasContainers);
+            filters.addAll(this.allenFilterSteps);
             return (null == this.ids || 0 == this.ids.length) ?
-                    StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), this.hasContainers) :
-                    StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), Arrays.toString(this.ids), this.hasContainers);
+                    StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), filters) :
+                    StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), Arrays.toString(this.ids), filters);
+        }
     }
 
     private <E extends Element> Iterator<E> iteratorList(final Iterator<E> iterator) {
@@ -138,7 +168,7 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
             while (iterator.hasNext()) {
                 final E e = iterator.next();
                 try {
-                    if (HasContainer.testAll(e, this.hasContainers))
+                    if (HasContainer.testAll(e, this.hasContainers) && testAllAllen(e, this.allenFilterSteps))
                         list.add(e);
                 } catch (GremlinTypeErrorException ex) {
                     if (getTraversal().isRoot() || !(getTraversal().getParent() instanceof FilterStep)) {

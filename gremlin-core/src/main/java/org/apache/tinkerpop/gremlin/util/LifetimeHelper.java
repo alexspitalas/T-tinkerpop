@@ -114,8 +114,7 @@ public final class LifetimeHelper {
     public static boolean isSequential(final Lifetime previous, final Lifetime current) {
         if (previous.isEmpty() || current.isEmpty())
             return false;
-        return !previous.getIntervals().get(0).getEnd().after(
-                current.getIntervals().get(current.getIntervals().size() - 1).getStart());
+        return previous.getEndMillis(0) <= current.getStartMillis(current.getIntervalCount() - 1);
     }
 
     private static Edge unwrapEdge(final Edge edge) {

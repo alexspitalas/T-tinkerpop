@@ -19,6 +19,7 @@
 package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Path;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
@@ -144,11 +145,10 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
                                                                final List<Lifetime.Interval> nextIntervals) {
         final List<Lifetime.Interval> validNext = new ArrayList<>();
         for (final Lifetime.Interval nextIv : nextIntervals) {
-            final long nextStart = nextIv.getStart().getTime();
+            final long nextStart = nextIv.getStartMillis();
             for (final Lifetime.Interval prevIv : prevIntervals) {
-                final long prevEnd = prevIv.getEnd().getTime();
-                if (prevEnd <= nextStart) {
-                    final long delay = nextStart - prevEnd;
+                if (Temporal.precedes.testIntervalPair(prevIv, nextIv) || Temporal.meets.testIntervalPair(prevIv, nextIv)) {
+                    final long delay = nextStart - prevIv.getEndMillis();
                     if (delay >= minDelay && delay <= maxDelay) {
                         validNext.add(nextIv);
                         break;
@@ -160,25 +160,7 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
     }
 
     private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
-        // Consecutive edges need to overlap.
-        if (!monotone) {
-            Edge prevEdge = null;
-            for (int i = path.size() - 1; i >= 0; i--) {
-                final Object obj = path.get(i);
-                final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
-                if (obj instanceof Edge && !isTrailingCurrent) {
-                    prevEdge = (Edge) obj;
-                    break;
-                }
-            }
-
-            if (prevEdge == null)
-                return true;
-
-            final Lifetime prevLifetime = LifetimeHelper.resolveEffectiveLifetime(prevEdge);
-            return LifetimeHelper.intersects(prevLifetime, edgeLifetime);
-        }
-
+        // Consecutive edges need to overlap along a connected chain of reachable sub-intervals.
         List<Lifetime.Interval> reachable = null;
         for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
@@ -190,7 +172,7 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
                 if (reachable == null) {
                     reachable = lt.getIntervals();
                 } else {
-                    reachable = advanceMonotonePairwiseIntervals(reachable, lt.getIntervals());
+                    reachable = advancePairwiseIntervals(reachable, lt.getIntervals());
                     if (reachable.isEmpty())
                         return false;
                 }
@@ -200,15 +182,16 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         if (reachable == null)
             return true;
 
-        return !advanceMonotonePairwiseIntervals(reachable, edgeLifetime.getIntervals()).isEmpty();
+        return !advancePairwiseIntervals(reachable, edgeLifetime.getIntervals()).isEmpty();
     }
 
-    private List<Lifetime.Interval> advanceMonotonePairwiseIntervals(final List<Lifetime.Interval> prevIntervals,
-                                                                     final List<Lifetime.Interval> nextIntervals) {
+    private List<Lifetime.Interval> advancePairwiseIntervals(final List<Lifetime.Interval> prevIntervals,
+                                                             final List<Lifetime.Interval> nextIntervals) {
         final List<Lifetime.Interval> validNext = new ArrayList<>();
         for (final Lifetime.Interval nextIv : nextIntervals) {
             for (final Lifetime.Interval prevIv : prevIntervals) {
-                if (prevIv.intersects(nextIv) && !nextIv.getStart().before(prevIv.getStart())) {
+                if (Temporal.intersects.testIntervalPair(prevIv, nextIv)
+                        && (!monotone || nextIv.getStartMillis() >= prevIv.getStartMillis())) {
                     validNext.add(nextIv);
                     break;
                 }

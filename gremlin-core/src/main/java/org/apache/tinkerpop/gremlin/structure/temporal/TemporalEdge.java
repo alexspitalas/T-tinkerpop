@@ -65,6 +65,22 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge>, TemporalElem
         return base;
     }
 
+    public Object getOutVertexId() {
+        return base.outVertex().id();
+    }
+
+    public Object getInVertexId() {
+        return base.inVertex().id();
+    }
+
+    public long getStartMillis() {
+        return lifetime.getStartMillis();
+    }
+
+    public long getEndMillis() {
+        return lifetime.getEndMillis();
+    }
+
     public Date getInstant() {
         return lifetime.getStartDate();
     }

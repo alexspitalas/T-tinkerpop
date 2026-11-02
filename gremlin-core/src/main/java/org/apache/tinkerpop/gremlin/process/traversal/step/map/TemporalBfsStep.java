@@ -62,11 +62,13 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
         final Vertex source = traverser.get();
         final Map<Object, Long> gamma = new HashMap<>();
         final Map<Object, Long> causalTime = new HashMap<>();
-        final Queue<Vertex> queue = new LinkedList<>();
+        final Queue<Vertex> queue = new ArrayDeque<>();
+        final Set<Object> inQueue = new HashSet<>();
         
         gamma.put(source.id(), this.initialTime);
         causalTime.put(source.id(), this.initialTime);
         queue.add(source);
+        inQueue.add(source.id());
         
         final Set<Vertex> reachable = new LinkedHashSet<>();
         
@@ -74,6 +76,7 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
             // Forward BFS
             while (!queue.isEmpty()) {
                 Vertex u = queue.poll();
+                inQueue.remove(u.id());
                 long currentTime = causalTime.get(u.id());
                 
                 Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
@@ -83,29 +86,34 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                     if (lifetime.isEmpty()) continue;
                     
                     // Multi-interval sweep: find the first valid interval after currentTime
-                    Lifetime.Interval optimal = lifetime.getFirstIntervalStartingAfter(currentTime);
-                    if (optimal != null) {
-                        long bestStart = optimal.getStart().getTime();
-                        long bestEnd = optimal.getEnd().getTime();
+                    final int optimalIdx = lifetime.getFirstIntervalIndexStartingAfter(currentTime);
+                    if (optimalIdx >= 0) {
+                        long bestStart = lifetime.getStartMillis(optimalIdx);
+                        long bestEnd = lifetime.getEndMillis(optimalIdx);
                         Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
+                        Object nextId = nextVertex.id();
 
                         if (target == TemporalPathTarget.EARLIEST_ARRIVAL) {
-                            if (!gamma.containsKey(nextVertex.id()) || bestEnd < gamma.get(nextVertex.id())) {
-                                gamma.put(nextVertex.id(), bestEnd);
-                                causalTime.put(nextVertex.id(), bestEnd);
-                                queue.add(nextVertex);
+                            if (!gamma.containsKey(nextId) || bestEnd < gamma.get(nextId)) {
+                                gamma.put(nextId, bestEnd);
+                                causalTime.put(nextId, bestEnd);
+                                if (inQueue.add(nextId)) {
+                                    queue.add(nextVertex);
+                                }
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         } else if (target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-                            long existingMetric = gamma.getOrDefault(nextVertex.id(), Long.MAX_VALUE);
-                            long existingCausal = causalTime.getOrDefault(nextVertex.id(), Long.MAX_VALUE);
+                            long existingMetric = gamma.getOrDefault(nextId, Long.MAX_VALUE);
+                            long existingCausal = causalTime.getOrDefault(nextId, Long.MAX_VALUE);
                             if (bestStart < existingMetric) {
-                                gamma.put(nextVertex.id(), bestStart);
+                                gamma.put(nextId, bestStart);
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                             if (bestEnd < existingCausal) {
-                                causalTime.put(nextVertex.id(), bestEnd);
-                                queue.add(nextVertex);
+                                causalTime.put(nextId, bestEnd);
+                                if (inQueue.add(nextId)) {
+                                    queue.add(nextVertex);
+                                }
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         }
@@ -117,6 +125,7 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
             // Initial time is treated as a deadline.
             while (!queue.isEmpty()) {
                 Vertex u = queue.poll();
+                inQueue.remove(u.id());
                 long currentTime = causalTime.get(u.id());
                 
                 Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
@@ -126,30 +135,35 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                     if (lifetime.isEmpty()) continue;
                     
                     // Multi-interval sweep backwards: find the last valid interval ending at or before currentTime
-                    Lifetime.Interval optimal = lifetime.getLastIntervalEndingBefore(currentTime);
-                    if (optimal != null) {
-                        long bestStart = optimal.getStart().getTime();
-                        long bestEnd = optimal.getEnd().getTime();
+                    final int optimalIdx = lifetime.getLastIntervalIndexEndingBefore(currentTime);
+                    if (optimalIdx >= 0) {
+                        long bestStart = lifetime.getStartMillis(optimalIdx);
+                        long bestEnd = lifetime.getEndMillis(optimalIdx);
                         Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
+                        Object nextId = nextVertex.id();
 
                         if (target == TemporalPathTarget.LATEST_DEPARTURE) {
-                            long existing = gamma.getOrDefault(nextVertex.id(), -1L);
+                            long existing = gamma.getOrDefault(nextId, -1L);
                             if (bestStart > existing) {
-                                gamma.put(nextVertex.id(), bestStart);
-                                causalTime.put(nextVertex.id(), bestStart);
-                                queue.add(nextVertex);
+                                gamma.put(nextId, bestStart);
+                                causalTime.put(nextId, bestStart);
+                                if (inQueue.add(nextId)) {
+                                    queue.add(nextVertex);
+                                }
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         } else if (target == TemporalPathTarget.LATEST_ARRIVAL) {
-                            long existingMetric = gamma.getOrDefault(nextVertex.id(), -1L);
-                            long existingCausal = causalTime.getOrDefault(nextVertex.id(), -1L);
+                            long existingMetric = gamma.getOrDefault(nextId, -1L);
+                            long existingCausal = causalTime.getOrDefault(nextId, -1L);
                             if (bestEnd > existingMetric) {
-                                gamma.put(nextVertex.id(), bestEnd);
+                                gamma.put(nextId, bestEnd);
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                             if (bestStart > existingCausal) {
-                                causalTime.put(nextVertex.id(), bestStart);
-                                queue.add(nextVertex);
+                                causalTime.put(nextId, bestStart);
+                                if (inQueue.add(nextId)) {
+                                    queue.add(nextVertex);
+                                }
                                 if (!nextVertex.equals(source)) reachable.add(nextVertex);
                             }
                         }

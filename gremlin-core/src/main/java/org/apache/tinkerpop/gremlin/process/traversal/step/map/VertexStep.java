@@ -21,6 +21,7 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.map;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.Configuring;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Parameters;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.structure.Direction;
@@ -28,7 +29,9 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
+import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -47,12 +50,24 @@ public class VertexStep<E extends Element> extends FlatMapStep<Vertex, E> implem
     private final String[] edgeLabels;
     private Direction direction;
     private final Class<E> returnClass;
+    private List<AllenFilterStep> allenFilterSteps = null;
 
     public VertexStep(final Traversal.Admin traversal, final Class<E> returnClass, final Direction direction, final String... edgeLabels) {
         super(traversal);
         this.direction = direction;
         this.edgeLabels = edgeLabels;
         this.returnClass = returnClass;
+    }
+
+    public void addAllenFilterStep(final AllenFilterStep allenFilterStep) {
+        if (this.allenFilterSteps == null) {
+            this.allenFilterSteps = new ArrayList<>();
+        }
+        this.allenFilterSteps.add(allenFilterStep);
+    }
+
+    public List<AllenFilterStep> getAllenFilterSteps() {
+        return this.allenFilterSteps == null ? Collections.emptyList() : Collections.unmodifiableList(this.allenFilterSteps);
     }
 
     @Override
@@ -67,9 +82,20 @@ public class VertexStep<E extends Element> extends FlatMapStep<Vertex, E> implem
 
     @Override
     protected Iterator<E> flatMap(final Traverser.Admin<Vertex> traverser) {
-        return Vertex.class.isAssignableFrom(this.returnClass) ?
+        final Iterator<E> iterator = Vertex.class.isAssignableFrom(this.returnClass) ?
                 (Iterator<E>) traverser.get().vertices(this.direction, this.edgeLabels) :
                 (Iterator<E>) traverser.get().edges(this.direction, this.edgeLabels);
+        if (this.allenFilterSteps == null || this.allenFilterSteps.isEmpty()) {
+            return iterator;
+        }
+        return IteratorUtils.filter(iterator, element -> {
+            final int size = this.allenFilterSteps.size();
+            for (int i = 0; i < size; i++) {
+                if (!this.allenFilterSteps.get(i).filterElement(element))
+                    return false;
+            }
+            return true;
+        });
     }
 
     public Direction getDirection() {
@@ -98,7 +124,9 @@ public class VertexStep<E extends Element> extends FlatMapStep<Vertex, E> implem
 
     @Override
     public String toString() {
-        return StringFactory.stepString(this, this.direction, Arrays.asList(this.edgeLabels), this.returnClass.getSimpleName().toLowerCase());
+        return (this.allenFilterSteps == null || this.allenFilterSteps.isEmpty()) ?
+                StringFactory.stepString(this, this.direction, Arrays.asList(this.edgeLabels), this.returnClass.getSimpleName().toLowerCase()) :
+                StringFactory.stepString(this, this.direction, Arrays.asList(this.edgeLabels), this.returnClass.getSimpleName().toLowerCase(), this.allenFilterSteps);
     }
 
     @Override
@@ -112,12 +140,25 @@ public class VertexStep<E extends Element> extends FlatMapStep<Vertex, E> implem
                 result = 31 * result + Objects.hashCode(edgeLabel);
             }
         }
+        if (allenFilterSteps != null && !allenFilterSteps.isEmpty()) {
+            result = 31 * result + allenFilterSteps.hashCode();
+        }
         return result;
     }
 
     @Override
     public Set<TraverserRequirement> getRequirements() {
         return Collections.singleton(TraverserRequirement.OBJECT);
+    }
+
+    @Override
+    public VertexStep<E> clone() {
+        final VertexStep<E> clone = (VertexStep<E>) super.clone();
+        clone.parameters = this.parameters.clone();
+        if (this.allenFilterSteps != null) {
+            clone.allenFilterSteps = new ArrayList<>(this.allenFilterSteps);
+        }
+        return clone;
     }
 
     @Override

@@ -87,4 +87,58 @@ public class IntervalTreeTest {
         assertTrue(res2.contains("Event2"));
         assertFalse(res2.contains("Event1"));
     }
+
+    @Test
+    public void shouldSupportLigozatEndpointSearchMethods() {
+        IntervalTree<String> tree = new IntervalTree<>();
+        tree.put(50, 100, "E1");   // [50, 100)
+        tree.put(100, 200, "E2");  // [100, 200)
+        tree.put(150, 200, "E3");  // [150, 200)
+        tree.put(200, 300, "E4");  // [200, 300)
+        tree.put(300, 300, "P1");  // Point interval [300, 300]
+        tree.put(300, 450, "E5");  // [300, 450)
+        tree.put(400, 500, "E6");  // [400, 500)
+
+        // searchEndingBefore(200): end < 200 -> E1 (end=100)
+        Set<String> endingBefore200 = tree.searchEndingBefore(200);
+        assertEquals(1, endingBefore200.size());
+        assertTrue(endingBefore200.contains("E1"));
+
+        // searchEndingAtOrBefore(200): end <= 200 -> E1, E2, E3
+        Set<String> endingAtOrBefore200 = tree.searchEndingAtOrBefore(200);
+        assertEquals(3, endingAtOrBefore200.size());
+        assertTrue(endingAtOrBefore200.contains("E1"));
+        assertTrue(endingAtOrBefore200.contains("E2"));
+        assertTrue(endingAtOrBefore200.contains("E3"));
+
+        // searchByEndTime(200): end == 200 -> E2, E3
+        Set<String> endAt200 = tree.searchByEndTime(200);
+        assertEquals(2, endAt200.size());
+        assertTrue(endAt200.contains("E2"));
+        assertTrue(endAt200.contains("E3"));
+
+        // searchByEndTime(300): end == 300 -> E4, P1
+        Set<String> endAt300 = tree.searchByEndTime(300);
+        assertEquals(2, endAt300.size());
+        assertTrue(endAt300.contains("E4"));
+        assertTrue(endAt300.contains("P1"));
+
+        // searchStartingAfter(300): start > 300 -> E6 (start=400)
+        Set<String> startingAfter300 = tree.searchStartingAfter(300);
+        assertEquals(1, startingAfter300.size());
+        assertTrue(startingAfter300.contains("E6"));
+
+        // searchStartingAtOrAfter(300): start >= 300 -> P1, E5, E6
+        Set<String> startingAtOrAfter300 = tree.searchStartingAtOrAfter(300);
+        assertEquals(3, startingAtOrAfter300.size());
+        assertTrue(startingAtOrAfter300.contains("P1"));
+        assertTrue(startingAtOrAfter300.contains("E5"));
+        assertTrue(startingAtOrAfter300.contains("E6"));
+
+        // searchByStartTime(300): start == 300 -> P1, E5
+        Set<String> startAt300 = tree.searchByStartTime(300);
+        assertEquals(2, startAt300.size());
+        assertTrue(startAt300.contains("P1"));
+        assertTrue(startAt300.contains("E5"));
+    }
 }

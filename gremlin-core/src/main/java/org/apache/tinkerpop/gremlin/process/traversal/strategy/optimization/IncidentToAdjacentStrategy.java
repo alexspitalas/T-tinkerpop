@@ -90,7 +90,8 @@ public final class IncidentToAdjacentStrategy extends AbstractTraversalStrategy<
      * otherwise <code>false</code>
      */
     private static boolean isOptimizable(final Step step1, final Step step2) {
-        if (step1 instanceof VertexStep && ((VertexStep) step1).returnsEdge() && step1.getLabels().isEmpty()) {
+        if (step1 instanceof VertexStep && ((VertexStep) step1).returnsEdge() && step1.getLabels().isEmpty()
+                && ((VertexStep) step1).getAllenFilterSteps().isEmpty()) {
             final Direction step1Dir = ((VertexStep) step1).getDirection();
             if (step1Dir.equals(Direction.BOTH)) {
                 return step2 instanceof EdgeOtherVertexStep;

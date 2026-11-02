@@ -103,7 +103,7 @@ public final class AdjacentToIncidentStrategy extends AbstractTraversalStrategy<
      * @return <code>true</code> if the step is optimizable, otherwise <code>false</code>
      */
     private static boolean isOptimizable(final Step step) {
-        return ((step instanceof VertexStep && ((VertexStep) step).returnsVertex()) ||
+        return ((step instanceof VertexStep && ((VertexStep) step).returnsVertex() && ((VertexStep) step).getAllenFilterSteps().isEmpty()) ||
                 (step instanceof PropertiesStep && PropertyType.VALUE.equals(((PropertiesStep) step).getReturnType()))) && (step.getTraversal().getEndStep().getLabels().isEmpty() || step.getNextStep() instanceof CountGlobalStep);
     }
 

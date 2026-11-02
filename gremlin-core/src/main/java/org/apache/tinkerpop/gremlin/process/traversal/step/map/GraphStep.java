@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.Configuring;
 import org.apache.tinkerpop.gremlin.process.traversal.step.GraphComputing;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.AbstractStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.HasContainer;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Parameters;
@@ -38,10 +39,12 @@ import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.iterator.EmptyIterator;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -57,6 +60,7 @@ public class GraphStep<S, E extends Element> extends AbstractStep<S, E> implemen
     protected transient Supplier<Iterator<E>> iteratorSupplier;
     protected boolean isStart;
     protected boolean done = false;
+    protected List<AllenFilterStep> allenFilterSteps = new ArrayList<>();
     private Traverser.Admin<S> head = null;
     private Iterator<E> iterator = EmptyIterator.instance();
 
@@ -72,7 +76,9 @@ public class GraphStep<S, E extends Element> extends AbstractStep<S, E> implemen
     }
 
     public String toString() {
-        return StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), Arrays.toString(this.ids));
+        return this.allenFilterSteps.isEmpty() ?
+                StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), Arrays.toString(this.ids)) :
+                StringFactory.stepString(this, this.returnClass.getSimpleName().toLowerCase(), Arrays.toString(this.ids), this.allenFilterSteps);
     }
 
     @Override
@@ -144,11 +150,30 @@ public class GraphStep<S, E extends Element> extends AbstractStep<S, E> implemen
         }
     }
 
+    public void addAllenFilterStep(final AllenFilterStep allenFilterStep) {
+        this.allenFilterSteps.add(allenFilterStep);
+    }
+
+    public List<AllenFilterStep> getAllenFilterSteps() {
+        return Collections.unmodifiableList(this.allenFilterSteps);
+    }
+
+    /**
+     * Subclasses that already apply {@link #allenFilterSteps} inside their underlying iterator supplier
+     * (such as {@code TinkerGraphStep}) can override this to return {@code true} to avoid redundant evaluation.
+     */
+    protected boolean isAllenFilteredByIterator() {
+        return false;
+    }
+
     @Override
     protected Traverser.Admin<E> processNextStart() {
         while (true) {
             if (this.iterator.hasNext()) {
-                return this.isStart ? this.getTraversal().getTraverserGenerator().generate(this.iterator.next(), (Step) this, 1l) : this.head.split(this.iterator.next(), this);
+                final E next = this.iterator.next();
+                if (isAllenFilteredByIterator() || testAllAllen(next, this.allenFilterSteps)) {
+                    return this.isStart ? this.getTraversal().getTraverserGenerator().generate(next, (Step) this, 1l) : this.head.split(next, this);
+                }
             } else {
                 if (this.isStart) {
                     if (this.done)
@@ -163,6 +188,23 @@ public class GraphStep<S, E extends Element> extends AbstractStep<S, E> implemen
                 }
             }
         }
+    }
+
+    protected static boolean testAllAllen(final Object element, final List<AllenFilterStep> allenSteps) {
+        final int size = allenSteps.size();
+        for (int i = 0; i < size; i++) {
+            if (!allenSteps.get(i).filterElement(element))
+                return false;
+        }
+        return true;
+    }
+
+    @Override
+    public GraphStep<S, E> clone() {
+        final GraphStep<S, E> clone = (GraphStep<S, E>) super.clone();
+        clone.parameters = this.parameters.clone();
+        clone.allenFilterSteps = new ArrayList<>(this.allenFilterSteps);
+        return clone;
     }
 
     @Override
@@ -180,6 +222,9 @@ public class GraphStep<S, E extends Element> extends AbstractStep<S, E> implemen
             for (Object id : ids) {
                 result = 31 * result + Objects.hashCode(id);
             }
+        }
+        if (allenFilterSteps != null && !allenFilterSteps.isEmpty()) {
+            result = 31 * result + allenFilterSteps.hashCode();
         }
         return result;
     }

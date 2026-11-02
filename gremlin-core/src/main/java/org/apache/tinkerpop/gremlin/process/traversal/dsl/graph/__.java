@@ -1675,6 +1675,10 @@ public class __ {
         return __.<A>start().temporalBefore(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalBefore(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalBefore(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal AFTER filter.
      *
@@ -1688,6 +1692,10 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalAfter(final Lifetime referenceLifetime) {
         return __.<A>start().temporalAfter(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalAfter(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalAfter(referenceInterval);
     }
 
     /**
@@ -1705,6 +1713,10 @@ public class __ {
         return __.<A>start().temporalMeets(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalMeets(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalMeets(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal MET BY filter.
      *
@@ -1718,6 +1730,10 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalMetBy(final Lifetime referenceLifetime) {
         return __.<A>start().temporalMetBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalMetBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalMetBy(referenceInterval);
     }
 
     /**
@@ -1735,6 +1751,10 @@ public class __ {
         return __.<A>start().temporalOverlaps(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalOverlaps(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalOverlaps(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal OVERLAPPED BY filter.
      *
@@ -1748,6 +1768,10 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Lifetime referenceLifetime) {
         return __.<A>start().temporalOverlappedBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalOverlappedBy(referenceInterval);
     }
 
     /**
@@ -1765,6 +1789,10 @@ public class __ {
         return __.<A>start().temporalStarts(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalStarts(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalStarts(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal STARTED BY filter.
      *
@@ -1778,6 +1806,10 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalStartedBy(final Lifetime referenceLifetime) {
         return __.<A>start().temporalStartedBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalStartedBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalStartedBy(referenceInterval);
     }
 
     /**
@@ -1795,6 +1827,10 @@ public class __ {
         return __.<A>start().temporalFinishes(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalFinishes(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalFinishes(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal FINISHED BY filter.
      *
@@ -1808,6 +1844,10 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalFinishedBy(final Lifetime referenceLifetime) {
         return __.<A>start().temporalFinishedBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalFinishedBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalFinishedBy(referenceInterval);
     }
 
     /**
@@ -1825,6 +1865,10 @@ public class __ {
         return __.<A>start().temporalDuring(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalDuring(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalDuring(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal CONTAINS filter.
      *
@@ -1838,6 +1882,10 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalContains(final Lifetime referenceLifetime) {
         return __.<A>start().temporalContains(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalContains(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalContains(referenceInterval);
     }
 
     /**
@@ -1855,6 +1903,10 @@ public class __ {
         return __.<A>start().temporalEquals(referenceLifetime);
     }
 
+    public static <A> GraphTraversal<A, A> temporalEquals(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalEquals(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal INTERSECTS filter.
      *
@@ -1868,6 +1920,22 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalIntersects(final Lifetime referenceLifetime) {
         return __.<A>start().temporalIntersects(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalIntersects(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalIntersects(referenceInterval);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDisjoint(final Element referenceElement) {
+        return __.<A>start().temporalDisjoint(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDisjoint(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalDisjoint(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDisjoint(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalDisjoint(referenceInterval);
     }
 
 }

@@ -95,6 +95,159 @@ public class IntervalTree<T> {
     }
 
     /**
+     * Searches for all elements whose interval ends strictly before {@code boundary} ({@code end < boundary}).
+     */
+    public Set<T> searchEndingBefore(final long boundary) {
+        final Set<T> result = new HashSet<>();
+        lock.readLock().lock();
+        try {
+            searchEndingBefore(root, boundary, result);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return result;
+    }
+
+    /**
+     * Searches for all elements whose interval ends at or before {@code boundary} ({@code end <= boundary}).
+     */
+    public Set<T> searchEndingAtOrBefore(final long boundary) {
+        final Set<T> result = new HashSet<>();
+        lock.readLock().lock();
+        try {
+            searchEndingAtOrBefore(root, boundary, result);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return result;
+    }
+
+    /**
+     * Searches for all elements whose interval ends exactly at {@code exactEnd} ({@code end == exactEnd}).
+     */
+    public Set<T> searchByEndTime(final long exactEnd) {
+        final Set<T> result = new HashSet<>();
+        lock.readLock().lock();
+        try {
+            searchByEndTime(root, exactEnd, result);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return result;
+    }
+
+    /**
+     * Searches for all elements whose interval starts strictly after {@code boundary} ({@code start > boundary}).
+     */
+    public Set<T> searchStartingAfter(final long boundary) {
+        final Set<T> result = new HashSet<>();
+        lock.readLock().lock();
+        try {
+            searchStartingAfter(root, boundary, result);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return result;
+    }
+
+    /**
+     * Searches for all elements whose interval starts at or after {@code boundary} ({@code start >= boundary}).
+     */
+    public Set<T> searchStartingAtOrAfter(final long boundary) {
+        final Set<T> result = new HashSet<>();
+        lock.readLock().lock();
+        try {
+            searchStartingAtOrAfter(root, boundary, result);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return result;
+    }
+
+    /**
+     * Searches for all elements whose interval starts exactly at {@code exactStart} ({@code start == exactStart}).
+     */
+    public Set<T> searchByStartTime(final long exactStart) {
+        final Set<T> result = new HashSet<>();
+        lock.readLock().lock();
+        try {
+            searchByStartTime(root, exactStart, result);
+        } finally {
+            lock.readLock().unlock();
+        }
+        return result;
+    }
+
+    private void searchEndingBefore(final Node node, final long boundary, final Set<T> result) {
+        if (node == null) return;
+        searchEndingBefore(node.left, boundary, result);
+        if (node.end < boundary) {
+            result.addAll(node.values);
+        }
+        // Any interval with end < boundary also has start <= end < boundary
+        if (node.start < boundary) {
+            searchEndingBefore(node.right, boundary, result);
+        }
+    }
+
+    private void searchEndingAtOrBefore(final Node node, final long boundary, final Set<T> result) {
+        if (node == null) return;
+        searchEndingAtOrBefore(node.left, boundary, result);
+        if (node.end <= boundary) {
+            result.addAll(node.values);
+        }
+        if (node.start <= boundary) {
+            searchEndingAtOrBefore(node.right, boundary, result);
+        }
+    }
+
+    private void searchByEndTime(final Node node, final long exactEnd, final Set<T> result) {
+        if (node == null || node.maxEnd < exactEnd) return;
+        searchByEndTime(node.left, exactEnd, result);
+        if (node.end == exactEnd) {
+            result.addAll(node.values);
+        }
+        if (node.start <= exactEnd) {
+            searchByEndTime(node.right, exactEnd, result);
+        }
+    }
+
+    private void searchStartingAfter(final Node node, final long boundary, final Set<T> result) {
+        if (node == null) return;
+        if (node.start > boundary) {
+            searchStartingAfter(node.left, boundary, result);
+            result.addAll(node.values);
+            searchStartingAfter(node.right, boundary, result);
+        } else {
+            searchStartingAfter(node.right, boundary, result);
+        }
+    }
+
+    private void searchStartingAtOrAfter(final Node node, final long boundary, final Set<T> result) {
+        if (node == null) return;
+        if (node.start >= boundary) {
+            searchStartingAtOrAfter(node.left, boundary, result);
+            result.addAll(node.values);
+            searchStartingAtOrAfter(node.right, boundary, result);
+        } else {
+            searchStartingAtOrAfter(node.right, boundary, result);
+        }
+    }
+
+    private void searchByStartTime(final Node node, final long exactStart, final Set<T> result) {
+        if (node == null) return;
+        if (exactStart < node.start) {
+            searchByStartTime(node.left, exactStart, result);
+        } else if (exactStart > node.start) {
+            searchByStartTime(node.right, exactStart, result);
+        } else {
+            searchByStartTime(node.left, exactStart, result);
+            result.addAll(node.values);
+            searchByStartTime(node.right, exactStart, result);
+        }
+    }
+
+    /**
      * The height of the tree, 0 when empty. Mainly useful to verify that the tree stays balanced.
      */
     int height() {

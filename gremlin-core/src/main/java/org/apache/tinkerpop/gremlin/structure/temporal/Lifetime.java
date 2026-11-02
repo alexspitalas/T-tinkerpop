@@ -33,6 +33,7 @@ import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
 import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -55,139 +56,273 @@ public final class Lifetime implements Serializable {
     public static final String MIN_START_TIME = "-292275055-05-16T16:47:04.192Z";
     public static final Date MIN_DATE = toDate(MIN_START_TIME, "Start time");
     public static final Date MAX_DATE = toDate(MAX_END_TIME, "End time");
-    public static final Lifetime UNBOUNDED = new Lifetime(MIN_DATE, MAX_DATE);
-    public static final Lifetime EMPTY = new Lifetime(Collections.emptyList());
+    public static final long MIN_MILLIS = MIN_DATE.getTime();
+    public static final long MAX_MILLIS = MAX_DATE.getTime();
+    private static final long[] EMPTY_RAW = new long[0];
+    public static final Lifetime UNBOUNDED = new Lifetime(new long[]{MIN_MILLIS, MAX_MILLIS}, true);
+    public static final Lifetime EMPTY = new Lifetime(EMPTY_RAW, true);
 
     public static Lifetime empty() {
         return EMPTY;
     }
 
     public static class Interval implements Serializable, Comparable<Interval> {
-        private final Date start;
-        private final Date end;
+        private static final long serialVersionUID = 1L;
+        private final long startMillis;
+        private final long endMillis;
 
         public Interval(final Date start, final Date end) {
-            this.start = new Date(Objects.requireNonNull(start, "start cannot be null").getTime());
-            this.end = new Date(Objects.requireNonNull(end, "end cannot be null").getTime());
-            if (this.end.before(this.start))
+            this(Objects.requireNonNull(start, "start cannot be null").getTime(),
+                 Objects.requireNonNull(end, "end cannot be null").getTime());
+        }
+
+        public Interval(final long startMillis, final long endMillis) {
+            if (endMillis < startMillis)
                 throw new IllegalArgumentException("End time must not be before start time");
+            this.startMillis = startMillis;
+            this.endMillis = endMillis;
         }
 
-        public Date getStart() { return new Date(start.getTime()); }
-        public Date getEnd() { return new Date(end.getTime()); }
+        public Date getStart() { return new Date(startMillis); }
+        public Date getEnd() { return new Date(endMillis); }
+        public long getStartMillis() { return startMillis; }
+        public long getEndMillis() { return endMillis; }
 
-        public boolean contains(Date instant) {
+        public boolean contains(final Date instant) {
             if (instant == null) return false;
-            if (this.start.equals(this.end)) return this.start.equals(instant);
-            return !instant.before(start) && instant.before(end); // start <= t < end
+            return contains(instant.getTime());
         }
 
-        public boolean contains(Interval other) {
+        public boolean contains(final long instantMillis) {
+            return containsInstant(this.startMillis, this.endMillis, instantMillis);
+        }
+
+        public boolean contains(final Interval other) {
             if (other == null) return false;
-            if (other.start.equals(other.end)) {
-                return this.contains(other.start);
-            }
-            if (this.start.equals(this.end)) {
-                return false;
-            }
-            return !this.start.after(other.start) && !this.end.before(other.end);
+            return containsRange(this.startMillis, this.endMillis, other.startMillis, other.endMillis);
         }
 
-        public boolean intersects(Interval other) {
+        public boolean intersects(final Interval other) {
             if (other == null) return false;
-            if (this.start.equals(this.end)) {
-                if (other.start.equals(other.end)) return this.start.equals(other.start);
-                return !other.start.after(this.start) && this.start.before(other.end);
-            }
-            if (other.start.equals(other.end)) {
-                return !this.start.after(other.start) && other.start.before(this.end);
-            }
-            return this.start.before(other.end) && other.start.before(this.end);
+            return intersectsRange(this.startMillis, this.endMillis, other.startMillis, other.endMillis);
         }
 
-        public Interval intersection(Interval other) {
+        public Interval intersection(final Interval other) {
             if (!intersects(other)) return null;
-            Date maxStart = this.start.after(other.start) ? this.start : other.start;
-            Date minEnd = this.end.before(other.end) ? this.end : other.end;
+            final long maxStart = Math.max(this.startMillis, other.startMillis);
+            final long minEnd = Math.min(this.endMillis, other.endMillis);
             return new Interval(maxStart, minEnd);
         }
 
         @Override
-        public int compareTo(Interval other) {
-            int c = this.start.compareTo(other.start);
+        public int compareTo(final Interval other) {
+            final int c = Long.compare(this.startMillis, other.startMillis);
             if (c != 0) return c;
-            return this.end.compareTo(other.end);
+            return Long.compare(this.endMillis, other.endMillis);
         }
 
         @Override
-        public boolean equals(Object o) {
+        public boolean equals(final Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            Interval interval = (Interval) o;
-            return start.equals(interval.start) && end.equals(interval.end);
+            final Interval interval = (Interval) o;
+            return startMillis == interval.startMillis && endMillis == interval.endMillis;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(start, end);
+            return 31 * Long.hashCode(startMillis) + Long.hashCode(endMillis);
         }
     }
 
-    private final List<Interval> intervals;
+    private final long[] rawIntervals;
+    private transient List<Interval> intervals;
 
-    private Lifetime(List<Interval> intervals) {
-        this.intervals = Collections.unmodifiableList(normalize(intervals));
+    private Lifetime(final long[] rawIntervals, final boolean normalized) {
+        this.rawIntervals = normalized ? rawIntervals : normalizeRaw(rawIntervals);
+    }
+
+    private Lifetime(final List<Interval> intervals) {
+        if (intervals == null || intervals.isEmpty()) {
+            this.rawIntervals = EMPTY_RAW;
+        } else {
+            final int n = intervals.size();
+            final long[] raw = new long[n << 1];
+            for (int i = 0; i < n; i++) {
+                final Interval iv = Objects.requireNonNull(intervals.get(i), "Interval cannot be null");
+                raw[i << 1] = iv.startMillis;
+                raw[(i << 1) + 1] = iv.endMillis;
+            }
+            this.rawIntervals = normalizeRaw(raw);
+        }
     }
 
     private Lifetime(final Date startDate, final Date endDate) {
-        this(Collections.singletonList(new Interval(startDate, endDate)));
+        this(Objects.requireNonNull(startDate, "start cannot be null").getTime(),
+             Objects.requireNonNull(endDate, "end cannot be null").getTime());
     }
 
-    private static List<Interval> normalize(List<Interval> input) {
-        if (input == null || input.isEmpty()) return Collections.emptyList();
-        List<Interval> sorted = new ArrayList<>(input);
-        Collections.sort(sorted);
+    private Lifetime(final long startMillis, final long endMillis) {
+        if (endMillis < startMillis)
+            throw new IllegalArgumentException("End time must not be before start time");
+        this.rawIntervals = new long[]{startMillis, endMillis};
+    }
 
-        List<Interval> merged = new ArrayList<>();
-        Interval current = sorted.get(0);
-        for (int i = 1; i < sorted.size(); i++) {
-            Interval next = sorted.get(i);
-            if (canMerge(current, next)) {
-                Date maxEnd = current.getEnd().after(next.getEnd()) ? current.getEnd() : next.getEnd();
-                current = new Interval(current.getStart(), maxEnd);
-                if (!merged.isEmpty() && canMerge(merged.get(merged.size() - 1), current)) {
-                    Interval prev = merged.remove(merged.size() - 1);
-                    Date prevMaxEnd = prev.getEnd().after(current.getEnd()) ? prev.getEnd() : current.getEnd();
-                    current = new Interval(prev.getStart(), prevMaxEnd);
+    private static boolean containsInstant(final long startMillis, final long endMillis, final long instantMillis) {
+        if (startMillis == endMillis) return startMillis == instantMillis;
+        return instantMillis >= startMillis && instantMillis < endMillis;
+    }
+
+    private static boolean containsRange(final long startA, final long endA, final long startB, final long endB) {
+        if (startB == endB) {
+            return containsInstant(startA, endA, startB);
+        }
+        if (startA == endA) {
+            return false;
+        }
+        return startA <= startB && endA >= endB;
+    }
+
+    private static boolean intersectsRange(final long startA, final long endA, final long startB, final long endB) {
+        if (startA == endA) {
+            if (startB == endB) return startA == startB;
+            return startB <= startA && startA < endB;
+        }
+        if (startB == endB) {
+            return startA <= startB && startB < endA;
+        }
+        return startA < endB && startB < endA;
+    }
+
+    private static long[] normalizeRaw(final long[] input) {
+        if (input == null || input.length == 0) return EMPTY_RAW;
+        final int n = input.length >>> 1;
+        if (n == 1) {
+            if (input[1] < input[0])
+                throw new IllegalArgumentException("End time must not be before start time");
+            return input;
+        }
+
+        // Fast check: see if input is already sorted and normalized
+        boolean alreadyNormalized = true;
+        for (int i = 0; i < n; i++) {
+            final long s = input[i << 1];
+            final long e = input[(i << 1) + 1];
+            if (e < s)
+                throw new IllegalArgumentException("End time must not be before start time");
+            if (i > 0) {
+                final long prevS = input[(i - 1) << 1];
+                final long prevE = input[((i - 1) << 1) + 1];
+                if (s < prevS || (s == prevS && e < prevE) || canMergeRange(prevS, prevE, s, e)) {
+                    alreadyNormalized = false;
+                    break;
                 }
-            } else {
-                merged.add(current);
-                current = next;
             }
         }
-        merged.add(current);
-        return merged;
+        if (alreadyNormalized) {
+            return input;
+        }
+
+        // Sort intervals by (start, end)
+        final long[] sorted = input.clone();
+        sortIntervalPairs(sorted, n);
+
+        final long[] merged = new long[n << 1];
+        int mergedCount = 0;
+        long curStart = sorted[0];
+        long curEnd = sorted[1];
+
+        for (int i = 1; i < n; i++) {
+            final long nextStart = sorted[i << 1];
+            final long nextEnd = sorted[(i << 1) + 1];
+            if (canMergeRange(curStart, curEnd, nextStart, nextEnd)) {
+                curEnd = Math.max(curEnd, nextEnd);
+                if (mergedCount > 0) {
+                    final int prevIdx = (mergedCount - 1) << 1;
+                    final long prevStart = merged[prevIdx];
+                    final long prevEnd = merged[prevIdx + 1];
+                    if (canMergeRange(prevStart, prevEnd, curStart, curEnd)) {
+                        mergedCount--;
+                        curStart = prevStart;
+                        curEnd = Math.max(prevEnd, curEnd);
+                    }
+                }
+            } else {
+                final int idx = mergedCount << 1;
+                merged[idx] = curStart;
+                merged[idx + 1] = curEnd;
+                mergedCount++;
+                curStart = nextStart;
+                curEnd = nextEnd;
+            }
+        }
+        final int idx = mergedCount << 1;
+        merged[idx] = curStart;
+        merged[idx + 1] = curEnd;
+        mergedCount++;
+
+        return mergedCount == n ? merged : Arrays.copyOf(merged, mergedCount << 1);
     }
 
-    private static boolean canMerge(final Interval left, final Interval right) {
-        if (left.getEnd().before(right.getStart()))
+    private static void sortIntervalPairs(final long[] pairs, final int n) {
+        // Insertion sort for small arrays, Dual-Pivot-like quicksort/shellsort for larger arrays
+        for (int gap = n >>> 1; gap > 0; gap >>>= 1) {
+            for (int i = gap; i < n; i++) {
+                final long tempStart = pairs[i << 1];
+                final long tempEnd = pairs[(i << 1) + 1];
+                int j = i;
+                while (j >= gap) {
+                    final int prevIdx = (j - gap) << 1;
+                    final long prevStart = pairs[prevIdx];
+                    final long prevEnd = pairs[prevIdx + 1];
+                    if (prevStart > tempStart || (prevStart == tempStart && prevEnd > tempEnd)) {
+                        pairs[j << 1] = prevStart;
+                        pairs[(j << 1) + 1] = prevEnd;
+                        j -= gap;
+                    } else {
+                        break;
+                    }
+                }
+                pairs[j << 1] = tempStart;
+                pairs[(j << 1) + 1] = tempEnd;
+            }
+        }
+    }
+
+    private static boolean canMergeRange(final long leftStart, final long leftEnd, final long rightStart, final long rightEnd) {
+        if (leftEnd < rightStart)
             return false;
-        boolean leftIsHalfOpen = !left.getStart().equals(left.getEnd());
-        boolean rightIsPoint = right.getStart().equals(right.getEnd());
-        return !(leftIsHalfOpen && rightIsPoint && left.getEnd().equals(right.getStart()));
+        final boolean leftIsHalfOpen = leftStart != leftEnd;
+        final boolean rightIsPoint = rightStart == rightEnd;
+        return !(leftIsHalfOpen && rightIsPoint && leftEnd == rightStart);
     }
 
     public static Lifetime from(final Object startDate, final Object endDate) {
         if (startDate == null && endDate == null)
             return UNBOUNDED;
-        return new Lifetime(toStartDate(startDate), toEndDate(endDate));
+        final long startMs = toStartMillis(startDate);
+        final long endMs = toEndMillis(endDate);
+        if (endMs < startMs)
+            throw new IllegalArgumentException("End time must not be before start time");
+        if (startMs <= MIN_MILLIS && endMs >= MAX_MILLIS)
+            return UNBOUNDED;
+        return new Lifetime(startMs, endMs);
     }
 
-    public static Lifetime from(List<Interval> intervals) {
+    public static Lifetime from(final List<Interval> intervals) {
         if (intervals.isEmpty())
             return EMPTY;
         final Lifetime lt = new Lifetime(intervals);
-        return lt.isUnbounded() ? UNBOUNDED : lt;
+        return lt.isEmpty() ? EMPTY : (lt.isUnbounded() ? UNBOUNDED : lt);
+    }
+
+    public static Lifetime fromRawIntervals(final long[] rawIntervals) {
+        if (rawIntervals == null || rawIntervals.length == 0)
+            return EMPTY;
+        if ((rawIntervals.length & 1) != 0)
+            throw new IllegalArgumentException("rawIntervals length must be even");
+        final Lifetime lt = new Lifetime(rawIntervals.clone(), false);
+        return lt.isEmpty() ? EMPTY : (lt.isUnbounded() ? UNBOUNDED : lt);
     }
 
     public static Lifetime fromProperties(final Element element) {
@@ -230,9 +365,11 @@ public final class Lifetime implements Serializable {
     }
 
     private static Lifetime fromTemporalIntervalsString(final String value) {
-        final List<Interval> parsedIntervals = new ArrayList<>();
         final String[] components = value.split(",", -1);
-        for (String component : components) {
+        final int n = components.length;
+        final long[] raw = new long[n << 1];
+        for (int i = 0; i < n; i++) {
+            final String component = components[i];
             final int colon = component.indexOf(':');
             if (colon <= 0 || colon != component.lastIndexOf(':') || colon == component.length() - 1) {
                 throw invalidTemporalIntervals(value, component);
@@ -257,9 +394,10 @@ public final class Lifetime implements Serializable {
                 throw new IllegalArgumentException(
                         "Invalid temporalIntervals component '" + component + "' (end before start) in value '" + value + "'");
             }
-            parsedIntervals.add(new Interval(new Date(start), new Date(end)));
+            raw[i << 1] = start;
+            raw[(i << 1) + 1] = end;
         }
-        final Lifetime lt = new Lifetime(parsedIntervals);
+        final Lifetime lt = new Lifetime(raw, false);
         return lt.isUnbounded() ? UNBOUNDED : lt;
     }
 
@@ -284,11 +422,12 @@ public final class Lifetime implements Serializable {
     }
 
     public String toTemporalIntervalsString() {
-        StringBuilder sb = new StringBuilder();
-        for (int i=0; i<intervals.size(); i++) {
-            Interval iv = intervals.get(i);
-            sb.append(iv.getStart().getTime()).append(":").append(iv.getEnd().getTime());
-            if (i < intervals.size() - 1) sb.append(",");
+        final int count = rawIntervals.length >>> 1;
+        if (count == 0) return "";
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            sb.append(rawIntervals[i << 1]).append(':').append(rawIntervals[(i << 1) + 1]);
+            if (i < count - 1) sb.append(',');
         }
         return sb.toString();
     }
@@ -303,6 +442,12 @@ public final class Lifetime implements Serializable {
     }
 
     public static Lifetime getLifetimeFromProperties(final Element element) {
+        if (element instanceof TemporalElement &&
+                !(element instanceof WrappedEdge || element instanceof WrappedVertex || element instanceof WrappedVertexProperty)) {
+            final Lifetime cached = ((TemporalElement) element).getLifetime();
+            if (cached != null)
+                return cached;
+        }
         return fromProperties(unwrapElement(element));
     }
 
@@ -357,7 +502,7 @@ public final class Lifetime implements Serializable {
     }
 
     public Object[] toProperties() {
-        if (intervals.isEmpty() || isUnbounded()) return new Object[0];
+        if (rawIntervals.length == 0 || isUnbounded()) return new Object[0];
         return new Object[] {
                 START_TIME, getStartDate(),
                 END_TIME, getEndDate(),
@@ -367,7 +512,7 @@ public final class Lifetime implements Serializable {
 
     public Map<String, Object> toPropertyMap() {
         final Map<String, Object> properties = new LinkedHashMap<>();
-        if (!intervals.isEmpty() && !isUnbounded()) {
+        if (rawIntervals.length != 0 && !isUnbounded()) {
             properties.put(START_TIME, getStartDate());
             properties.put(END_TIME, getEndDate());
             properties.put(TEMPORAL_INTERVALS, toTemporalIntervalsString());
@@ -376,7 +521,7 @@ public final class Lifetime implements Serializable {
     }
 
     public void attachTo(final Element element) {
-        if (intervals.isEmpty()) {
+        if (rawIntervals.length == 0) {
             propertyOrEmpty(element, START_TIME).remove();
             propertyOrEmpty(element, END_TIME).remove();
             propertyOrEmpty(element, TEMPORAL_INTERVALS).remove();
@@ -400,85 +545,198 @@ public final class Lifetime implements Serializable {
         }
     }
 
-    public Lifetime addInterval(Object start, Object end) {
-        List<Interval> newIntervals = new ArrayList<>(this.intervals);
-        newIntervals.add(new Interval(toStartDate(start), toEndDate(end)));
-        return from(newIntervals);
+    public Lifetime addInterval(final Object start, final Object end) {
+        return addInterval(toStartMillis(start), toEndMillis(end));
     }
 
-    public Lifetime dropInterval(Object start, Object end) {
-        Interval drop = new Interval(toStartDate(start), toEndDate(end));
-        List<Interval> newIntervals = new ArrayList<>();
-        for (Interval current : this.intervals) {
-            if (current.intersects(drop)) {
-                if (current.getStart().before(drop.getStart())) {
-                    newIntervals.add(new Interval(current.getStart(), drop.getStart()));
+    public Lifetime addInterval(final long s, final long e) {
+        if (e < s)
+            throw new IllegalArgumentException("End time must not be before start time");
+        final int n = rawIntervals.length >>> 1;
+        if (n == 0)
+            return from(s, e);
+        final long lastS = rawIntervals[(n - 1) << 1];
+        final long lastE = rawIntervals[((n - 1) << 1) + 1];
+        if (s > lastS && !canMergeRange(lastS, lastE, s, e)) {
+            final long[] newRaw = Arrays.copyOf(rawIntervals, (n + 1) << 1);
+            newRaw[n << 1] = s;
+            newRaw[(n << 1) + 1] = e;
+            return new Lifetime(newRaw, true);
+        }
+        if (s >= lastS && lastS != lastE && canMergeRange(lastS, lastE, s, e)) {
+            if (e <= lastE)
+                return this;
+            final long[] newRaw = rawIntervals.clone();
+            newRaw[((n - 1) << 1) + 1] = e;
+            return (newRaw.length == 2 && newRaw[0] <= MIN_MILLIS && newRaw[1] >= MAX_MILLIS)
+                    ? UNBOUNDED
+                    : new Lifetime(newRaw, true);
+        }
+        final long[] newRaw = Arrays.copyOf(rawIntervals, (n + 1) << 1);
+        newRaw[n << 1] = s;
+        newRaw[(n << 1) + 1] = e;
+        final Lifetime lt = new Lifetime(newRaw, false);
+        return lt.isUnbounded() ? UNBOUNDED : lt;
+    }
+
+    public Lifetime dropInterval(final Object start, final Object end) {
+        return dropInterval(toStartMillis(start), toEndMillis(end));
+    }
+
+    public Lifetime dropInterval(final long dropStart, final long dropEnd) {
+        if (dropEnd < dropStart)
+            throw new IllegalArgumentException("End time must not be before start time");
+        final int n = rawIntervals.length >>> 1;
+        final long[] temp = new long[(n + 1) << 1];
+        int count = 0;
+        for (int i = 0; i < n; i++) {
+            final long curStart = rawIntervals[i << 1];
+            final long curEnd = rawIntervals[(i << 1) + 1];
+            if (intersectsRange(curStart, curEnd, dropStart, dropEnd)) {
+                if (curStart < dropStart) {
+                    final int idx = count << 1;
+                    temp[idx] = curStart;
+                    temp[idx + 1] = dropStart;
+                    count++;
                 }
-                if (current.getEnd().after(drop.getEnd())) {
-                    newIntervals.add(new Interval(drop.getEnd(), current.getEnd()));
+                if (curEnd > dropEnd) {
+                    final int idx = count << 1;
+                    temp[idx] = dropEnd;
+                    temp[idx + 1] = curEnd;
+                    count++;
                 }
             } else {
-                newIntervals.add(current);
+                final int idx = count << 1;
+                temp[idx] = curStart;
+                temp[idx + 1] = curEnd;
+                count++;
             }
         }
-        return from(newIntervals);
+        if (count == 0) return EMPTY;
+        return new Lifetime(Arrays.copyOf(temp, count << 1), false);
     }
 
-    public Lifetime intersection(Lifetime window) {
+    public Lifetime intersection(final Lifetime window) {
         if (window == null || this.isEmpty() || window.isEmpty()) return EMPTY;
         if (this.isUnbounded()) return window;
         if (window.isUnbounded()) return this;
-        List<Interval> result = new ArrayList<>();
-        for (Interval myInt : this.intervals) {
-            for (Interval winInt : window.intervals) {
-                Interval intersect = myInt.intersection(winInt);
-                if (intersect != null) {
-                    result.add(intersect);
-                }
+
+        final long[] a = this.rawIntervals;
+        final long[] b = window.rawIntervals;
+        final int na = a.length >>> 1;
+        final int nb = b.length >>> 1;
+
+        int i = 0, j = 0;
+        final long[] temp = new long[(na + nb) << 1];
+        int count = 0;
+
+        while (i < na && j < nb) {
+            final long s1 = a[i << 1];
+            final long e1 = a[(i << 1) + 1];
+            final long s2 = b[j << 1];
+            final long e2 = b[(j << 1) + 1];
+
+            if (intersectsRange(s1, e1, s2, e2)) {
+                final long maxStart = Math.max(s1, s2);
+                final long minEnd = Math.min(e1, e2);
+                final int idx = count << 1;
+                temp[idx] = maxStart;
+                temp[idx + 1] = minEnd;
+                count++;
+            }
+
+            if (e1 < e2) {
+                i++;
+            } else if (e2 < e1) {
+                j++;
+            } else {
+                i++;
+                j++;
             }
         }
-        return from(result);
+
+        if (count == 0) return EMPTY;
+        final long[] res = (count == temp.length >>> 1) ? temp : Arrays.copyOf(temp, count << 1);
+        final Lifetime lt = new Lifetime(res, false);
+        return lt.isEmpty() ? EMPTY : (lt.isUnbounded() ? UNBOUNDED : lt);
     }
 
-    public boolean contains(Date instant) {
-        if (instant == null || intervals.isEmpty()) return false;
-        if (instant.before(getStartDate()) || instant.after(getEndDate())) return false;
-        for (Interval interval : intervals) {
-            if (interval.contains(instant)) return true;
-            if (interval.getStart().after(instant)) break;
+    public boolean contains(final Date instant) {
+        if (instant == null || rawIntervals.length == 0) return false;
+        return contains(instant.getTime());
+    }
+
+    public boolean contains(final long instantMillis) {
+        if (rawIntervals.length == 0) return false;
+        final long start = rawIntervals[0];
+        final long end = rawIntervals[rawIntervals.length - 1];
+        if (instantMillis < start || instantMillis > end) return false;
+        final int n = rawIntervals.length >>> 1;
+        for (int i = 0; i < n; i++) {
+            final long s = rawIntervals[i << 1];
+            final long e = rawIntervals[(i << 1) + 1];
+            if (containsInstant(s, e, instantMillis)) return true;
+            if (s > instantMillis) break;
         }
         return false;
     }
 
-    public boolean intersects(Lifetime window) {
-        if (window == null) return false;
-        if (this.isEmpty() || window.isEmpty()) return false;
-        if (this.isUnbounded() || window.isUnbounded()) return true;
-        
-        // Fast path on outer bounds
-        if (this.getStartDate().after(window.getEndDate()) || this.getEndDate().before(window.getStartDate())) return false;
-        if (this.intervals.size() == 1 && window.intervals.size() == 1) {
-            return this.intervals.get(0).intersects(window.intervals.get(0));
+    public boolean intersects(final long start, final long end) {
+        if (isEmpty()) return false;
+        if (isUnbounded()) return true;
+        final int count = rawIntervals.length >>> 1;
+        for (int i = 0; i < count; i++) {
+            final long s = rawIntervals[i << 1];
+            final long e = rawIntervals[(i << 1) + 1];
+            if (intersectsRange(s, e, start, end)) return true;
         }
-        
-        final List<Interval> list1 = this.intervals.size() >= window.intervals.size() ? this.intervals : window.intervals;
-        final List<Interval> list2 = this.intervals.size() < window.intervals.size() ? this.intervals : window.intervals;
-        
-        // Iterate over the smaller list, binary search in the larger list (O(M log N))
-        for (Interval w : list2) {
-            int low = 0;
-            int high = list1.size() - 1;
-            while (low <= high) {
-                int mid = (low + high) >>> 1;
-                Interval midInterval = list1.get(mid);
-                if (midInterval.intersects(w)) {
-                    return true;
-                }
-                if (midInterval.getEnd().getTime() <= w.getStart().getTime()) {
-                    low = mid + 1;
-                } else {
-                    high = mid - 1;
-                }
+        return false;
+    }
+
+    public boolean contains(final long start, final long end) {
+        if (isEmpty()) return false;
+        if (isUnbounded()) return true;
+        final int count = rawIntervals.length >>> 1;
+        for (int i = 0; i < count; i++) {
+            final long s = rawIntervals[i << 1];
+            final long e = rawIntervals[(i << 1) + 1];
+            if (containsRange(s, e, start, end)) return true;
+        }
+        return false;
+    }
+
+    public boolean intersects(final Lifetime window) {
+        if (window == null) return false;
+        final long[] r1 = this.rawIntervals;
+        final long[] r2 = window.rawIntervals;
+        if (r1.length == 0 || r2.length == 0) return false;
+        if (this.isUnbounded() || window.isUnbounded()) return true;
+
+        final long startA = r1[0];
+        final long endA = r1[r1.length - 1];
+        final long startB = r2[0];
+        final long endB = r2[r2.length - 1];
+        if (!intersectsRange(startA, endA, startB, endB)) return false;
+
+        final int n1 = r1.length >>> 1;
+        final int n2 = r2.length >>> 1;
+        if (n1 == 1 && n2 == 1) {
+            return intersectsRange(r1[0], r1[1], r2[0], r2[1]);
+        }
+
+        int i = 0, j = 0;
+        while (i < n1 && j < n2) {
+            final long s1 = r1[i << 1];
+            final long e1 = r1[(i << 1) + 1];
+            final long s2 = r2[j << 1];
+            final long e2 = r2[(j << 1) + 1];
+            if (intersectsRange(s1, e1, s2, e2)) return true;
+            if (e1 < e2) {
+                i++;
+            } else if (e2 < e1) {
+                j++;
+            } else {
+                if (s1 < s2) i++; else j++;
             }
         }
         return false;
@@ -489,112 +747,174 @@ public final class Lifetime implements Serializable {
         if (other.isEmpty()) return true;
         if (this.isEmpty()) return false;
         if (this.isUnbounded()) return true;
-        
-        // Fast path: other cannot be wider than this
-        if (other.getStartDate().before(this.getStartDate()) || other.getEndDate().after(this.getEndDate())) return false;
-        
-        // O(M log N) Binary Search Sweep
-        for (Interval s : other.intervals) {
-            boolean covered = false;
-            int low = 0;
-            int high = this.intervals.size() - 1;
-            while (low <= high) {
-                int mid = (low + high) >>> 1;
-                Interval midInterval = this.intervals.get(mid);
-                
-                if (midInterval.contains(s)) {
-                    covered = true;
-                    break;
-                }
-                
-                // If this interval ends before the target ends, we need an interval further right
-                if (midInterval.getEnd().before(s.getEnd())) {
-                    low = mid + 1;
-                } else {
-                    // Otherwise we need an interval that starts further left
-                    high = mid - 1;
-                }
+
+        final long[] a = this.rawIntervals;
+        final long[] b = other.rawIntervals;
+        if (b[0] < a[0] || b[b.length - 1] > a[a.length - 1]) return false;
+
+        final int na = a.length >>> 1;
+        final int nb = b.length >>> 1;
+
+        int i = 0;
+        for (int j = 0; j < nb; j++) {
+            final long sB = b[j << 1];
+            final long eB = b[(j << 1) + 1];
+            while (i < na && a[(i << 1) + 1] < eB) {
+                i++;
             }
-            if (!covered) return false;
+            if (i >= na) return false;
+            final long sA = a[i << 1];
+            final long eA = a[(i << 1) + 1];
+            if (!containsRange(sA, eA, sB, eB)) {
+                return false;
+            }
         }
         return true;
     }
 
     public Date getStartDate() {
-        if (intervals.isEmpty()) return toStartDate(null);
-        return intervals.get(0).getStart();
+        if (rawIntervals.length == 0) return toStartDate(null);
+        return new Date(rawIntervals[0]);
     }
 
     public Date getEndDate() {
-        if (intervals.isEmpty()) return toEndDate(null);
-        return intervals.get(intervals.size() - 1).getEnd();
+        if (rawIntervals.length == 0) return toEndDate(null);
+        return new Date(rawIntervals[rawIntervals.length - 1]);
     }
 
+    public long getStartMillis() {
+        return rawIntervals.length == 0 ? MIN_MILLIS : rawIntervals[0];
+    }
+
+    public long getEndMillis() {
+        return rawIntervals.length == 0 ? MAX_MILLIS : rawIntervals[rawIntervals.length - 1];
+    }
+
+    public long getStartMillis(final int index) {
+        return rawIntervals[index << 1];
+    }
+
+    public long getEndMillis(final int index) {
+        return rawIntervals[(index << 1) + 1];
+    }
+
+    public long[] getRawIntervals() {
+        return rawIntervals;
+    }
+
+    public int getIntervalCount() {
+        return rawIntervals.length >>> 1;
+    }
+
+    public int size() {
+        return rawIntervals.length >>> 1;
+    }
+
+    /**
+     * O(log N) Binary Search to find the index of the first interval that starts at or after the given time,
+     * or {@code -1} if none exists. Zero heap allocations.
+     */
+    public int getFirstIntervalIndexStartingAfter(final long time) {
+        if (rawIntervals.length == 0) return -1;
+        int low = 0;
+        int high = (rawIntervals.length >>> 1) - 1;
+        int resultIdx = -1;
+        while (low <= high) {
+            final int mid = (low + high) >>> 1;
+            if (rawIntervals[mid << 1] >= time) {
+                resultIdx = mid;
+                high = mid - 1;
+            } else {
+                low = mid + 1;
+            }
+        }
+        return resultIdx;
+    }
 
     /**
      * O(log N) Binary Search to find the first interval that starts at or after the given time.
      * Used for forward-sweeping temporal algorithms (Earliest Arrival / Earliest Departure).
      */
-    public Interval getFirstIntervalStartingAfter(long time) {
-        if (intervals.isEmpty()) return null;
+    public Interval getFirstIntervalStartingAfter(final long time) {
+        final int resultIdx = getFirstIntervalIndexStartingAfter(time);
+        return resultIdx < 0 ? null : new Interval(rawIntervals[resultIdx << 1], rawIntervals[(resultIdx << 1) + 1]);
+    }
+
+    /**
+     * O(log N) Binary Search to find the index of the last interval that ends at or before the given time,
+     * or {@code -1} if none exists. Zero heap allocations.
+     */
+    public int getLastIntervalIndexEndingBefore(final long time) {
+        if (rawIntervals.length == 0) return -1;
         int low = 0;
-        int high = intervals.size() - 1;
-        Interval result = null;
-        
+        int high = (rawIntervals.length >>> 1) - 1;
+        int resultIdx = -1;
         while (low <= high) {
-            int mid = (low + high) >>> 1;
-            Interval midInterval = intervals.get(mid);
-            if (midInterval.getStart().getTime() >= time) {
-                result = midInterval;
-                high = mid - 1; // look for an earlier one
-            } else {
+            final int mid = (low + high) >>> 1;
+            if (rawIntervals[(mid << 1) + 1] <= time) {
+                resultIdx = mid;
                 low = mid + 1;
+            } else {
+                high = mid - 1;
             }
         }
-        return result;
+        return resultIdx;
     }
 
     /**
      * O(log N) Binary Search to find the last interval that ends at or before the given time.
      * Used for backward-sweeping temporal algorithms (Latest Arrival / Latest Departure).
      */
-    public Interval getLastIntervalEndingBefore(long time) {
-        if (intervals.isEmpty()) return null;
-        int low = 0;
-        int high = intervals.size() - 1;
-        Interval result = null;
-        
-        while (low <= high) {
-            int mid = (low + high) >>> 1;
-            Interval midInterval = intervals.get(mid);
-            if (midInterval.getEnd().getTime() <= time) {
-                result = midInterval;
-                low = mid + 1; // look for a later one
-            } else {
-                high = mid - 1;
-            }
-        }
-        return result;
+    public Interval getLastIntervalEndingBefore(final long time) {
+        final int resultIdx = getLastIntervalIndexEndingBefore(time);
+        return resultIdx < 0 ? null : new Interval(rawIntervals[resultIdx << 1], rawIntervals[(resultIdx << 1) + 1]);
     }
 
     public List<Interval> getIntervals() {
-
-        return intervals;
+        List<Interval> res = this.intervals;
+        if (res == null) {
+            final int count = rawIntervals.length >>> 1;
+            if (count == 0) {
+                res = Collections.emptyList();
+            } else {
+                final List<Interval> list = new ArrayList<>(count);
+                for (int i = 0; i < count; i++) {
+                    list.add(new Interval(rawIntervals[i << 1], rawIntervals[(i << 1) + 1]));
+                }
+                res = Collections.unmodifiableList(list);
+            }
+            this.intervals = res;
+        }
+        return res;
     }
 
     public boolean isEmpty() {
-        return intervals.isEmpty();
+        return rawIntervals.length == 0;
     }
 
     public boolean isUnbounded() {
-        return this.equals(UNBOUNDED) ||
-                (intervals.size() == 1 &&
-                 intervals.get(0).getStart().getTime() <= MIN_DATE.getTime() &&
-                 intervals.get(0).getEnd().getTime() >= MAX_DATE.getTime());
+        return this == UNBOUNDED ||
+                (rawIntervals.length == 2 &&
+                 rawIntervals[0] <= MIN_MILLIS &&
+                 rawIntervals[1] >= MAX_MILLIS);
+    }
+
+    public static long toStartMillis(final Object value) {
+        return (null == value) ? MIN_MILLIS : toMillis(value, "Start time");
+    }
+
+    public static long toEndMillis(final Object value) {
+        return (null == value) ? MAX_MILLIS : toMillis(value, "End time");
+    }
+
+    public static long toTemporalMillis(final Object value) {
+        if (null == value)
+            throw new IllegalArgumentException("Temporal instant cannot be null");
+        return toMillis(value, "Temporal instant");
     }
 
     public static Date toStartDate(final Object value) {
-        return (null == value)? new Date(MIN_DATE.getTime()): toDate(value, "Start time");
+        return (null == value) ? new Date(MIN_MILLIS) : toDate(value, "Start time");
     }
 
     public static Date getStartTimeFromProperty(final Element element) {
@@ -614,7 +934,7 @@ public final class Lifetime implements Serializable {
     }
 
     public static Date toEndDate(final Object value) {
-        return (null == value)? new Date(MAX_DATE.getTime()): toDate(value, "End time");
+        return (null == value) ? new Date(MAX_MILLIS) : toDate(value, "End time");
     }
 
     public static Date toTemporalDate(final Object value) {
@@ -624,15 +944,15 @@ public final class Lifetime implements Serializable {
         return toDate(value, "Temporal instant");
     }
 
-    private static Date toDate(final Object value, final String label) {
+    private static long toMillis(final Object value, final String label) {
+        if (value instanceof Number)
+            return ((Number) value).longValue();
+
         if (value instanceof Date)
-            return (Date) value;
+            return ((Date) value).getTime();
 
         if (value instanceof Instant)
-            return Date.from((Instant) value);
-
-        if (value instanceof Number)
-            return new Date(((Number) value).longValue());
+            return ((Instant) value).toEpochMilli();
 
         if (value instanceof String) {
             final String dateString = ((String) value).trim();
@@ -640,7 +960,7 @@ public final class Lifetime implements Serializable {
                 throw new IllegalArgumentException(label + " cannot be empty");
 
             try {
-                return DatetimeHelper.parse(dateString);
+                return DatetimeHelper.parse(dateString).getTime();
             } catch (final RuntimeException e) {
                 throw new IllegalArgumentException(label + " '" + value + "' is not a valid temporal value", e);
             }
@@ -648,6 +968,12 @@ public final class Lifetime implements Serializable {
 
         throw new IllegalArgumentException(label + " value of type " + value.getClass().getName() +
                 " is not a supported temporal value. Supported types are Date, Instant, Number, and String.");
+    }
+
+    private static Date toDate(final Object value, final String label) {
+        if (value instanceof Date)
+            return (Date) value;
+        return new Date(toMillis(value, label));
     }
 
     private static Property<Object> propertyOrEmpty(final Element element, final String key) {
@@ -671,29 +997,29 @@ public final class Lifetime implements Serializable {
             return false;
 
         final Lifetime lifetime = (Lifetime) object;
-        return Objects.equals(this.intervals, lifetime.intervals);
+        return Arrays.equals(this.rawIntervals, lifetime.rawIntervals);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(this.intervals);
+        return Arrays.hashCode(this.rawIntervals);
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("lifetime[");
-        for (int i=0; i<intervals.size(); i++) {
-            Interval iv = intervals.get(i);
-            sb.append(formatDate(iv.getStart())).append(",").append(formatDate(iv.getEnd()));
-            if (i < intervals.size() - 1) sb.append(" | ");
+        final int count = rawIntervals.length >>> 1;
+        final StringBuilder sb = new StringBuilder("lifetime[");
+        for (int i = 0; i < count; i++) {
+            sb.append(formatMillis(rawIntervals[i << 1])).append(',').append(formatMillis(rawIntervals[(i << 1) + 1]));
+            if (i < count - 1) sb.append(" | ");
         }
-        sb.append("]");
+        sb.append(']');
         return sb.toString();
     }
 
-    private static String formatDate(Date date) {
-        return date.getTime() == Long.MIN_VALUE ? "*" :
-               date.getTime() == Long.MAX_VALUE ? "*" :
-               DatetimeHelper.format(date.toInstant());
+    private static String formatMillis(final long millis) {
+        return millis == MIN_MILLIS || millis == Long.MIN_VALUE ? "*" :
+               millis == MAX_MILLIS || millis == Long.MAX_VALUE ? "*" :
+               DatetimeHelper.format(Instant.ofEpochMilli(millis));
     }
 }

@@ -169,14 +169,15 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         Lifetime finalLifetime = actualLifetime;
         if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {
             Lifetime currentLifetime = Lifetime.fromProperties(element);
+            final int count = actualLifetime.getIntervalCount();
             if (mode == LifetimeMode.ADD) {
-                for (final Lifetime.Interval interval : actualLifetime.getIntervals()) {
-                    currentLifetime = currentLifetime.addInterval(interval.getStart(), interval.getEnd());
+                for (int i = 0; i < count; i++) {
+                    currentLifetime = currentLifetime.addInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
                 }
                 finalLifetime = currentLifetime;
             } else if (mode == LifetimeMode.DROP) {
-                for (final Lifetime.Interval interval : actualLifetime.getIntervals()) {
-                    currentLifetime = currentLifetime.dropInterval(interval.getStart(), interval.getEnd());
+                for (int i = 0; i < count; i++) {
+                    currentLifetime = currentLifetime.dropInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
                 }
                 finalLifetime = currentLifetime;
             }

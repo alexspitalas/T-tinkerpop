@@ -495,16 +495,16 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
             long bestEnd = -1;
             
             if (this.target == TemporalPathTarget.EARLIEST_ARRIVAL || this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-                Lifetime.Interval optimal = lifetime.getFirstIntervalStartingAfter(cTime);
-                if (optimal != null) {
-                    bestStart = optimal.getStart().getTime();
-                    bestEnd = optimal.getEnd().getTime();
+                final int optimalIdx = lifetime.getFirstIntervalIndexStartingAfter(cTime);
+                if (optimalIdx >= 0) {
+                    bestStart = lifetime.getStartMillis(optimalIdx);
+                    bestEnd = lifetime.getEndMillis(optimalIdx);
                 }
             } else {
-                Lifetime.Interval optimal = lifetime.getLastIntervalEndingBefore(cTime);
-                if (optimal != null) {
-                    bestStart = optimal.getStart().getTime();
-                    bestEnd = optimal.getEnd().getTime();
+                final int optimalIdx = lifetime.getLastIntervalIndexEndingBefore(cTime);
+                if (optimalIdx >= 0) {
+                    bestStart = lifetime.getStartMillis(optimalIdx);
+                    bestEnd = lifetime.getEndMillis(optimalIdx);
                 }
             }
             
@@ -524,11 +524,13 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
     private Number resolveNextCausalTime(final Edge edge, final Number distance) {
         if (edge == null || distance == null) return distance;
         if (this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-            final Lifetime.Interval iv = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge).getFirstIntervalStartingAfter(distance.longValue());
-            if (iv != null) return iv.getEnd().getTime();
+            final Lifetime lt = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
+            final int idx = lt.getFirstIntervalIndexStartingAfter(distance.longValue());
+            if (idx >= 0) return lt.getEndMillis(idx);
         } else if (this.target == TemporalPathTarget.LATEST_ARRIVAL) {
-            final Lifetime.Interval iv = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge).getLastIntervalEndingBefore(distance.longValue());
-            if (iv != null) return iv.getStart().getTime();
+            final Lifetime lt = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
+            final int idx = lt.getLastIntervalIndexEndingBefore(distance.longValue());
+            if (idx >= 0) return lt.getStartMillis(idx);
         }
         return distance;
     }
