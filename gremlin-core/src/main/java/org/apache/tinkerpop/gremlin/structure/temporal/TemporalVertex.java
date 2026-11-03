@@ -28,7 +28,6 @@ import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 
 import java.util.Collections;
-import java.util.Date;
 import java.util.Iterator;
 
 /**
@@ -64,16 +63,16 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex> {
         return base;
     }
 
-    public Date getInstant() {
-        return lifetime.getStartDate();
+    public long getInstant() {
+        return lifetime.getStartTime();
     }
 
-    public Date getStartInstant() {
-        return lifetime.getStartDate();
+    public long getStartInstant() {
+        return lifetime.getStartTime();
     }
 
-    public Date getEndInstant() {
-        return lifetime.getEndDate();
+    public long getEndInstant() {
+        return lifetime.getEndTime();
     }
 
     public Lifetime getLifetime() {

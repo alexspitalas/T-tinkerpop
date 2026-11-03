@@ -24,7 +24,6 @@ import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.Interval;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import static org.junit.Assert.assertFalse;
@@ -35,7 +34,7 @@ public class TemporalTest {
     private Lifetime makeLifetime(long... times) {
         List<Interval> intervals = new ArrayList<>();
         for (int i = 0; i < times.length; i += 2) {
-            intervals.add(new Interval(new Date(times[i]), new Date(times[i+1])));
+            intervals.add(new Interval(times[i], times[i+1]));
         }
         return Lifetime.from(intervals);
     }

@@ -23,21 +23,19 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
-import java.util.Date;
-
 /**
  * A step that extracts the endTime property value from an element.
  * Works with vertices, edges, and vertex properties.
  * Returns the max end time for elements that don't have endTime properties.
  */
-public class GetEndTimeStep<S extends Element> extends ScalarMapStep<S, Date> {
+public class GetEndTimeStep<S extends Element> extends ScalarMapStep<S, Long> {
 
     public GetEndTimeStep(final Traversal.Admin traversal) {
         super(traversal);
     }
 
     @Override
-    protected Date map(final Traverser.Admin<S> traverser) {
+    protected Long map(final Traverser.Admin<S> traverser) {
         final S element = traverser.get();
         return Lifetime.getEndTimeFromProperty(element);
     }

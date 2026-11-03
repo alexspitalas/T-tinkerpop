@@ -23,12 +23,10 @@ import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
@@ -57,7 +55,7 @@ public final class TemporalPageRankAlgorithm {
                                               final double alpha, final double beta, final boolean normalize) {
         validate(alpha, beta);
         final List<TemporalEdge> sortedTemporalEdges = new ArrayList<>(temporalEdges);
-        sortedTemporalEdges.sort(Comparator.comparing(TemporalEdge::getStartInstant)
+        sortedTemporalEdges.sort(Comparator.comparingLong(TemporalEdge::getStartInstant)
                 .thenComparing(edge -> String.valueOf(edge.id())));
 
         final Map<Object, Double> r = new LinkedHashMap<>();
@@ -106,32 +104,32 @@ public final class TemporalPageRankAlgorithm {
     }
 
     private static void releaseAvailableMass(final Map<Object, Queue<ScheduledMass>> pending, final Map<Object, Double> s,
-                                             final Object vertexId, final Date startTime) {
+                                             final Object vertexId, final long startTime) {
         final Queue<ScheduledMass> scheduled = pending.get(vertexId);
         if (null == scheduled)
             return;
 
-        while (!scheduled.isEmpty() && !scheduled.peek().availableAt.after(startTime)) {
+        while (!scheduled.isEmpty() && scheduled.peek().availableAt <= startTime) {
             s.put(vertexId, s.getOrDefault(vertexId, 0.0d) + scheduled.remove().mass);
         }
     }
 
     private static void scheduleMass(final Map<Object, Queue<ScheduledMass>> pending, final Object vertexId,
-                                     final double mass, final Date availableAt) {
+                                     final double mass, final long availableAt) {
         if (mass == 0.0d)
             return;
 
         pending.computeIfAbsent(vertexId,
-                key -> new PriorityQueue<>(Comparator.comparing((ScheduledMass scheduledMass) -> scheduledMass.availableAt)))
+                key -> new PriorityQueue<>(Comparator.comparingLong((ScheduledMass scheduledMass) -> scheduledMass.availableAt)))
                 .add(new ScheduledMass(availableAt, mass));
     }
 
     private static final class ScheduledMass {
-        private final Date availableAt;
+        private final long availableAt;
         private final double mass;
 
-        private ScheduledMass(final Date availableAt, final double mass) {
-            this.availableAt = new Date(Objects.requireNonNull(availableAt, "availableAt cannot be null").getTime());
+        private ScheduledMass(final long availableAt, final double mass) {
+            this.availableAt = availableAt;
             this.mass = mass;
         }
     }

@@ -37,7 +37,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -48,8 +47,8 @@ public class LifetimeTest {
 
     @Test
     public void shouldParseSentinelValues() {
-        assertEquals(Long.MIN_VALUE, Lifetime.toStartDate(Lifetime.MIN_START_TIME).getTime());
-        assertEquals(Long.MAX_VALUE, Lifetime.toEndDate(Lifetime.MAX_END_TIME).getTime());
+        assertEquals(Long.MIN_VALUE, Lifetime.toStartTime(Lifetime.MIN_START_TIME));
+        assertEquals(Long.MAX_VALUE, Lifetime.toEndTime(Lifetime.MAX_END_TIME));
     }
 
     @Test
@@ -70,7 +69,7 @@ public class LifetimeTest {
     }
 
     @Test
-    public void shouldDefensivelyCopyDateValues() {
+    public void shouldConvertDateValuesToEpochMilliseconds() {
         final Date startTime = new Date(1000L);
         final Date endTime = new Date(2000L);
         final Lifetime lifetime = Lifetime.from(startTime, endTime);
@@ -80,15 +79,8 @@ public class LifetimeTest {
 
         assertLifetime(1000L, 2000L, lifetime);
 
-        final Date returnedStartTime = lifetime.getStartDate();
-        final Date returnedEndTime = lifetime.getEndDate();
-
-        returnedStartTime.setTime(3000L);
-        returnedEndTime.setTime(4000L);
-
-        assertLifetime(1000L, 2000L, lifetime);
-        assertNotSame(returnedStartTime, lifetime.getStartDate());
-        assertNotSame(returnedEndTime, lifetime.getEndDate());
+        assertEquals(1000L, lifetime.getStartTime());
+        assertEquals(2000L, lifetime.getEndTime());
     }
 
     @Test
@@ -113,37 +105,37 @@ public class LifetimeTest {
 
     @Test
     public void shouldReadLifetimeFromProperties() {
-        final Element element = elementWithProperties(new Date(1000L), new Date(2000L));
+        final Element element = elementWithProperties(1000L, 2000L);
 
         final Lifetime lifetime = Lifetime.fromProperties(element);
 
         assertLifetime(1000L, 2000L, lifetime);
-        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(element));
-        assertEquals(new Date(2000L), Lifetime.getEndTimeFromProperty(element));
+        assertEquals(1000L, Lifetime.getStartTimeFromProperty(element));
+        assertEquals(2000L, Lifetime.getEndTimeFromProperty(element));
     }
 
     @Test
-    public void shouldReadExtentFromTemporalIntervals() {
-        final Element element = elementWithProperties(new Date(5000L), new Date(6000L));
+    public void shouldReadBoundsDirectlyFromTheirProperties() {
+        final Element element = elementWithProperties(5000, 6000L);
         final Property<Object> intervalsProperty = property("1000:2000,3000:4000");
         when(element.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(intervalsProperty);
 
-        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(element));
-        assertEquals(new Date(4000L), Lifetime.getEndTimeFromProperty(element));
+        assertEquals(5000L, Lifetime.getStartTimeFromProperty(element));
+        assertEquals(6000L, Lifetime.getEndTimeFromProperty(element));
 
         final Element intervalsOnly = elementWithTemporalIntervals("1000:2000,3000:4000");
-        assertEquals(new Date(1000L), Lifetime.getStartTimeFromProperty(intervalsOnly));
-        assertEquals(new Date(4000L), Lifetime.getEndTimeFromProperty(intervalsOnly));
+        assertEquals(Long.MIN_VALUE, Lifetime.getStartTimeFromProperty(intervalsOnly));
+        assertEquals(Long.MAX_VALUE, Lifetime.getEndTimeFromProperty(intervalsOnly));
     }
 
     @Test
     public void shouldParseValidTemporalIntervalsProperty() {
         assertEquals(Arrays.asList(
-                        new Lifetime.Interval(new Date(1000L), new Date(2000L)),
-                        new Lifetime.Interval(new Date(3000L), new Date(4000L))),
+                        new Lifetime.Interval(1000L, 2000L),
+                        new Lifetime.Interval(3000L, 4000L)),
                 Lifetime.fromProperties(elementWithTemporalIntervals("1000:2000,3000:4000")).getIntervals());
         assertEquals(Arrays.asList(
-                        new Lifetime.Interval(new Date(-2000L), new Date(-1000L))),
+                        new Lifetime.Interval(-2000L, -1000L)),
                 Lifetime.fromProperties(elementWithTemporalIntervals("-2000:-1000")).getIntervals());
         assertLifetime(Long.MIN_VALUE, Long.MAX_VALUE,
                 Lifetime.fromProperties(elementWithTemporalIntervals(
@@ -156,7 +148,7 @@ public class LifetimeTest {
                 elementWithTemporalIntervals("3000:5000,1000:2000,1500:4000"));
 
         assertEquals(Arrays.asList(
-                new Lifetime.Interval(new Date(1000L), new Date(5000L))), lifetime.getIntervals());
+                new Lifetime.Interval(1000L, 5000L)), lifetime.getIntervals());
         assertEquals("1000:5000", lifetime.toPropertyMap().get(Lifetime.TEMPORAL_INTERVALS));
     }
 
@@ -199,58 +191,43 @@ public class LifetimeTest {
 
         final Lifetime lifetime = Lifetime.fromProperties(element);
 
-        assertEquals(Long.MIN_VALUE, lifetime.getStartDate().getTime());
-        assertEquals(Long.MAX_VALUE, lifetime.getEndDate().getTime());
-        assertEquals(Long.MIN_VALUE, Lifetime.getStartTimeFromProperty(element).getTime());
-        assertEquals(Long.MAX_VALUE, Lifetime.getEndTimeFromProperty(element).getTime());
+        assertEquals(Long.MIN_VALUE, lifetime.getStartTime());
+        assertEquals(Long.MAX_VALUE, lifetime.getEndTime());
+        assertEquals(Long.MIN_VALUE, Lifetime.getStartTimeFromProperty(element));
+        assertEquals(Long.MAX_VALUE, Lifetime.getEndTimeFromProperty(element));
     }
 
     @Test
-    public void shouldWriteDefensiveCopiesToPropertyStructures() {
+    public void shouldWriteEpochMillisecondsToPropertyStructures() {
         final Lifetime lifetime = Lifetime.from(1000L, 2000L);
 
         final Object[] properties = lifetime.toProperties();
         assertArrayEquals(new Object[] {
-                Lifetime.START_TIME, new Date(1000L),
-                Lifetime.END_TIME, new Date(2000L),
+                Lifetime.START_TIME, 1000L,
+                Lifetime.END_TIME, 2000L,
                 Lifetime.TEMPORAL_INTERVALS, "1000:2000"
         }, properties);
 
-        final Date startTimeProperty = (Date) properties[1];
-        final Date endTimeProperty = (Date) properties[3];
-        startTimeProperty.setTime(3000L);
-        endTimeProperty.setTime(4000L);
-        assertLifetime(1000L, 2000L, lifetime);
-
         final Map<String, Object> propertyMap = lifetime.toPropertyMap();
-        assertEquals(new Date(1000L), propertyMap.get(Lifetime.START_TIME));
-        assertEquals(new Date(2000L), propertyMap.get(Lifetime.END_TIME));
+        assertEquals(1000L, propertyMap.get(Lifetime.START_TIME));
+        assertEquals(2000L, propertyMap.get(Lifetime.END_TIME));
         assertEquals("1000:2000", propertyMap.get(Lifetime.TEMPORAL_INTERVALS));
-
-        ((Date) propertyMap.get(Lifetime.START_TIME)).setTime(3000L);
-        ((Date) propertyMap.get(Lifetime.END_TIME)).setTime(4000L);
-        assertLifetime(1000L, 2000L, lifetime);
     }
 
     @Test
-    public void shouldAttachDefensiveCopiesToElement() {
+    public void shouldAttachEpochMillisecondsToElement() {
         final Lifetime lifetime = Lifetime.from(1000L, 2000L);
         final Element element = mock(Element.class);
-        final ArgumentCaptor<Date> startTimeCaptor = ArgumentCaptor.forClass(Date.class);
-        final ArgumentCaptor<Date> endTimeCaptor = ArgumentCaptor.forClass(Date.class);
+        final ArgumentCaptor<Long> startTimeCaptor = ArgumentCaptor.forClass(Long.class);
+        final ArgumentCaptor<Long> endTimeCaptor = ArgumentCaptor.forClass(Long.class);
 
         lifetime.attachTo(element);
 
         verify(element).property(eq(Lifetime.START_TIME), startTimeCaptor.capture());
         verify(element).property(eq(Lifetime.END_TIME), endTimeCaptor.capture());
         verify(element).property(Lifetime.TEMPORAL_INTERVALS, "1000:2000");
-        assertEquals(new Date(1000L), startTimeCaptor.getValue());
-        assertEquals(new Date(2000L), endTimeCaptor.getValue());
-
-        startTimeCaptor.getValue().setTime(3000L);
-        endTimeCaptor.getValue().setTime(4000L);
-
-        assertLifetime(1000L, 2000L, lifetime);
+        assertEquals(Long.valueOf(1000L), startTimeCaptor.getValue());
+        assertEquals(Long.valueOf(2000L), endTimeCaptor.getValue());
     }
 
     @Test
@@ -326,7 +303,7 @@ public class LifetimeTest {
     }
 
     private static void assertLifetime(final long startTime, final long endTime, final Lifetime lifetime) {
-        assertEquals(new Date(startTime), lifetime.getStartDate());
-        assertEquals(new Date(endTime), lifetime.getEndDate());
+        assertEquals(startTime, lifetime.getStartTime());
+        assertEquals(endTime, lifetime.getEndTime());
     }
 }

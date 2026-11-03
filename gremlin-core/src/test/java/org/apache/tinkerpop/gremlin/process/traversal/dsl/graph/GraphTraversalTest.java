@@ -215,8 +215,14 @@ public class GraphTraversalTest {
                             list.add(arguments[i] = (long) (Math.abs(random.nextInt(100))));
                         else if (double.class.isAssignableFrom(type))
                             list.add(arguments[i] = Math.abs(random.nextDouble()));
-                        else if (String.class.isAssignableFrom(type))
-                            list.add(arguments[i] = randomString(random));
+                        else if (String.class.isAssignableFrom(type)) {
+                            final String value = stepMethod.getName().equals("lifetime") ||
+                                    stepMethod.getName().equals("lifetimeProperty") ||
+                                    stepMethod.getName().equals("addInterval") ||
+                                    stepMethod.getName().equals("dropInterval") ?
+                                    "2020-01-01T00:00:00Z" : randomString(random);
+                            list.add(arguments[i] = value);
+                        }
                         else if (boolean.class.isAssignableFrom(type))
                             list.add(arguments[i] = random.nextBoolean());
                         else if (String[].class.isAssignableFrom(type)) {

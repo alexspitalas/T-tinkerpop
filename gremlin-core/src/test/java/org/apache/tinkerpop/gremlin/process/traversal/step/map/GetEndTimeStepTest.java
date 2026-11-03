@@ -28,7 +28,6 @@ import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.junit.Test;
 
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -44,7 +43,7 @@ public class GetEndTimeStepTest extends StepTest {
 
     @Test
     public void shouldMapElementToEndTime() {
-        final Date endTime = new Date(2000L);
+        final long endTime = 2000L;
         final Element element = mock(Element.class);
         final Traverser.Admin<Element> traverser = mock(Traverser.Admin.class);
         final GetEndTimeStep<Element> step = new GetEndTimeStep<>(__.start().asAdmin());
@@ -53,7 +52,7 @@ public class GetEndTimeStepTest extends StepTest {
         when(element.property(Lifetime.END_TIME)).thenReturn(endTimeProperty);
         when(traverser.get()).thenReturn(element);
 
-        assertEquals(endTime, step.map(traverser));
+        assertEquals(Long.valueOf(endTime), step.map(traverser));
     }
 
     @Test
@@ -65,7 +64,7 @@ public class GetEndTimeStepTest extends StepTest {
         when(element.property(Lifetime.END_TIME)).thenReturn(Property.empty());
         when(traverser.get()).thenReturn(element);
 
-        assertEquals(Long.MAX_VALUE, step.map(traverser).getTime());
+        assertEquals(Long.valueOf(Long.MAX_VALUE), step.map(traverser));
     }
 
     private static <V> Property<V> property(final V value) {

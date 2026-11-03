@@ -28,7 +28,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.Date;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -141,8 +140,6 @@ public class MultipleIntervalLifetimeIntegrationTest {
     }
 
     private static Lifetime.Interval interval(final Object startTime, final Object endTime) {
-        final Date start = Lifetime.toStartDate(startTime);
-        final Date end = Lifetime.toEndDate(endTime);
-        return new Lifetime.Interval(start, end);
+        return new Lifetime.Interval(Lifetime.toStartTime(startTime), Lifetime.toEndTime(endTime));
     }
 }

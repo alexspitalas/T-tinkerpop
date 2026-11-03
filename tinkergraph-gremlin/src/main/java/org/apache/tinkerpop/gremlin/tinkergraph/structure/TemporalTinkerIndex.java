@@ -50,7 +50,7 @@ public class TemporalTinkerIndex<T extends Element> extends TinkerIndex<T> {
         if (lifetime != null) {
             final IntervalTree<T> tree = temporalIndex.computeIfAbsent(key, k -> new IntervalTree<>());
             for (Lifetime.Interval interval : lifetime.getIntervals()) {
-                tree.put(interval.getStart().getTime(), interval.getEnd().getTime(), element);
+                tree.put(interval.getStartTime(), interval.getEndTime(), element);
             }
         }
     }
@@ -96,7 +96,7 @@ public class TemporalTinkerIndex<T extends Element> extends TinkerIndex<T> {
 
         final Set<T> candidates = new HashSet<>();
         for (Lifetime.Interval queryInterval : queryLifetime.getIntervals()) {
-            candidates.addAll(tree.searchOverlaps(queryInterval.getStart().getTime(), queryInterval.getEnd().getTime()));
+            candidates.addAll(tree.searchOverlaps(queryInterval.getStartTime(), queryInterval.getEndTime()));
         }
         return new ArrayList<>(candidates);
     }
@@ -107,7 +107,7 @@ public class TemporalTinkerIndex<T extends Element> extends TinkerIndex<T> {
         final IntervalTree<T> tree = temporalIndex.get(key);
         if (tree != null) {
             for (Lifetime.Interval interval : lifetime.getIntervals()) {
-                tree.remove(interval.getStart().getTime(), interval.getEnd().getTime(), element);
+                tree.remove(interval.getStartTime(), interval.getEndTime(), element);
             }
         }
     }

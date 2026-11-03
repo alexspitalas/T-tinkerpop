@@ -32,7 +32,6 @@ import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
-import java.util.Date;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,8 +81,8 @@ public final class TemporalGraphViewStrategy
 
         // Configure the GraphComputer's GraphFilter for temporal constraints
         final boolean isWindow = !windowSteps.isEmpty();
-        final Date start = isWindow ? windowSteps.get(0).getWindowStart() : atTimeSteps.get(0).getInstant();
-        final Date end = isWindow ? windowSteps.get(0).getWindowEnd() : start;
+        final long start = isWindow ? windowSteps.get(0).getWindowStart() : atTimeSteps.get(0).getInstant();
+        final long end = isWindow ? windowSteps.get(0).getWindowEnd() : start;
 
         for (final VertexProgramStep step : TraversalHelper.getStepsOfAssignableClass(VertexProgramStep.class, traversal)) {
             Computer computer = step.getComputer();
@@ -114,7 +113,7 @@ public final class TemporalGraphViewStrategy
                 final WindowStep<?> windowStep = (WindowStep<?>) step;
                 currentBounds = Lifetime.from(windowStep.getWindowStart(), windowStep.getWindowEnd());
             } else if (step instanceof AtTimeStep) {
-                final Date instant = ((AtTimeStep<?>) step).getInstant();
+                final long instant = ((AtTimeStep<?>) step).getInstant();
                 currentBounds = Lifetime.from(instant, instant);
             } else if (currentBounds != null && step instanceof VertexStep && ((VertexStep<?>) step).returnsVertex()) {
                 rewriteVertexMove(traversal, (VertexStep<Vertex>) step, currentBounds);
