@@ -33,6 +33,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
@@ -64,6 +65,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.Path
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.CountStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.ProductiveByStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.RepeatUnrollStrategy;
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphStepStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphViewStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.ComputerVerificationStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.EdgeLabelVerificationStrategy;
@@ -83,6 +85,8 @@ import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.star.DirectionalStarGraph;
 import org.apache.tinkerpop.gremlin.structure.util.star.StarGraphGraphSONSerializerV1;
@@ -179,6 +183,9 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     put(TextP.class, "TextP");
                     put(TemporalP.class, "TemporalP");
                     put(Lifetime.class, "Lifetime");
+                    put(Lifetime.Interval.class, "Interval");
+                    put(GeneralizedRelation.class, "GeneralizedRelation");
+                    put(GeneralizedIntervalRelation.class, "GeneralizedIntervalRelation");
                     Stream.of(
                             VertexProperty.Cardinality.class,
                             Column.class,
@@ -194,7 +201,9 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                             T.class,
                             LifetimeStep.LifetimeMode.class,
                             Lifetime.DropMode.class,
-                            TemporalPathTarget.class).forEach(e -> put(e, e.getSimpleName()));
+                            TemporalPathTarget.class,
+                            Temporal.class,
+                            Temporal.Quantifier.class).forEach(e -> put(e, e.getSimpleName()));
                     Arrays.asList(
                             ConnectiveStrategy.class,
                             ElementIdStrategy.class,
@@ -220,6 +229,7 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                             PathRetractionStrategy.class,
                             RepeatUnrollStrategy.class,
                             TemporalGraphViewStrategy.class,
+                            TemporalGraphStepStrategy.class,
                             ComputerVerificationStrategy.class,
                             LambdaRestrictionStrategy.class,
                             ReadOnlyStrategy.class,
@@ -285,9 +295,14 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     T.class,
                     LifetimeStep.LifetimeMode.class,
                     Lifetime.DropMode.class,
-                    TemporalPathTarget.class).forEach(e -> addSerializer(e, new TraversalSerializersV3.EnumJacksonSerializer()));
+                    TemporalPathTarget.class,
+                    Temporal.class,
+                    Temporal.Quantifier.class).forEach(e -> addSerializer(e, new TraversalSerializersV3.EnumJacksonSerializer()));
             addSerializer(P.class, new TraversalSerializersV3.PJacksonSerializer());
             addSerializer(Lifetime.class, new TraversalSerializersV3.LifetimeJacksonSerializer());
+            addSerializer(Lifetime.Interval.class, new TraversalSerializersV3.IntervalJacksonSerializer());
+            addSerializer(GeneralizedRelation.class, new TraversalSerializersV3.GeneralizedRelationJacksonSerializer());
+            addSerializer(GeneralizedIntervalRelation.class, new TraversalSerializersV3.GeneralizedIntervalRelationJacksonSerializer());
             addSerializer(Lambda.class, new TraversalSerializersV3.LambdaJacksonSerializer());
             addSerializer(Bytecode.Binding.class, new TraversalSerializersV3.BindingJacksonSerializer());
             addSerializer(Traverser.class, new TraversalSerializersV3.TraverserJacksonSerializer());
@@ -335,11 +350,16 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     T.values(),
                     LifetimeStep.LifetimeMode.values(),
                     Lifetime.DropMode.values(),
-                    TemporalPathTarget.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV3.EnumJacksonDeserializer(e.getDeclaringClass())));
+                    TemporalPathTarget.values(),
+                    Temporal.values(),
+                    Temporal.Quantifier.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV3.EnumJacksonDeserializer(e.getDeclaringClass())));
             addDeserializer(P.class, new TraversalSerializersV3.PJacksonDeserializer());
             addDeserializer(TextP.class, new TraversalSerializersV3.TextPJacksonDeserializer());
             addDeserializer(TemporalP.class, new TraversalSerializersV3.TemporalPJacksonDeserializer());
             addDeserializer(Lifetime.class, new TraversalSerializersV3.LifetimeJacksonDeserializer());
+            addDeserializer(Lifetime.Interval.class, new TraversalSerializersV3.IntervalJacksonDeserializer());
+            addDeserializer(GeneralizedRelation.class, new TraversalSerializersV3.GeneralizedRelationJacksonDeserializer());
+            addDeserializer(GeneralizedIntervalRelation.class, new TraversalSerializersV3.GeneralizedIntervalRelationJacksonDeserializer());
             addDeserializer(Lambda.class, new TraversalSerializersV3.LambdaJacksonDeserializer());
             addDeserializer(Traverser.class, new TraversalSerializersV3.TraverserJacksonDeserializer());
             Arrays.asList(
@@ -367,6 +387,7 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     PathRetractionStrategy.class,
                     RepeatUnrollStrategy.class,
                     TemporalGraphViewStrategy.class,
+                    TemporalGraphStepStrategy.class,
                     ComputerVerificationStrategy.class,
                     LambdaRestrictionStrategy.class,
                     ReadOnlyStrategy.class,
@@ -443,6 +464,9 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     put(TextP.class, "TextP");
                     put(TemporalP.class, "TemporalP");
                     put(Lifetime.class, "Lifetime");
+                    put(Lifetime.Interval.class, "Interval");
+                    put(GeneralizedRelation.class, "GeneralizedRelation");
+                    put(GeneralizedIntervalRelation.class, "GeneralizedIntervalRelation");
                     Stream.of(
                             VertexProperty.Cardinality.class,
                             Column.class,
@@ -458,7 +482,9 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                             T.class,
                             LifetimeStep.LifetimeMode.class,
                             Lifetime.DropMode.class,
-                            TemporalPathTarget.class).forEach(e -> put(e, e.getSimpleName()));
+                            TemporalPathTarget.class,
+                            Temporal.class,
+                            Temporal.Quantifier.class).forEach(e -> put(e, e.getSimpleName()));
                     Arrays.asList(
                             ConnectiveStrategy.class,
                             ElementIdStrategy.class,
@@ -484,6 +510,7 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                             PathRetractionStrategy.class,
                             RepeatUnrollStrategy.class,
                             TemporalGraphViewStrategy.class,
+                            TemporalGraphStepStrategy.class,
                             ComputerVerificationStrategy.class,
                             LambdaRestrictionStrategy.class,
                             ReadOnlyStrategy.class,
@@ -543,9 +570,14 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     T.class,
                     LifetimeStep.LifetimeMode.class,
                     Lifetime.DropMode.class,
-                    TemporalPathTarget.class).forEach(e -> addSerializer(e, new TraversalSerializersV2.EnumJacksonSerializer()));
+                    TemporalPathTarget.class,
+                    Temporal.class,
+                    Temporal.Quantifier.class).forEach(e -> addSerializer(e, new TraversalSerializersV2.EnumJacksonSerializer()));
             addSerializer(P.class, new TraversalSerializersV2.PJacksonSerializer());
             addSerializer(Lifetime.class, new TraversalSerializersV2.LifetimeJacksonSerializer());
+            addSerializer(Lifetime.Interval.class, new TraversalSerializersV2.IntervalJacksonSerializer());
+            addSerializer(GeneralizedRelation.class, new TraversalSerializersV2.GeneralizedRelationJacksonSerializer());
+            addSerializer(GeneralizedIntervalRelation.class, new TraversalSerializersV2.GeneralizedIntervalRelationJacksonSerializer());
             addSerializer(Lambda.class, new TraversalSerializersV2.LambdaJacksonSerializer());
             addSerializer(Bytecode.Binding.class, new TraversalSerializersV2.BindingJacksonSerializer());
             addSerializer(Traverser.class, new TraversalSerializersV2.TraverserJacksonSerializer());
@@ -585,11 +617,16 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     T.values(),
                     LifetimeStep.LifetimeMode.values(),
                     Lifetime.DropMode.values(),
-                    TemporalPathTarget.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV2.EnumJacksonDeserializer(e.getDeclaringClass())));
+                    TemporalPathTarget.values(),
+                    Temporal.values(),
+                    Temporal.Quantifier.values()).flatMap(Stream::of).forEach(e -> addDeserializer(e.getClass(), new TraversalSerializersV2.EnumJacksonDeserializer(e.getDeclaringClass())));
             addDeserializer(P.class, new TraversalSerializersV2.PJacksonDeserializer());
             addDeserializer(TextP.class, new TraversalSerializersV2.TextPJacksonDeserializer());
             addDeserializer(TemporalP.class, new TraversalSerializersV2.TemporalPJacksonDeserializer());
             addDeserializer(Lifetime.class, new TraversalSerializersV2.LifetimeJacksonDeserializer());
+            addDeserializer(Lifetime.Interval.class, new TraversalSerializersV2.IntervalJacksonDeserializer());
+            addDeserializer(GeneralizedRelation.class, new TraversalSerializersV2.GeneralizedRelationJacksonDeserializer());
+            addDeserializer(GeneralizedIntervalRelation.class, new TraversalSerializersV2.GeneralizedIntervalRelationJacksonDeserializer());
             addDeserializer(Lambda.class, new TraversalSerializersV2.LambdaJacksonDeserializer());
             addDeserializer(Traverser.class, new TraversalSerializersV2.TraverserJacksonDeserializer());
             Arrays.asList(
@@ -617,6 +654,7 @@ abstract class GraphSONModule extends TinkerPopJacksonModule {
                     PathRetractionStrategy.class,
                     RepeatUnrollStrategy.class,
                     TemporalGraphViewStrategy.class,
+                    TemporalGraphStepStrategy.class,
                     ComputerVerificationStrategy.class,
                     LambdaRestrictionStrategy.class,
                     ReadOnlyStrategy.class,

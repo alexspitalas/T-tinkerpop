@@ -151,6 +151,7 @@ public class TinkerGraph extends AbstractTinkerGraph {
         final Vertex vertex = createTinkerVertex(idValue, label, this);
         ElementHelper.attachProperties(vertex, VertexProperty.Cardinality.list, keyValues);
         this.vertices.put(vertex.id(), vertex);
+        TinkerIndexHelper.autoUpdateLifetimeIndex((TinkerVertex) vertex);
 
         return vertex;
     }
@@ -181,6 +182,7 @@ public class TinkerGraph extends AbstractTinkerGraph {
         edges.put(edge.id(), edge);
         addOutEdge(outVertex, label, edge);
         addInEdge(inVertex, label, edge);
+        TinkerIndexHelper.autoUpdateLifetimeIndex((TinkerEdge) edge);
         return edge;
     }
 

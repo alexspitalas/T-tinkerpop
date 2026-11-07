@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pick;
 import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep;
 import org.apache.tinkerpop.gremlin.structure.io.binary.DataType;
@@ -63,6 +64,8 @@ public class EnumSerializer<E extends Enum> extends SimpleTypeSerializer<E> {
     public static final EnumSerializer<LifetimeStep.LifetimeMode> LifetimeModeSerializer = new EnumSerializer<>(DataType.LIFETIMEMODE, LifetimeStep.LifetimeMode::valueOf);
     public static final EnumSerializer<Lifetime.DropMode> DropModeSerializer = new EnumSerializer<>(DataType.DROPMODE, Lifetime.DropMode::valueOf);
     public static final EnumSerializer<TemporalPathTarget> TemporalPathTargetSerializer = new EnumSerializer<>(DataType.TEMPORALPATHTARGET, TemporalPathTarget::valueOf);
+    public static final EnumSerializer<Temporal> TemporalSerializer = new EnumSerializer<>(DataType.TEMPORAL, Temporal::valueOf);
+    public static final EnumSerializer<Temporal.Quantifier> TemporalQuantifierSerializer = new EnumSerializer<>(DataType.TEMPORALQUANTIFIER, Temporal.Quantifier::valueOf);
 
     private final Function<String, E> readFunc;
 

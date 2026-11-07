@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.process.traversal.Text;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
@@ -42,6 +43,8 @@ import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.InputShim;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.KryoShim;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.OutputShim;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.SerializerShim;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedFactory;
@@ -513,13 +516,27 @@ public final class GryoSerializersV3 {
         public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final TemporalP p) {
             output.writeString(p.getBiPredicate().toString());
             kryo.writeClassAndObject(output, p.getValue());
+            output.writeString(p.getQuantifier().name());
+            kryo.writeClassAndObject(output, p.getGeneralizedRelation() != null
+                    ? p.getGeneralizedRelation()
+                    : p.getGeneralizedIntervalRelation());
         }
         @Override
         public <I extends InputShim> TemporalP read(final KryoShim<I, ?> kryo, final I input, final Class<TemporalP> clazz) {
             final String predicate = input.readString();
             final Object value = kryo.readClassAndObject(input);
+            final Temporal.Quantifier quantifier = Temporal.Quantifier.valueOf(input.readString());
+            final Object spec = kryo.readClassAndObject(input);
             try {
-                return (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
+                final TemporalP tp;
+                if (spec instanceof GeneralizedRelation) {
+                    tp = TemporalP.generalized(value, (GeneralizedRelation) spec);
+                } else if (spec instanceof GeneralizedIntervalRelation) {
+                    tp = TemporalP.generalized(value, (GeneralizedIntervalRelation) spec);
+                } else {
+                    tp = (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
+                }
+                return quantifier == Temporal.Quantifier.ANY ? tp.any() : tp.all();
             } catch (final Exception e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
@@ -546,6 +563,77 @@ public final class GryoSerializersV3 {
                 raw[(i << 1) + 1] = input.readLong();
             }
             return Lifetime.fromRawIntervals(raw);
+        }
+    }
+
+    public final static class IntervalSerializer implements SerializerShim<Lifetime.Interval> {
+        @Override
+        public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final Lifetime.Interval interval) {
+            output.writeLong(interval.getStartMillis());
+            output.writeLong(interval.getEndMillis());
+        }
+
+        @Override
+        public <I extends InputShim> Lifetime.Interval read(final KryoShim<I, ?> kryo, final I input, final Class<Lifetime.Interval> clazz) {
+            return new Lifetime.Interval(input.readLong(), input.readLong());
+        }
+    }
+
+    public final static class GeneralizedRelationSerializer implements SerializerShim<GeneralizedRelation> {
+        @Override
+        public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final GeneralizedRelation rel) {
+            output.writeInt(rel.getP());
+            output.writeInt(rel.getQ());
+            for (int i = 1; i <= rel.getP(); i++) {
+                output.writeInt(rel.getZone(i));
+            }
+        }
+
+        @Override
+        public <I extends InputShim> GeneralizedRelation read(final KryoShim<I, ?> kryo, final I input, final Class<GeneralizedRelation> clazz) {
+            final int p = input.readInt();
+            final int q = input.readInt();
+            final int[] zones = new int[p];
+            for (int i = 0; i < p; i++) {
+                zones[i] = input.readInt();
+            }
+            return new GeneralizedRelation(p, q, zones);
+        }
+    }
+
+    public final static class GeneralizedIntervalRelationSerializer implements SerializerShim<GeneralizedIntervalRelation> {
+        @Override
+        public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final GeneralizedIntervalRelation rel) {
+            output.writeInt(rel.getP());
+            output.writeInt(rel.getQ());
+            output.writeBoolean(rel.isEmpty());
+            if (!rel.isEmpty()) {
+                for (int i = 1; i <= rel.getP(); i++) {
+                    output.writeInt(rel.getLower().getZone(i));
+                }
+                for (int i = 1; i <= rel.getP(); i++) {
+                    output.writeInt(rel.getUpper().getZone(i));
+                }
+            }
+        }
+
+        @Override
+        public <I extends InputShim> GeneralizedIntervalRelation read(final KryoShim<I, ?> kryo, final I input, final Class<GeneralizedIntervalRelation> clazz) {
+            final int p = input.readInt();
+            final int q = input.readInt();
+            final boolean empty = input.readBoolean();
+            if (empty) {
+                return GeneralizedIntervalRelation.empty(p, q);
+            }
+            final int[] lowerZones = new int[p];
+            for (int i = 0; i < p; i++) {
+                lowerZones[i] = input.readInt();
+            }
+            final int[] upperZones = new int[p];
+            for (int i = 0; i < p; i++) {
+                upperZones[i] = input.readInt();
+            }
+            return new GeneralizedIntervalRelation(new GeneralizedRelation(p, q, lowerZones), new GeneralizedRelation(p, q, upperZones));
         }
     }
 

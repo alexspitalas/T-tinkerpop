@@ -27,6 +27,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.Pick;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Script;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
 import org.apache.tinkerpop.gremlin.process.traversal.Translator;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
@@ -372,6 +374,22 @@ public final class GroovyTranslator implements Translator.ScriptTranslator {
             if (p instanceof TextP) {
                 script.append("TextP.").append(p.getPredicateName()).append("(");
                 convertToScript(p.getValue());
+            } else if (p instanceof TemporalP) {
+                final TemporalP tp = (TemporalP) p;
+                script.append("TemporalP.").append(tp.getPredicateName()).append("(");
+                convertToScript(tp.getValue());
+                if (tp.getGeneralizedRelation() != null) {
+                    script.append(",");
+                    convertToScript(tp.getGeneralizedRelation());
+                } else if (tp.getGeneralizedIntervalRelation() != null) {
+                    script.append(",");
+                    convertToScript(tp.getGeneralizedIntervalRelation());
+                }
+                script.append(")");
+                if (tp.getQuantifier() == Temporal.Quantifier.ANY) {
+                    script.append(".any()");
+                }
+                return script;
             } else if (p instanceof ConnectiveP) {
                 // ConnectiveP gets some special handling because it's reduced to and(P, P, P) and we want it
                 // generated the way it was written which was P.and(P).and(P)

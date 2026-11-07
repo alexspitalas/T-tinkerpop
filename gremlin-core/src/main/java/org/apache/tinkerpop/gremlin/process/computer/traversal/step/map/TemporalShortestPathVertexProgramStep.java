@@ -192,6 +192,7 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
         clone.targetVertexFilter = this.targetVertexFilter.clone();
         clone.edgeTraversal = this.edgeTraversal.clone();
         clone.distanceTraversal = this.distanceTraversal.clone();
+        clone.parameters = this.parameters.clone();
         return clone;
     }
 
@@ -205,7 +206,13 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
 
     @Override
     public int hashCode() {
-        return super.hashCode();
+        int result = super.hashCode() ^ this.target.hashCode() ^ Long.hashCode(this.initialTime)
+                ^ this.targetVertexFilter.hashCode() ^ this.edgeTraversal.hashCode()
+                ^ this.distanceTraversal.hashCode() ^ Boolean.hashCode(this.includeEdges)
+                ^ this.parameters.hashCode();
+        if (this.maxDistance != null)
+            result ^= this.maxDistance.hashCode();
+        return result;
     }
 
 }

@@ -22,6 +22,8 @@ import org.apache.tinkerpop.gremlin.structure.io.binary.DataType;
 import org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryReader;
 import org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryWriter;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
 import org.apache.tinkerpop.gremlin.structure.io.Buffer;
@@ -60,7 +62,8 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
         final Class<?>[] argumentClasses = new Class[length];
         for (int i = 0; i < length; i++) {
             args[i] = context.read(buffer);
-            argumentClasses[i] = null == args[i] ? Object.class : args[i].getClass();
+            argumentClasses[i] = null == args[i] ? Object.class
+                    : (args[i] instanceof Enum ? ((Enum<?>) args[i]).getDeclaringClass() : args[i].getClass());
         }
                     
         if ("and".equals(predicateName))
@@ -97,14 +100,33 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
                     collectionType = true;
                 } catch (NoSuchMethodException ex1) {
                     // finally go for the generics
-                    try {
-                        m = classOfP.getMethod(predicateName, Object.class);
-                    } catch (NoSuchMethodException ex2) {
-                        // finally go for the generics
+                    if (argumentClasses.length == 2) {
                         try {
                             m = classOfP.getMethod(predicateName, Object.class, Object.class);
-                        } catch (NoSuchMethodException ex3) {
-                            throw new IOException(String.format("Can't find predicate method: '%s'", predicateName), ex2);
+                        } catch (NoSuchMethodException ex2) {
+                            try {
+                                m = classOfP.getMethod(predicateName, argumentClasses[0], Object.class);
+                            } catch (NoSuchMethodException ex3) {
+                                try {
+                                    m = classOfP.getMethod(predicateName, Object.class, argumentClasses[1]);
+                                } catch (NoSuchMethodException ex4) {
+                                    try {
+                                        m = classOfP.getMethod(predicateName, Object.class);
+                                    } catch (NoSuchMethodException ex5) {
+                                        throw new IOException(String.format("Can't find predicate method: '%s'", predicateName), ex5);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        try {
+                            m = classOfP.getMethod(predicateName, Object.class);
+                        } catch (NoSuchMethodException ex2) {
+                            try {
+                                m = classOfP.getMethod(predicateName, Object.class, Object.class);
+                            } catch (NoSuchMethodException ex3) {
+                                throw new IOException(String.format("Can't find predicate method: '%s'", predicateName), ex2);
+                            }
                         }
                     }
                 }
@@ -150,6 +172,34 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
 
     @Override
     protected void writeValue(final T value, final Buffer buffer, final GraphBinaryWriter context) throws IOException {
+        if (value instanceof TemporalP) {
+            final TemporalP tp = (TemporalP) value;
+            final String predicateName;
+            final List<Object> argsAsList;
+            if (tp.getBiPredicate() == Temporal.generalized) {
+                predicateName = tp.getQuantifier() == Temporal.Quantifier.ANY ? "anyGeneralized" : "generalized";
+                if (tp.getGeneralizedRelation() != null) {
+                    argsAsList = Arrays.asList(tp.getValue(), tp.getGeneralizedRelation());
+                } else if (tp.getGeneralizedIntervalRelation() != null) {
+                    argsAsList = Arrays.asList(tp.getValue(), tp.getGeneralizedIntervalRelation());
+                } else {
+                    argsAsList = Collections.singletonList(tp.getValue());
+                }
+            } else if (tp.getQuantifier() == Temporal.Quantifier.ANY) {
+                predicateName = "any";
+                argsAsList = Arrays.asList(tp.getBiPredicate(), tp.getValue());
+            } else {
+                predicateName = tp.getPredicateName();
+                argsAsList = Collections.singletonList(tp.getValue());
+            }
+            context.writeValue(predicateName, buffer, false);
+            context.writeValue(argsAsList.size(), buffer, false);
+            for (Object o : argsAsList) {
+                context.write(o, buffer);
+            }
+            return;
+        }
+
         // the predicate name is either a static method of P or an instance method when a type ConnectiveP
         final boolean isConnectedP = value instanceof ConnectiveP;
         final String predicateName = value.getPredicateName();

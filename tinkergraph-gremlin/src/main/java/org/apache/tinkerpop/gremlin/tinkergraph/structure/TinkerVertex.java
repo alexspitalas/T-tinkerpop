@@ -208,6 +208,12 @@ public class TinkerVertex extends TinkerElement implements Vertex {
     }
 
     @Override
+    public void setLifetime(final org.apache.tinkerpop.gremlin.structure.temporal.Lifetime lifetime) {
+        super.setLifetime(lifetime);
+        TinkerIndexHelper.autoUpdateLifetimeIndex(this);
+    }
+
+    @Override
     public String toString() {
         return StringFactory.vertexString(this);
     }

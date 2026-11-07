@@ -187,4 +187,43 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
     public <S, E> List<Traversal.Admin<S, E>> getGlobalChildren() {
         return Collections.emptyList();
     }
+
+    @Override
+    public TemporalBfsStep clone() {
+        final TemporalBfsStep clone = (TemporalBfsStep) super.clone();
+        clone.parameters = this.parameters.clone();
+        return clone;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(super.hashCode(), this.initialTime, this.target, this.direction, this.parameters);
+        if (this.edgeLabels != null) {
+            result = 31 * result + Arrays.hashCode(this.edgeLabels);
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+        if (this == obj)
+            return true;
+        if (!(obj instanceof TemporalBfsStep))
+            return false;
+        if (!super.equals(obj))
+            return false;
+        final TemporalBfsStep other = (TemporalBfsStep) obj;
+        return this.initialTime == other.initialTime
+                && this.target == other.target
+                && this.direction == other.direction
+                && Arrays.equals(this.edgeLabels, other.edgeLabels)
+                && Objects.equals(this.parameters, other.parameters);
+    }
+
+    @Override
+    public String toString() {
+        return org.apache.tinkerpop.gremlin.structure.util.StringFactory.stepString(
+                this, this.initialTime, this.target, this.direction,
+                this.edgeLabels == null ? Collections.emptyList() : Arrays.asList(this.edgeLabels), this.parameters);
+    }
 }

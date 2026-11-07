@@ -59,6 +59,10 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
                 return testingIdString ? testIdAsString(element) : testId(element);
             if (this.key.equals(T.label.getAccessor()))
                 return testLabel(element);
+            // Under open-world temporal semantics, every element has an effective Lifetime via
+            // Lifetime.getLifetimeFromProperties(element): static (untimed) elements have Lifetime.UNBOUNDED
+            // ([-infinity, +infinity)) and are treated as alive forever, while elements with temporalIntervals
+            // or startTime/endTime are evaluated against their configured intervals.
             if (this.predicate instanceof TemporalP && Lifetime.TEMPORAL_INTERVALS.equals(this.key))
                 return this.predicate.test(element);
         }

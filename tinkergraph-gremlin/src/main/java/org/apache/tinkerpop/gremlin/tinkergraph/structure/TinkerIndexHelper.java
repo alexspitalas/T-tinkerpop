@@ -66,6 +66,20 @@ public final class TinkerIndexHelper {
             graph.vertexIndex.autoUpdate(key, newValue, oldValue, vertex);
     }
 
+    public static void autoUpdateLifetimeIndex(final TinkerVertex vertex) {
+        final AbstractTinkerGraph graph = (AbstractTinkerGraph) vertex.graph();
+        if (graph.vertexIndex instanceof TemporalTinkerIndex) {
+            ((TemporalTinkerIndex<TinkerVertex>) graph.vertexIndex).syncElementLifetime(vertex);
+        }
+    }
+
+    public static void autoUpdateLifetimeIndex(final TinkerEdge edge) {
+        final AbstractTinkerGraph graph = (AbstractTinkerGraph) edge.graph();
+        if (graph.edgeIndex instanceof TemporalTinkerIndex) {
+            ((TemporalTinkerIndex<TinkerEdge>) graph.edgeIndex).syncElementLifetime(edge);
+        }
+    }
+
     public static void removeElementIndex(final TinkerVertex vertex) {
         final AbstractTinkerGraph graph = (AbstractTinkerGraph) vertex.graph();
         if (graph.vertexIndex != null)

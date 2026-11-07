@@ -118,6 +118,12 @@ public class TinkerEdge extends TinkerElement implements Edge {
     }
 
     @Override
+    public void setLifetime(final org.apache.tinkerpop.gremlin.structure.temporal.Lifetime lifetime) {
+        super.setLifetime(lifetime);
+        TinkerIndexHelper.autoUpdateLifetimeIndex(this);
+    }
+
+    @Override
     public String toString() {
         return StringFactory.edgeString(this);
     }

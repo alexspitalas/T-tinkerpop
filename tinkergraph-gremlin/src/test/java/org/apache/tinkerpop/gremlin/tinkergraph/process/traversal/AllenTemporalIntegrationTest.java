@@ -274,6 +274,69 @@ public class AllenTemporalIntegrationTest {
                 contains("P4_connected"));
     }
 
+    @Test
+    public void shouldTreatStaticAndStartEndElementsIdenticallyWithAndWithoutTemporalIndex() {
+        // Add a static vertex BEFORE index creation
+        final Vertex staticBefore = g.addV("item").property("name", "static-before").next();
+        // Add a startTime/endTime vertex BEFORE index creation
+        final Vertex startEndBefore = g.addV("item").property("name", "start-end-before")
+                .property(Lifetime.START_TIME, 100L)
+                .property(Lifetime.END_TIME, 300L)
+                .next();
+
+        final Lifetime.Interval refWindow = new Lifetime.Interval(new Date(150L), new Date(250L));
+        final Lifetime.Interval overlapWindow = new Lifetime.Interval(new Date(200L), new Date(400L));
+
+        // Verify unindexed results first
+        assertThat(g.V().hasLabel("item").temporalContains(refWindow).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before"));
+        assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS,
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.contains(refWindow)).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before"));
+        assertThat(g.V().hasLabel("item").temporalOverlaps(overlapWindow).values("name").toList(),
+                contains("start-end-before"));
+
+        // Enable temporal index on Vertex
+        graph.createIndex(Lifetime.TEMPORAL_INTERVALS, Vertex.class);
+
+        // Add a static vertex and a startTime/endTime vertex AFTER index creation
+        final Vertex staticAfter = g.addV("item").property("name", "static-after").next();
+        final Vertex startEndAfter = g.addV("item").property("name", "start-end-after")
+                .property(Lifetime.START_TIME, 120L)
+                .property(Lifetime.END_TIME, 280L)
+                .next();
+
+        // Indexed AllenFilterStep and HasContainer(TEMPORAL_INTERVALS, TemporalP) must include both static and startTime/endTime vertices
+        assertThat(g.V().hasLabel("item").temporalContains(refWindow).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "static-after", "start-end-after"));
+        assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS,
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.contains(refWindow)).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "static-after", "start-end-after"));
+        assertThat(g.V().hasLabel("item").temporalIntersects(refWindow).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "static-after", "start-end-after"));
+        assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS,
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(refWindow)).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "static-after", "start-end-after"));
+
+        // Strict overlaps must match only the bounded [100, 300) and [120, 280) vertices, not static UNBOUNDED vertices
+        assertThat(g.V().hasLabel("item").temporalOverlaps(overlapWindow).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("start-end-before", "start-end-after"));
+        assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS,
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(overlapWindow)).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("start-end-before", "start-end-after"));
+
+        // Mutating a static vertex to bounded updates the index; removing its temporal properties reverts it to UNBOUNDED ("alive forever")
+        staticAfter.property(Lifetime.START_TIME, 500L);
+        staticAfter.property(Lifetime.END_TIME, 600L);
+        assertThat(g.V().hasLabel("item").temporalContains(refWindow).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "start-end-after"));
+
+        staticAfter.property(Lifetime.START_TIME).remove();
+        staticAfter.property(Lifetime.END_TIME).remove();
+        assertThat(g.V().hasLabel("item").temporalContains(refWindow).values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "static-after", "start-end-after"));
+    }
+
     private static Date date(final String instant) {
         return Date.from(Instant.parse(instant));
     }

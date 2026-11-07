@@ -28,6 +28,7 @@ import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.PageRank
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.PeerPressureVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ProgramVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPathVertexProgramStep;
+import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalShortestPathVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.apache.tinkerpop.gremlin.process.traversal.GraphOp;
 import org.apache.tinkerpop.gremlin.process.traversal.Step;
@@ -143,6 +144,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.SubstringGlobalSt
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.SumLocalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TailLocalStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalBfsStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRankStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.ToLowerLocalStep;
@@ -349,7 +351,9 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.coalesce, Collections.singletonList(CoalesceStep.class));
             put(GraphTraversal.Symbols.choose, Collections.singletonList(ChooseStep.class));
             put(GraphTraversal.Symbols.optional, Collections.singletonList(OptionalStep.class));
+            put(GraphTraversal.Symbols.tbfs, Collections.singletonList(TemporalBfsStep.class));
             put(GraphTraversal.Symbols.temporalPageRank, Collections.singletonList(TemporalPageRankStep.class));
+            put(GraphTraversal.Symbols.temporalShortestPath, Collections.singletonList(TemporalShortestPathVertexProgramStep.class));
             put(GraphTraversal.Symbols.pageRank, Collections.singletonList(PageRankVertexProgramStep.class));
             put(GraphTraversal.Symbols.peerPressure, Collections.singletonList(PeerPressureVertexProgramStep.class));
             put(GraphTraversal.Symbols.connectedComponent, Collections.singletonList(ConnectedComponentVertexProgramStep.class));
