@@ -86,18 +86,23 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         this.mode = mode != null ? mode : LifetimeMode.REPLACE;
         this.dropMode = Objects.requireNonNull(dropMode, "dropMode cannot be null");
 
-        this.useTemporalParameters = true;
-
-        if (startTime instanceof Traversal) {
-            this.startTimeTraversal = this.integrateChild(((Traversal<S, ?>) startTime).asAdmin());
+        if (startTime instanceof Lifetime && null == endTime) {
+            this.lifetime = (Lifetime) startTime;
+            this.useTemporalParameters = false;
         } else {
-            this.startTime = startTime;
-        }
+            this.useTemporalParameters = true;
 
-        if (endTime instanceof Traversal) {
-            this.endTimeTraversal = this.integrateChild(((Traversal<S, ?>) endTime).asAdmin());
-        } else {
-            this.endTime = endTime;
+            if (startTime instanceof Traversal) {
+                this.startTimeTraversal = this.integrateChild(((Traversal<S, ?>) startTime).asAdmin());
+            } else {
+                this.startTime = startTime;
+            }
+
+            if (endTime instanceof Traversal) {
+                this.endTimeTraversal = this.integrateChild(((Traversal<S, ?>) endTime).asAdmin());
+            } else {
+                this.endTime = endTime;
+            }
         }
 
         this.propertyKey = propertyKey;
@@ -159,15 +164,22 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
         // Evaluate traversal parameters at runtime
         final Lifetime actualLifetime = resolveLifetime(traverser);
-        final Element element = (Element) traverser.get();
+        final Element element = Lifetime.unwrapElement((Element) traverser.get());
 
         Lifetime finalLifetime = actualLifetime;
         if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {
             Lifetime currentLifetime = Lifetime.fromProperties(element);
+            final int count = actualLifetime.getIntervalCount();
             if (mode == LifetimeMode.ADD) {
-                finalLifetime = currentLifetime.addInterval(actualLifetime.getStartDate(), actualLifetime.getEndDate());
+                for (int i = 0; i < count; i++) {
+                    currentLifetime = currentLifetime.addInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
+                }
+                finalLifetime = currentLifetime;
             } else if (mode == LifetimeMode.DROP) {
-                finalLifetime = currentLifetime.dropInterval(actualLifetime.getStartDate(), actualLifetime.getEndDate());
+                for (int i = 0; i < count; i++) {
+                    currentLifetime = currentLifetime.dropInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
+                }
+                finalLifetime = currentLifetime;
             }
         }
 
@@ -183,7 +195,14 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             final Vertex vertex = (Vertex) element;
 
             if (this.propertyKey != null && this.propertyValue != null) {
-                vertex.property(VertexProperty.Cardinality.single, this.propertyKey, this.propertyValue,
+                final List<VertexProperty<Object>> untimedProps = new ArrayList<>();
+                vertex.properties(this.propertyKey).forEachRemaining(vp -> {
+                    if (!Lifetime.hasLifetimeProperties(vp)) {
+                        untimedProps.add(vp);
+                    }
+                });
+                untimedProps.forEach(VertexProperty::remove);
+                vertex.property(VertexProperty.Cardinality.list, this.propertyKey, this.propertyValue,
                         finalLifetime.toProperties());
             } else if (this.propertyKey != null) {
 
@@ -268,6 +287,9 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         final Object resolvedEndTime = null == this.endTimeTraversal ?
                 this.endTime :
                 TraversalUtil.apply(traverser, this.endTimeTraversal);
+
+        if (resolvedStartTime instanceof Lifetime && null == resolvedEndTime)
+            return (Lifetime) resolvedStartTime;
 
         return Lifetime.from(resolvedStartTime, resolvedEndTime);
     }

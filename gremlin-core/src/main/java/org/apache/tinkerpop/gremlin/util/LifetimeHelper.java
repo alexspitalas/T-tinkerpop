@@ -21,6 +21,7 @@ package org.apache.tinkerpop.gremlin.util;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
 
 import java.util.Date;
@@ -36,15 +37,21 @@ public final class LifetimeHelper {
     }
 
     /**
-     * Returns {@code true} if the element is alive during the given window (inclusive).
-     * Edges are alive only when both incident vertices are also alive during the window.
+     * Returns {@code true} if the element is alive during the given window
+     * (inclusive).
+     * Edges are alive only when both incident vertices are also alive during the
+     * window.
      */
     public static boolean isAliveDuring(final Element element, final Lifetime window) {
-        if (!intersects(Lifetime.fromProperties(element), window))
+        if (!isElementAlive(element, window))
             return false;
 
-        if (element instanceof Edge) {
-            final Edge edge = unwrapEdge((Edge) element);
+        final Element base = Lifetime.unwrapElement(element);
+        if (base != element && !isElementAlive(base, window))
+            return false;
+
+        if (base instanceof Edge) {
+            final Edge edge = (Edge) base;
             return isAliveDuring(edge.outVertex(), window)
                     && isAliveDuring(edge.inVertex(), window);
         }
@@ -52,27 +59,62 @@ public final class LifetimeHelper {
         return true;
     }
 
+    private static boolean isElementAlive(final Element element, final Lifetime window) {
+        if (element instanceof TemporalElement) {
+            final Lifetime lt = ((TemporalElement) element).getLifetime();
+            if (lt != null) {
+                return lt.isUnbounded() || intersects(lt, window);
+            }
+        }
+        if (!Lifetime.hasLifetimeProperties(element)) {
+            return true;
+        }
+        return intersects(Lifetime.fromProperties(element), window);
+    }
+
     /**
-     * Returns {@code true} if the lifetimes intersect inclusively. A single shared point is an intersection.
+     * Returns {@code true} if the lifetimes intersect inclusively. A single shared
+     * point is an intersection.
      */
     public static boolean intersects(final Lifetime left, final Lifetime right) {
         return left.intersects(right);
     }
 
     /**
-     * Returns the inclusive intersection of two lifetimes, or {@link Optional#empty()} when they are disjoint.
+     * Returns the inclusive intersection of two lifetimes, or
+     * {@link Optional#empty()} when they are disjoint.
      */
     public static Optional<Lifetime> intersection(final Lifetime left, final Lifetime right) {
         Lifetime intersect = left.intersection(right);
-        if (intersect.isEmpty()) return Optional.empty();
+        if (intersect.isEmpty())
+            return Optional.empty();
         return Optional.of(intersect);
     }
 
     /**
-     * Returns {@code true} when {@code previous} ends before or exactly when {@code current} starts.
+     * Resolves the effective {@link Lifetime} of an element during a traversal by intersecting its persisted
+     * lifetime from properties with any active temporal decorator scope (from {@code atTime()} or {@code window()}).
+     */
+    public static Lifetime resolveEffectiveLifetime(final Element element) {
+        final Lifetime persisted = Lifetime.getLifetimeFromProperties(element);
+        final Element unwrappedTemporal = Lifetime.unwrapTemporalElement(element);
+        if (element != unwrappedTemporal && element instanceof TemporalElement) {
+            final Lifetime contextWindow = ((TemporalElement) element).getLifetime();
+            if (contextWindow != null) {
+                return persisted.intersection(contextWindow);
+            }
+        }
+        return persisted;
+    }
+
+    /**
+     * Returns {@code true} when at least one interval of {@code previous} ends before or exactly when
+     * an interval of {@code current} starts.
      */
     public static boolean isSequential(final Lifetime previous, final Lifetime current) {
-        return !previous.getEndDate().after(current.getStartDate());
+        if (previous.isEmpty() || current.isEmpty())
+            return false;
+        return previous.getEndMillis(0) <= current.getStartMillis(current.getIntervalCount() - 1);
     }
 
     private static Edge unwrapEdge(final Edge edge) {

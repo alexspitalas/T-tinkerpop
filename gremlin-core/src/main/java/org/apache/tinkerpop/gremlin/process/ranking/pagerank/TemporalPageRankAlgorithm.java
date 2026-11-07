@@ -18,19 +18,16 @@
  */
 package org.apache.tinkerpop.gremlin.process.ranking.pagerank;
 
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.PriorityQueue;
-import java.util.Queue;
 
 /**
  * Implements the Rozenshtein-Gionis Temporal PageRank chronological edge-stream algorithm.
@@ -56,46 +53,107 @@ public final class TemporalPageRankAlgorithm {
     public static Map<Object, Double> execute(final Collection<TemporalEdge> temporalEdges,
                                               final double alpha, final double beta, final boolean normalize) {
         validate(alpha, beta);
-        final List<TemporalEdge> sortedTemporalEdges = new ArrayList<>(temporalEdges);
-        sortedTemporalEdges.sort(Comparator.comparing(TemporalEdge::getStartInstant)
-                .thenComparing(edge -> String.valueOf(edge.id())));
+        if (temporalEdges.isEmpty()) {
+            return new LinkedHashMap<>();
+        }
 
-        final Map<Object, Double> r = new LinkedHashMap<>();
-        final Map<Object, Double> s = new LinkedHashMap<>();
-        final Map<Object, Queue<ScheduledMass>> pending = new HashMap<>();
-        final double injected = 1.0d - alpha;
+        final Map<Object, VertexState> vertexStates = new HashMap<>();
+        final List<Transition> transitions = new ArrayList<>(temporalEdges.size());
 
-        for (final TemporalEdge temporalEdge : sortedTemporalEdges) {
-            final Object u = temporalEdge.outVertex().id();
-            final Object v = temporalEdge.inVertex().id();
-            releaseAvailableMass(pending, s, u, temporalEdge.getStartInstant());
-            r.putIfAbsent(u, 0.0d);
-            r.putIfAbsent(v, 0.0d);
-            s.putIfAbsent(u, 0.0d);
-            s.putIfAbsent(v, 0.0d);
+        for (final TemporalEdge temporalEdge : temporalEdges) {
+            final Lifetime lt = temporalEdge.getLifetime();
+            final int count = lt.getIntervalCount();
+            if (count == 0) continue;
 
-            r.put(u, r.get(u) + injected);
-            s.put(u, s.get(u) + injected);
+            final Object uId = temporalEdge.getOutVertexId();
+            final Object vId = temporalEdge.getInVertexId();
+            final Object edgeId = temporalEdge.id();
+            final VertexState uState = vertexStates.computeIfAbsent(uId, VertexState::new);
+            final VertexState vState = vertexStates.computeIfAbsent(vId, VertexState::new);
 
-            final double activeSourceMass = s.get(u);
-            r.put(v, r.get(v) + activeSourceMass * alpha);
-
-            if (Double.compare(beta, 1.0d) == 0) {
-                scheduleMass(pending, v, activeSourceMass * alpha, temporalEdge.getEndInstant());
-                s.put(u, 0.0d);
-            } else {
-                scheduleMass(pending, v, activeSourceMass * (1.0d - beta) * alpha, temporalEdge.getEndInstant());
-                s.put(u, activeSourceMass * beta);
+            for (int i = 0; i < count; i++) {
+                transitions.add(new Transition(uState, vState, edgeId, lt.getStartMillis(i), lt.getEndMillis(i)));
             }
         }
 
+        final int m = transitions.size();
+        boolean alreadySorted = true;
+        for (int i = 1; i < m; i++) {
+            if (compareTransitions(transitions.get(i - 1), transitions.get(i)) > 0) {
+                alreadySorted = false;
+                break;
+            }
+        }
+        if (!alreadySorted) {
+            transitions.sort(TemporalPageRankAlgorithm::compareTransitions);
+        }
+
+        final List<VertexState> encounterOrder = new ArrayList<>(vertexStates.size());
+        final double injected = 1.0d - alpha;
+        final boolean betaIsOne = Double.compare(beta, 1.0d) == 0;
+        final double oneMinusBetaAlpha = (1.0d - beta) * alpha;
+
+        for (int i = 0; i < m; i++) {
+            final Transition t = transitions.get(i);
+            final VertexState u = t.u;
+            final VertexState v = t.v;
+
+            u.releaseAvailableMass(t.startMs);
+            if (!u.visited) {
+                u.visited = true;
+                encounterOrder.add(u);
+            }
+            if (!v.visited) {
+                v.visited = true;
+                encounterOrder.add(v);
+            }
+
+            u.r += injected;
+            u.s += injected;
+
+            final double activeSourceMass = u.s;
+            v.r += activeSourceMass * alpha;
+
+            if (betaIsOne) {
+                v.scheduleMass(activeSourceMass * alpha, t.endMs);
+                u.s = 0.0d;
+            } else {
+                v.scheduleMass(activeSourceMass * oneMinusBetaAlpha, t.endMs);
+                u.s = activeSourceMass * beta;
+            }
+        }
+
+        double normFactor = 1.0d;
         if (normalize) {
-            final double total = r.values().stream().mapToDouble(Double::doubleValue).sum();
-            if (total != 0.0d)
-                r.replaceAll((vertexId, rank) -> rank / total);
+            double total = 0.0d;
+            for (int i = 0, n = encounterOrder.size(); i < n; i++) {
+                total += encounterOrder.get(i).r;
+            }
+            if (total != 0.0d) {
+                normFactor = 1.0d / total;
+            }
+        }
+
+        final Map<Object, Double> r = new LinkedHashMap<>(encounterOrder.size());
+        for (int i = 0, n = encounterOrder.size(); i < n; i++) {
+            final VertexState vs = encounterOrder.get(i);
+            r.put(vs.vertexId, normalize ? vs.r * normFactor : vs.r);
         }
 
         return r;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static int compareTransitions(final Transition t1, final Transition t2) {
+        final int cmp = Long.compare(t1.startMs, t2.startMs);
+        if (cmp != 0) return cmp;
+        final Object id1 = t1.edgeId;
+        final Object id2 = t2.edgeId;
+        if (id1 == id2) return 0;
+        if (id1 instanceof Comparable && id2 instanceof Comparable && id1.getClass().equals(id2.getClass())) {
+            return ((Comparable) id1).compareTo(id2);
+        }
+        return String.valueOf(id1).compareTo(String.valueOf(id2));
     }
 
     private static void validate(final double alpha, final double beta) {
@@ -105,35 +163,86 @@ public final class TemporalPageRankAlgorithm {
             throw new IllegalArgumentException("Temporal PageRank beta must be greater than 0.0 and less than or equal to 1.0");
     }
 
-    private static void releaseAvailableMass(final Map<Object, Queue<ScheduledMass>> pending, final Map<Object, Double> s,
-                                             final Object vertexId, final Date startTime) {
-        final Queue<ScheduledMass> scheduled = pending.get(vertexId);
-        if (null == scheduled)
-            return;
+    private static final class Transition {
+        final VertexState u;
+        final VertexState v;
+        final Object edgeId;
+        final long startMs;
+        final long endMs;
 
-        while (!scheduled.isEmpty() && !scheduled.peek().availableAt.after(startTime)) {
-            s.put(vertexId, s.getOrDefault(vertexId, 0.0d) + scheduled.remove().mass);
+        Transition(final VertexState u, final VertexState v, final Object edgeId, final long startMs, final long endMs) {
+            this.u = u;
+            this.v = v;
+            this.edgeId = edgeId;
+            this.startMs = startMs;
+            this.endMs = endMs;
         }
     }
 
-    private static void scheduleMass(final Map<Object, Queue<ScheduledMass>> pending, final Object vertexId,
-                                     final double mass, final Date availableAt) {
-        if (mass == 0.0d)
-            return;
+    private static final class VertexState {
+        final Object vertexId;
+        double r = 0.0d;
+        double s = 0.0d;
+        boolean visited = false;
 
-        pending.computeIfAbsent(vertexId,
-                key -> new PriorityQueue<>(Comparator.comparing((ScheduledMass scheduledMass) -> scheduledMass.availableAt)))
-                .add(new ScheduledMass(availableAt, mass));
-    }
+        long[] heapTimes = null;
+        double[] heapMasses = null;
+        int heapSize = 0;
 
-    private static final class ScheduledMass {
-        private final Date availableAt;
-        private final double mass;
+        VertexState(final Object vertexId) {
+            this.vertexId = vertexId;
+        }
 
-        private ScheduledMass(final Date availableAt, final double mass) {
-            this.availableAt = new Date(Objects.requireNonNull(availableAt, "availableAt cannot be null").getTime());
-            this.mass = mass;
+        void scheduleMass(final double mass, final long availableAtMillis) {
+            if (mass == 0.0d) return;
+            if (heapTimes == null) {
+                heapTimes = new long[8];
+                heapMasses = new double[8];
+            } else if (heapSize == heapTimes.length) {
+                final int newCap = heapTimes.length << 1;
+                heapTimes = Arrays.copyOf(heapTimes, newCap);
+                heapMasses = Arrays.copyOf(heapMasses, newCap);
+            }
+            int idx = heapSize++;
+            while (idx > 0) {
+                final int parent = (idx - 1) >>> 1;
+                if (heapTimes[parent] <= availableAtMillis) {
+                    break;
+                }
+                heapTimes[idx] = heapTimes[parent];
+                heapMasses[idx] = heapMasses[parent];
+                idx = parent;
+            }
+            heapTimes[idx] = availableAtMillis;
+            heapMasses[idx] = mass;
+        }
+
+        void releaseAvailableMass(final long startTimeMs) {
+            while (heapSize > 0 && heapTimes[0] <= startTimeMs) {
+                this.s += heapMasses[0];
+                final int last = --heapSize;
+                if (last > 0) {
+                    final long lastTime = heapTimes[last];
+                    final double lastMass = heapMasses[last];
+                    int idx = 0;
+                    final int half = last >>> 1;
+                    while (idx < half) {
+                        int child = (idx << 1) + 1;
+                        final int right = child + 1;
+                        if (right < last && heapTimes[right] < heapTimes[child]) {
+                            child = right;
+                        }
+                        if (lastTime <= heapTimes[child]) {
+                            break;
+                        }
+                        heapTimes[idx] = heapTimes[child];
+                        heapMasses[idx] = heapMasses[child];
+                        idx = child;
+                    }
+                    heapTimes[idx] = lastTime;
+                    heapMasses[idx] = lastMass;
+                }
+            }
         }
     }
-
 }

@@ -24,6 +24,8 @@ import org.apache.tinkerpop.gremlin.process.GremlinProcessRunner;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -36,6 +38,16 @@ import static org.junit.Assert.*;
 // @author Alex Spitalas
 @RunWith(GremlinProcessRunner.class)
 public abstract class AllenTemporalTest extends AbstractGremlinProcessTest {
+
+    @Before
+    public void setupTemporalData() {
+        try {
+            final Vertex lop = (Vertex) g.V(convertToVertexId("lop")).next();
+            lop.property(Lifetime.START_TIME, "2011-04-01T00:00:00");
+            lop.property(Lifetime.END_TIME, "2011-04-01T00:00:00");
+        } catch (Exception ignored) {
+        }
+    }
 
     public abstract Traversal<Vertex, Vertex> get_g_V_temporalBeforeX1X(final Object v1Id);
     public abstract Traversal<Vertex, Vertex> get_g_V_temporalAfterX1X(final Object v1Id);

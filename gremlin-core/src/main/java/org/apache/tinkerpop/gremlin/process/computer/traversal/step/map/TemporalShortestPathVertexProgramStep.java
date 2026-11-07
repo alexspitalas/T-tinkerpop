@@ -22,6 +22,7 @@ package org.apache.tinkerpop.gremlin.process.computer.traversal.step.map;
 import org.apache.tinkerpop.gremlin.process.computer.ComputerResult;
 import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
 import org.apache.tinkerpop.gremlin.process.computer.Memory;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalShortestPathVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.TraversalVertexProgram;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
@@ -56,16 +57,31 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
     private PureTraversal<Edge, Number> distanceTraversal = TemporalShortestPathVertexProgram.DEFAULT_DISTANCE_TRAVERSAL.clone();
     private Number maxDistance;
     private boolean includeEdges;
+    private TemporalPathTarget target = TemporalPathTarget.EARLIEST_ARRIVAL;
+    private long initialTime = 0L;
 
     public TemporalShortestPathVertexProgramStep(final Traversal.Admin<?, ?> traversal) {
         super(traversal);
+    }
+
+    public TemporalShortestPathVertexProgramStep(final Traversal.Admin<?, ?> traversal,
+                                                 final TemporalPathTarget target,
+                                                 final long initialTime) {
+        super(traversal);
+        if (target != null)
+            this.target = target;
+        this.initialTime = initialTime;
     }
 
     void setTargetVertexFilter(final Traversal filterTraversal) {
         this.targetVertexFilter = new PureTraversal<>(this.integrateChild(filterTraversal.asAdmin()));
     }
 
-    void setEdgeTraversal(final Traversal edgeTraversal) {
+    public Traversal.Admin<Vertex, Edge> getEdgeTraversal() {
+        return this.edgeTraversal.getPure();
+    }
+
+    public void setEdgeTraversal(final Traversal edgeTraversal) {
         this.edgeTraversal = new PureTraversal<>(this.integrateChild(edgeTraversal.asAdmin()));
     }
 
@@ -79,6 +95,15 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
 
     void setIncludeEdges(final boolean includeEdges) {
         this.includeEdges = includeEdges;
+    }
+
+    public void setTarget(final TemporalPathTarget target) {
+        if (target != null)
+            this.target = target;
+    }
+
+    public void setInitialTime(final long initialTime) {
+        this.initialTime = initialTime;
     }
 
     @Override
@@ -107,14 +132,17 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
 
     @Override
     public String toString() {
-        return StringFactory.stepString(this, this.targetVertexFilter.get(), this.edgeTraversal.get(),
-                this.distanceTraversal.get(), this.maxDistance, this.includeEdges, new GraphFilter(this.computer));
+        return StringFactory.stepString(this, this.target, this.initialTime, this.targetVertexFilter.get(),
+                this.edgeTraversal.get(), this.distanceTraversal.get(), this.maxDistance, this.includeEdges,
+                new GraphFilter(this.computer));
     }
 
     @Override
     public TemporalShortestPathVertexProgram generateProgram(final Graph graph, final Memory memory) {
 
         final TemporalShortestPathVertexProgram.Builder builder = TemporalShortestPathVertexProgram.build()
+                .target(this.target)
+                .initialTime(this.initialTime)
                 .target(this.targetVertexFilter.getPure())
                 .edgeTraversal(this.edgeTraversal.getPure())
                 .distanceTraversal(this.distanceTraversal.getPure())

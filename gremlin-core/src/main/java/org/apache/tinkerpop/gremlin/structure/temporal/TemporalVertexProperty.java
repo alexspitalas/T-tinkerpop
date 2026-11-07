@@ -22,6 +22,7 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertexProperty;
 
 import java.util.Date;
 import java.util.Iterator;
@@ -41,7 +42,7 @@ import java.util.Iterator;
  *
  * @author Alex Spitalas
  */
-public final class TemporalVertexProperty<V> implements VertexProperty<V> {
+public final class TemporalVertexProperty<V> implements VertexProperty<V>, WrappedVertexProperty<VertexProperty<V>>, TemporalElement {
 
     private final VertexProperty<V> base;
     private final Lifetime lifetime;

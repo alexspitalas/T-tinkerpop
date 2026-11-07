@@ -44,7 +44,7 @@ import java.util.Iterator;
  *
  * @author Alex Spitalas
  */
-public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
+public final class TemporalEdge implements Edge, WrappedEdge<Edge>, TemporalElement {
 
     private final Edge base;
     private final Lifetime lifetime;
@@ -63,6 +63,22 @@ public final class TemporalEdge implements Edge, WrappedEdge<Edge> {
     @Override
     public Edge getBaseEdge() {
         return base;
+    }
+
+    public Object getOutVertexId() {
+        return base.outVertex().id();
+    }
+
+    public Object getInVertexId() {
+        return base.inVertex().id();
+    }
+
+    public long getStartMillis() {
+        return lifetime.getStartMillis();
+    }
+
+    public long getEndMillis() {
+        return lifetime.getEndMillis();
     }
 
     public Date getInstant() {

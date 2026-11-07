@@ -19,9 +19,11 @@
 package org.apache.tinkerpop.gremlin.process.traversal.step.util;
 
 import org.apache.tinkerpop.gremlin.process.traversal.P;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 
 import java.io.Serializable;
@@ -57,6 +59,8 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
                 return testingIdString ? testIdAsString(element) : testId(element);
             if (this.key.equals(T.label.getAccessor()))
                 return testLabel(element);
+            if (this.predicate instanceof TemporalP && Lifetime.TEMPORAL_INTERVALS.equals(this.key))
+                return this.predicate.test(element);
         }
 
         final Iterator<? extends Property> itty = element.properties(this.key);
@@ -174,7 +178,8 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
 
     private static <S> boolean internalTestAll(final S element, final List<HasContainer> hasContainers) {
         final boolean isProperty = element instanceof Property;
-        for (final HasContainer hasContainer : hasContainers) {
+        for (int i = 0, size = hasContainers.size(); i < size; i++) {
+            final HasContainer hasContainer = hasContainers.get(i);
             if (isProperty) {
                 if (!hasContainer.test((Property) element))
                     return false;

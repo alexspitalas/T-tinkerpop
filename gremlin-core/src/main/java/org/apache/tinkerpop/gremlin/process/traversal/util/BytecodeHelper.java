@@ -332,6 +332,8 @@ public final class BytecodeHelper {
             put(GraphTraversal.Symbols.temporalDuring, Collections.singletonList(AllenFilterStep.class));
             put(GraphTraversal.Symbols.temporalContains, Collections.singletonList(AllenFilterStep.class));
             put(GraphTraversal.Symbols.temporalEquals, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalIntersects, Collections.singletonList(AllenFilterStep.class));
+            put(GraphTraversal.Symbols.temporalDisjoint, Collections.singletonList(AllenFilterStep.class));
             put(GraphTraversal.Symbols.store, Collections.singletonList(AggregateLocalStep.class));
             put(GraphTraversal.Symbols.aggregate, Arrays.asList(AggregateLocalStep.class, AggregateGlobalStep.class));
             put(GraphTraversal.Symbols.fail, Collections.singletonList(FailStep.class));

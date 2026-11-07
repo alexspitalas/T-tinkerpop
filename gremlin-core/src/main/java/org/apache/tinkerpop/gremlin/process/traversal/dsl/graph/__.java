@@ -1329,160 +1329,44 @@ public class __ {
     }
 
     /**
-     * @see GraphTraversal#lifetime(Map)
+     * @see GraphTraversal#lifetimeProperty(String, String, Object, Object)
      */
     public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
-            final String startTime, final String endTime) {
+            final Object startTime, final Object endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
     }
 
     /**
-     * @see GraphTraversal#lifetime(Map)
+     * @see GraphTraversal#lifetimeProperty(String, Object, Object)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
-            final Traversal<?, String> startTime, final String endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
-            final String startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
-            final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String startTime,
-            final String endTime) {
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final Object startTime,
+            final Object endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
     }
 
     /**
-     * @see GraphTraversal#lifetime(Map)
+     * @see GraphTraversal#lifetime(Object, Object)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey,
-            final Traversal<?, String> startTime, final String endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String startTime,
-            final Traversal<?, String> endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey,
-            final Traversal<?, String> startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().lifetimeProperty(propertyKey, startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetime(final String startTime, final String endTime) {
+    public static <A> GraphTraversal<A, A> lifetime(final Object startTime, final Object endTime) {
         return __.<A>start().lifetime(startTime, endTime);
     }
 
     /**
-     * @see GraphTraversal#lifetime(Map)
+     * @see GraphTraversal#lifetime(Object)
      */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, ?> startTime, final String endTime) {
-        return __.<A>start().lifetime(startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetime(final String startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().lifetime(startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, ?> startTime,
-                                                    final Traversal<?, ?> endTime) {
-        return __.<A>start().lifetime(startTime, endTime);
-    }
-
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetime(final String startTime) {
+    public static <A> GraphTraversal<A, A> lifetime(final Object startTime) {
         return __.<A>start().lifetime(startTime);
     }
 
-    /**
-     * @see GraphTraversal#lifetime(Map)
-     */
-    public static <A> GraphTraversal<A, A> lifetime(final Traversal<?, ?> startTime) {
-        return __.<A>start().lifetime(startTime);
-    }
-
-    public static <A> GraphTraversal<A, A> addInterval(final String startTime, final String endTime) {
+    public static <A> GraphTraversal<A, A> addInterval(final Object startTime, final Object endTime) {
         return __.<A>start().addInterval(startTime, endTime);
     }
 
-    public static <A> GraphTraversal<A, A> addInterval(final Traversal<?, ?> startTime, final String endTime) {
-        return __.<A>start().addInterval(startTime, endTime);
-    }
-
-    public static <A> GraphTraversal<A, A> addInterval(final String startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().addInterval(startTime, endTime);
-    }
-
-    public static <A> GraphTraversal<A, A> addInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
-        return __.<A>start().addInterval(startTime, endTime);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final String startTime, final String endTime) {
+    public static <A> GraphTraversal<A, A> dropInterval(final Object startTime, final Object endTime) {
         return __.<A>start().dropInterval(startTime, endTime);
     }
 
-    public static <A> GraphTraversal<A, A> dropInterval(final Traversal<?, ?> startTime, final String endTime) {
-        return __.<A>start().dropInterval(startTime, endTime);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final String startTime, final Traversal<?, String> endTime) {
-        return __.<A>start().dropInterval(startTime, endTime);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime) {
-        return __.<A>start().dropInterval(startTime, endTime);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final String startTime, final String endTime,
-                                                        final Lifetime.DropMode dropMode) {
-        return __.<A>start().dropInterval(startTime, endTime, dropMode);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final Traversal<?, ?> startTime, final String endTime,
-                                                        final Lifetime.DropMode dropMode) {
-        return __.<A>start().dropInterval(startTime, endTime, dropMode);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final String startTime, final Traversal<?, String> endTime,
-                                                        final Lifetime.DropMode dropMode) {
-        return __.<A>start().dropInterval(startTime, endTime, dropMode);
-    }
-
-    public static <A> GraphTraversal<A, A> dropInterval(final Traversal<?, ?> startTime, final Traversal<?, ?> endTime,
+    public static <A> GraphTraversal<A, A> dropInterval(final Object startTime, final Object endTime,
                                                         final Lifetime.DropMode dropMode) {
         return __.<A>start().dropInterval(startTime, endTime, dropMode);
     }
@@ -1520,6 +1404,13 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> window(final Object start, final Object end) {
         return __.<A>start().window(start, end);
+    }
+
+    /**
+     * @see GraphTraversal#window(Lifetime)
+     */
+    public static <A> GraphTraversal<A, A> window(final Lifetime window) {
+        return __.<A>start().window(window);
     }
     ///////////////////// BRANCH STEPS /////////////////////
 
@@ -1780,6 +1671,14 @@ public class __ {
         return __.<A>start().temporalBefore(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalBefore(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalBefore(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalBefore(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalBefore(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal AFTER filter.
      *
@@ -1789,6 +1688,14 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> temporalAfter(final Element referenceElement) {
         return __.<A>start().temporalAfter(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalAfter(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalAfter(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalAfter(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalAfter(referenceInterval);
     }
 
     /**
@@ -1802,6 +1709,14 @@ public class __ {
         return __.<A>start().temporalMeets(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalMeets(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalMeets(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalMeets(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalMeets(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal MET BY filter.
      *
@@ -1811,6 +1726,14 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> temporalMetBy(final Element referenceElement) {
         return __.<A>start().temporalMetBy(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalMetBy(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalMetBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalMetBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalMetBy(referenceInterval);
     }
 
     /**
@@ -1824,6 +1747,14 @@ public class __ {
         return __.<A>start().temporalOverlaps(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalOverlaps(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalOverlaps(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalOverlaps(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalOverlaps(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal OVERLAPPED BY filter.
      *
@@ -1833,6 +1764,14 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Element referenceElement) {
         return __.<A>start().temporalOverlappedBy(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalOverlappedBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalOverlappedBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalOverlappedBy(referenceInterval);
     }
 
     /**
@@ -1846,6 +1785,14 @@ public class __ {
         return __.<A>start().temporalStarts(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalStarts(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalStarts(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalStarts(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalStarts(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal STARTED BY filter.
      *
@@ -1855,6 +1802,14 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> temporalStartedBy(final Element referenceElement) {
         return __.<A>start().temporalStartedBy(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalStartedBy(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalStartedBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalStartedBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalStartedBy(referenceInterval);
     }
 
     /**
@@ -1868,6 +1823,14 @@ public class __ {
         return __.<A>start().temporalFinishes(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalFinishes(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalFinishes(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalFinishes(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalFinishes(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal FINISHED BY filter.
      *
@@ -1877,6 +1840,14 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> temporalFinishedBy(final Element referenceElement) {
         return __.<A>start().temporalFinishedBy(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalFinishedBy(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalFinishedBy(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalFinishedBy(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalFinishedBy(referenceInterval);
     }
 
     /**
@@ -1890,6 +1861,14 @@ public class __ {
         return __.<A>start().temporalDuring(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalDuring(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalDuring(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDuring(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalDuring(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal CONTAINS filter.
      *
@@ -1901,6 +1880,14 @@ public class __ {
         return __.<A>start().temporalContains(referenceElement);
     }
 
+    public static <A> GraphTraversal<A, A> temporalContains(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalContains(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalContains(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalContains(referenceInterval);
+    }
+
     /**
      * Creates an anonymous traversal with a temporal EQUALS filter.
      *
@@ -1910,6 +1897,45 @@ public class __ {
      */
     public static <A> GraphTraversal<A, A> temporalEquals(final Element referenceElement) {
         return __.<A>start().temporalEquals(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalEquals(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalEquals(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalEquals(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalEquals(referenceInterval);
+    }
+
+    /**
+     * Creates an anonymous traversal with a temporal INTERSECTS filter.
+     *
+     * @param referenceElement the reference element to compare against
+     * @return the anonymous traversal
+     * @since 4.0.0-temporal
+     */
+    public static <A> GraphTraversal<A, A> temporalIntersects(final Element referenceElement) {
+        return __.<A>start().temporalIntersects(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalIntersects(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalIntersects(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalIntersects(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalIntersects(referenceInterval);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDisjoint(final Element referenceElement) {
+        return __.<A>start().temporalDisjoint(referenceElement);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDisjoint(final Lifetime referenceLifetime) {
+        return __.<A>start().temporalDisjoint(referenceLifetime);
+    }
+
+    public static <A> GraphTraversal<A, A> temporalDisjoint(final Lifetime.Interval referenceInterval) {
+        return __.<A>start().temporalDisjoint(referenceInterval);
     }
 
 }

@@ -22,10 +22,11 @@ limitations under the License.
 Apache TinkerPop™ has been extended with temporal functionality, enabling time-aware graph queries and traversals. This extension provides:
 
 1. **Lifetime Management**: Define and update one or more validity intervals for vertices and edges, and assign lifetimes to vertex properties
-2. **Allen's Interval Algebra**: Thirteen operators for interval-based temporal filtering
+2. **Allen's Interval Algebra & Ligozat's Generalized Interval Calculus**: Thirteen Allen primitives, `intersects`, gap-aware `disjoint`, convex lattice intervals $[\alpha, \beta]$ (`TemporalP.between`), Vilain's point-interval relations ($\Pi(1, 2)$ and $\Pi(2, 1)$), and arbitrary $(p, q)$-relations $\pi \in \Pi(p, q)$ (`TemporalP.generalized`) across single intervals (`i1`) and multi-interval objects (`o1`)
 3. **Temporal Paths**: Constrain traversals based on temporal relationships between edges
-4. **Temporal Views**: Query a graph at an instant or during a window
+4. **Temporal Views**: Query a graph at an instant or during a window across both OLTP and OLAP (`GraphComputer`)
 5. **Temporal PageRank**: Rank vertices using a chronological edge stream
+6. **Temporal Shortest Paths**: Discover time-respecting shortest paths locally (`tbfs()`) or on `GraphComputer` (`temporalShortestPath()`)
 
 == Lifetime Management
 
@@ -92,9 +93,9 @@ lifetime must be contained in the lifetimes of both endpoint vertices when it is
 
 === Adding and Dropping Intervals
 
-`addInterval(start, end)` adds an inclusive interval; `dropInterval(start, end)` subtracts one. Overlapping or
-touching intervals are merged. A subtraction may split an interval, with the retained sides ending one millisecond
-before and beginning one millisecond after the removed interval. `lifetime(start, end)` replaces all intervals.
+Temporal validity intervals in T-Gremlin follow the standard half-open convention `[start, end)`, where the start instant is inclusive and the end instant is exclusive (instantaneous point events are represented as `[t, t]`).
+
+`addInterval(start, end)` adds a half-open interval `[start, end)`; `dropInterval(start, end)` subtracts one. Overlapping or abutting (touching) intervals are merged (e.g., `[100, 200)` and `[200, 300)` merge into `[100, 300)`). A subtraction may split an interval cleanly without discrete millisecond offsets: subtracting `[s_d, e_d)` from an existing interval `[s_c, e_c)` yields the exact continuous retained intervals `[s_c, s_d)` and `[e_d, e_c)`. `lifetime(start, end)` replaces all intervals.
 On an element without explicit lifetime properties, `addInterval()` establishes the first bounded interval.
 These interval mutation steps operate on vertices and edges; use `lifetimeProperty()` to assign a vertex-property lifetime.
 
@@ -114,7 +115,7 @@ Removing a vertex also removes its incident edges. A drop that misses all interv
 === Temporal Views
 
 `atTime(instant)` filters elements alive at one instant; `window(start, end)` filters elements whose lifetime
-intersects the inclusive window. Both carry the temporal scope through later vertex, edge, and vertex-property
+intersects the half-open query window `[start, end)`. Both carry the temporal scope through later vertex, edge, and vertex-property
 navigation, including `out()`, `outE()`, `inV()`, `has()`, `values()`, and `properties()`.
 
 [source,java]
@@ -126,20 +127,25 @@ List<Vertex> reports = g.V(employee)
     .out("manages").toList();
 ----
 
-An `atTime(t)` query uses the point interval `[t, t]`. When navigating from a temporal vertex, the edge and both
-endpoints must each intersect the current temporal context. In a window query these intersections need not occur
-at one shared instant. A direct `g.E().atTime(...)` or `g.E().window(...)` filters the edge by its own lifetime.
-Both steps reject `null` arguments, and `window()` rejects a reversed range.
+An `atTime(t)` query evaluates point containment `start <= t < end` (or exact instant equality for instantaneous point events `[t, t]`). In a `window(start, end)` query, elements whose validity strictly abuts the window boundaries (e.g., ending exactly at `start` or starting exactly at `end`) do not intersect the half-open window and are excluded. Both when navigating from a temporal vertex and in a direct `g.E().atTime(...)` or `g.E().window(...)` query, the edge and both incident endpoints must each intersect the active temporal context. In a window query these intersections need not occur at one shared instant. When executed on `GraphComputer` (`g.withComputer()`), `TemporalGraphViewStrategy` automatically pushes the active `atTime()` or `window()` bounds into the `GraphFilter` and rewrites OLAP vertex and edge-to-vertex steps to preserve the temporal scope across distributed message-passing hops. Both steps reject `null` arguments, and `window()` rejects a reversed range.
 
-== Allen's Interval Algebra
+== Allen's Interval Algebra & Ligozat's Generalized Interval Calculus
 
 === Overview
 
-Allen's Interval Algebra provides 13 distinct temporal relationships between intervals, extended with a general `intersects` operator. These operators can be used in two ways:
-1. **As standard traversal steps**: Comparing the current element against a static reference element (e.g., `temporalOverlaps(ref)`).
-2. **As Cypher-style binary predicates**: Using `TemporalP` inside `where()`, `has()`, or `match()` steps to dynamically compare graph variables (e.g., `where("a", TemporalP.overlaps("b"))`).
+T-Gremlin implements Allen's Interval Algebra (13 primitive relations) together with **Gérard Ligozat's (AAAI-91) Generalized Interval Calculus** ($\Pi(p, q)$ relations, distributive lattice structure, transposition $\pi^t$, composition $\pi ; \pi'$, and convex lattice intervals $[\alpha, \beta]$).
 
-These temporal filters are fully **multi-interval aware**. When evaluating elements with fragmented lifetimes (i.e., multiple active periods separated by gaps), the filters perform a full O(N+M) temporal sweep to ensure mathematically correct overlap and subset logic. For instance, an element is only considered `during` a reference if all of its active sub-intervals are perfectly enclosed by active sub-intervals of the reference, without falling into any gaps.
+All temporal steps and `TemporalP` predicates support **any combination of single intervals (`Lifetime.Interval`), multi-interval lifetimes (`Lifetime`), graph elements (`Vertex`, `Edge`, `VertexProperty`), and point instants (`Date`, `Instant`, `Number`, ISO `String`)**:
+- `i1 x i2` (single interval vs. single interval)
+- `i1 x o1` and `o1 x i1` (single interval vs. multi-interval object/lifetime)
+- `o1 x o2` (multi-interval object/lifetime vs. multi-interval object/lifetime)
+- Point vs. interval ($\Pi(1, 2)$ and $\Pi(2, 1)$ Vilain point-interval relations)
+
+These operators can be used in two ways:
+1. **As standard traversal steps**: Comparing the current element (or interval/lifetime stream) against a reference target (`Element`, `Lifetime`, or `Lifetime.Interval`), e.g., `temporalOverlaps(ref)`, `temporalIntersects(ref)`, or `temporalDisjoint(ref)`.
+2. **As Cypher-style binary predicates**: Using `TemporalP` inside `where()`, `has()`, `is()`, or `match()` steps to dynamically compare graph variables or values (e.g., `where("a", TemporalP.overlaps("b"))`, `where("a", TemporalP.between(Temporal.precedes, Temporal.meets, "b"))`, or `where("a", TemporalP.generalized("b", relation))`).
+
+These temporal filters are fully **multi-interval aware**. When evaluating elements with fragmented lifetimes (i.e., multiple active periods separated by gaps), the filters perform a full $O(M \log N)$ temporal sweep to ensure mathematically correct overlap and subset logic. For instance, an element is only considered `during` a reference if all of its active sub-intervals are perfectly enclosed by active sub-intervals of the reference, without falling into any gaps. Conversely, `disjoint` verifies that no active sub-interval of `A` overlaps any active sub-interval of `B` (even when `A`'s active intervals sit inside `B`'s gaps).
 
 === Using Temporal Predicates (Pattern Matching)
 
@@ -219,7 +225,25 @@ g.E().hasLabel("event").as("event")
 |`temporalEquals(ref)`
 |Identical start and end times
 |Exactly matching intervals
+
+|`temporalIntersects(ref)`
+|Any active interval overlaps (`[(0,2), (2,4)]`)
+|Conflict detection
+
+|`temporalDisjoint(ref)`
+|No active intervals overlap (gap-aware complement of `intersects`)
+|Non-conflicting concurrent processes
 |===
+
+=== Generalized $(p, q)$-Relations & Lattice Algebra (Ligozat AAAI-91)
+
+`GeneralizedRelation` and `GeneralizedIntervalRelation` provide direct access to Gérard Ligozat's algebraic and topological calculus without bloating the traversal step vocabulary:
+
+- **$(p, q)$-Relations ($\Pi(p, q)$)**: `GeneralizedRelation.between(x, y)` extracts the strictly increasing boundary point sequences of `x` ($p$-interval) and `y` ($q$-interval) and returns the exact zone sequence $\pi \in \Pi(p, q)$ in $[0, 2q]^p$. Any $(p, q)$-relation can be evaluated in Gremlin via `TemporalP.generalized(target, relation)`.
+- **Distributive Lattice $(\Pi(p, q), \le)$**: `r1.lessThanOrEqual(r2)`, `r1.inf(r2)` (meet), `r1.sup(r2)` (join), `r1.immediateSuccessors()`, `r1.immediatePredecessors()`, and `r1.toInequations()`.
+- **Transposition & Composition**: `r.transpose()` ($\pi^t \in \Pi(q, p)$) and `r1.compose(r2)` ($\pi ; \pi'$ as a convex lattice interval in $\Pi(p, r)$), plus `Temporal.transpose()` and `TemporalP.transpose()`.
+- **Convex Lattice Intervals ($[\alpha, \beta]$)**: `GeneralizedIntervalRelation` implements intersection, transposition, and Ligozat's stability theorem $[\alpha, \beta] ; [\gamma, \delta] = [\inf(\alpha ; \gamma), \sup(\beta ; \delta)]$. Any of the 82 non-empty convex relations in $\Pi(2, 2)$ can be expressed directly via `TemporalP.between(lowerAllen, upperAllen, target)` (e.g., `TemporalP.between(Temporal.precedes, Temporal.meets, target)` for $[(0,0), (0,1)]$ or `TemporalP.between(Temporal.starts, Temporal.finishes, target)` for `enclosedBy` $[(1,2), (2,3)]$).
+- **Vilain's Point-Interval Calculus ($\Pi(1, 2)$ and $\Pi(2, 1)$)**: Because `Temporal.extractLifetime` normalizes a point instant $t$ (`Date`, `Instant`, `Number`, or ISO string) as $[t, t]$ against half-open intervals $[s, e)$, all 5 of Vilain's point-to-interval relations are expressed directly through the standard operators (`TemporalP.precedes(iv)` for $t < s$, `TemporalP.starts(iv)` for $t = s$, `TemporalP.during(iv)` for $s < t < e$, `TemporalP.metBy(iv)` for $t = e$, and `TemporalP.succeeds(iv)` for $t > e$) or via `GeneralizedRelation.POINT_*` constants.
 
 === Usage Examples
 
@@ -253,6 +277,50 @@ List<Vertex> complexQuery = g.V().hasLabel("Task")
         __.temporalOverlaps(projectVertex)
     ))
     .toList();
+
+// Comparing simple intervals (i1 x i2) and simple intervals against multi-interval objects (i1 x o1, o1 x i1)
+Lifetime.Interval i1 = new Lifetime.Interval(new Date(100), new Date(200));
+Lifetime.Interval i2 = new Lifetime.Interval(new Date(200), new Date(300));
+boolean meets = Temporal.meets.test(i1, i2); // true (i1 x i2)
+List<Vertex> containingObjects = g.V().hasLabel("Contract")
+    .temporalContains(i1)                    // o1 x i1 via step overload
+    .toList();
+List<Lifetime.Interval> matchingIntervals = g.inject(i1, i2)
+    .temporalDuring(projectVertex)           // i1 x o1 via stream of Interval objects
+    .toList();
+
+// Holistic (ALL, default) vs. Existential (ANY) quantification over multi-interval objects
+List<Vertex> strictBefore = g.V().hasLabel("Task")
+    .temporalBefore(projectVertex)                        // ALL: entire lifetime of Task ends before projectVertex starts
+    .toList();
+List<Vertex> anySubIntervalBefore = g.V().hasLabel("Task")
+    .temporalBefore(projectVertex).with(Temporal.ANY)     // ANY: at least one sub-interval of Task precedes one of projectVertex
+    .toList();
+List<Vertex> anyViaPredicate = g.V().hasLabel("Task")
+    .where(TemporalP.precedes(projectVertex).any())       // ANY via TemporalP.any()
+    .toList();
+
+// Convex lattice intervals via TemporalP.between (e.g., precedesOrMeets [(0,0), (0,1)] or enclosedBy [(1,2), (2,3)])
+List<Vertex> causalPredecessors = g.V().hasLabel("Task")
+    .where(TemporalP.between(Temporal.precedes, Temporal.meets, milestone))
+    .toList();
+
+// Exact Ligozat (p, q)-relation in Pi(4, 2) (2-interval object vs 1-interval object)
+GeneralizedRelation rel42 = GeneralizedRelation.of(2, 0, 2, 2, 4);
+List<Vertex> exactTopologyMatches = g.V().hasLabel("MultiPhaseTask")
+    .where(TemporalP.generalized(i1, rel42))
+    .toList();
+
+// Convex lattice interval composition and filtering (Theorem 4.2 of Ligozat AAAI-91)
+GeneralizedIntervalRelation composed = Temporal.during.compose(Temporal.overlaps); // [(0,2), (2,3)]
+List<Vertex> composedMatches = g.V().hasLabel("Task")
+    .where(TemporalP.generalized(projectVertex, composed))
+    .toList();
+
+// Vilain's Pi(1, 2) point-to-interval relations via standard TemporalP operators
+List<Date> checkpointsDuring = g.inject(new Date(150), new Date(250))
+    .is(TemporalP.during(i1))
+    .toList();
 ----
 
 == Temporal Paths
@@ -261,7 +329,7 @@ List<Vertex> complexQuery = g.V().hasLabel("Task")
 
 Temporal paths extend standard graph traversals by enforcing temporal constraints across edges in a path. This enables queries like "find paths where all edges overlap" or "find paths that respect causality."
 Each path step follows an outgoing edge and returns its incoming vertex. It accepts zero or more edge labels;
-without labels it considers all outgoing edges. Intervals that meet at a single instant count as overlapping.
+without labels it considers all outgoing edges. Under half-open interval semantics `[start, end)`, intervals must share a non-empty overlapping duration (`s1 < e2 && s2 < e1`); abutting intervals that meet at an exact boundary point (`e1 == s2`) are disjoint and do not overlap.
 
 === Three Path Types
 
@@ -285,8 +353,7 @@ without labels it considers all outgoing edges. Intervals that meet at a single 
 `sequentialPath(minDelay, maxDelay, labels...)` also limits the delay between the preceding edge's end and
 the next edge's start, inclusive, in milliseconds. `pairwiseContinuousPath(true, labels...)` also requires
 each new edge to start no earlier than the preceding edge; the default form has no monotonicity constraint.
-Continuous and pairwise paths intersect the actual intervals of multi-interval edge lifetimes, including gaps.
-Sequential paths use each edge lifetime's earliest start and latest end.
+All three path types are fully multi-interval and window-aware: each edge's effective lifetime is resolved by intersecting its persisted intervals with any active `atTime()` or `window()` context. Continuous paths intersect the active intervals across all edges in the path, whereas `sequentialPath` and `pairwiseContinuousPath` (both monotone and non-monotone) statefully propagate the subset of reachable sub-intervals hop-by-hop across multi-interval edges so that each subsequent edge is tested only against the specific sub-intervals actually reached at the preceding hop.
 
 === Continuous Paths
 
@@ -303,11 +370,11 @@ List<Path> teams = g.V().has("name", "Alice")
     .toList();
 
 // Timeline visualization:
-// Edge 1: [10:00-12:00]
-// Edge 2:   [11:00-13:00]
-// Edge 3:     [11:30-12:30]
-// Edge 4:       [12:00-14:00]
-// Common overlap: [12:00-12:00] ✓ Valid continuous path
+// Edge 1: [10:00-12:15)
+// Edge 2:   [11:00-13:00)
+// Edge 3:     [11:30-12:30)
+// Edge 4:       [12:00-14:00)
+// Common overlap: [12:00-12:15) ✓ Valid continuous path
 ----
 
 === Sequential Paths
@@ -325,9 +392,9 @@ List<Vertex> workflow = g.V().has("status", "started")
     .toList();
 
 // Timeline visualization:
-// Edge 1: [10:00-11:00] ends
-// Edge 2:      [11:00-12:00] starts when Edge 1 ends
-// Edge 3:           [12:00-13:00] starts when Edge 2 ends
+// Edge 1: [10:00-11:00) ends
+// Edge 2:      [11:00-12:00) starts when Edge 1 ends
+// Edge 3:           [12:00-13:00) starts when Edge 2 ends
 // Perfect sequential handoffs ✓
 ----
 
@@ -345,10 +412,10 @@ List<Vertex> handoffs = g.V().has("type", "task")
     .toList();
 
 // Timeline visualization:
-// Edge 1: [10:00-12:00]
-// Edge 2:   [11:00-13:00] overlaps with Edge 1 ✓
-// Edge 3:       [12:30-14:00] overlaps with Edge 2 ✓
-// Edge 4:         [13:30-15:00] overlaps with Edge 3 ✓
+// Edge 1: [10:00-12:00)
+// Edge 2:   [11:00-13:00) overlaps with Edge 1 ✓
+// Edge 3:       [12:30-14:00) overlaps with Edge 2 ✓
+// Edge 4:         [13:30-15:00) overlaps with Edge 3 ✓
 // Note: Edge 1 and Edge 4 don't overlap - that's OK for pairwise
 ----
 
@@ -360,10 +427,10 @@ When a vertex has multiple outgoing edges, temporal path filters evaluate each i
 ----
 // Graph structure: A->B->{C, D, E}
 // Timeline:
-//   A->B: [10:00-12:00]
-//   B->C: [11:00-11:30] (overlaps A->B) ✓
-//   B->D: [11:30-12:00] (overlaps A->B) ✓
-//   B->E: [12:30-13:00] (no overlap) ✗
+//   A->B: [10:00-12:00)
+//   B->C: [11:00-11:30) (overlaps A->B) ✓
+//   B->D: [11:30-12:00) (overlaps A->B) ✓
+//   B->E: [12:30-13:00) (no overlap) ✗
 
 List<String> results = g.V(vertexA)
     .continuousPath("follows")
@@ -446,10 +513,12 @@ Path shortestContinuous = allContinuousPaths.stream()
 
 === Performance Considerations
 
-1. **Indexing**: Available indices depend on the graph provider; outer-bound properties alone do not describe gaps in a multi-interval lifetime
-2. **Edge Properties**: Temporal path filters use `Lifetime` normalization, so an edge with no lifetime properties
-   has unbounded interval limits
-3. **Path Length**: Longer paths with continuous constraints require more intersection calculations
+1. **Zero-Allocation Primitive Representation (`long[]`)**: `Lifetime` internally represents intervals as a contiguous primitive `long[]` array `[start_0, end_0, start_1, end_1, ...]`. All core temporal comparisons, intersections, containment tests, and Allen algebra evaluations operate directly on CPU registers and primitive values without boxing or transient `java.util.Date` allocations. This eliminates GC churn during high-volume scans across millions of temporal elements.
+2. **In-Memory Lifetime Caching & Unbounded Fast-Paths**: To maximize traversal throughput, in-memory graph elements (`TinkerVertex`, `TinkerEdge`, `TinkerVertexProperty`) implement `TemporalElement` and cache their parsed `Lifetime` object (including the canonical `Lifetime.UNBOUNDED` singleton for static elements) in a direct reference field. This eliminates repeated property lookups and string-parsing of `temporalIntervals` during multi-hop traversals. On external storage providers, `Lifetime.UNBOUNDED` short-circuits overlap and containment checks in $O(1)$.
+3. **Strategy Pushdown & Step Folding (`TemporalGraphStepStrategy`)**: In traditional Gremlin execution, downstream filtering constructs `DefaultTraverser` instances for every candidate element before filtering. `TemporalGraphStepStrategy` automatically folds Allen filter steps directly into the preceding `GraphStep` and `VertexStep`, applying the temporal condition at the storage iterator level. Elements that do not satisfy the temporal predicate are discarded immediately, eliminating traverser allocation overhead.
+4. **Automated Index Pushdown (`TemporalIndexOptimizationStrategy`)**: Available indices depend on the graph provider. TinkerGraph provides `TemporalTinkerIndex` backed by an augmented AVL `IntervalTree` that indexes half-open intervals `[start, end)`. `TemporalIndexOptimizationStrategy` detects indexed `temporalIntervals` properties and automatically routes standard Allen steps (e.g. `g.E().temporalOverlaps(window)`) into logarithmic interval-tree searches ($O(\log N + K)$) rather than unindexed sequential scans ($O(N)$). Guided by Ligozat's (AAAI-91) associated endpoint inequations $E(\pi)$, candidate retrieval is accelerated across all 13 Allen primitives and `intersects`.
+5. **Temporal PageRank Algorithmic Optimizations**: When scoping vertices that possess static or unbounded lifetimes, `TemporalPageRankStep` bypasses redundant vertex liveness intersection checks. Additionally, if the input edge stream is chronologically sorted, `TemporalPageRankAlgorithm` skips the general $O(M \log M)$ dual-sort comparator pass, performing linear $O(M)$ rank accumulation.
+6. **OLAP Pushdown (`TemporalGraphViewStrategy`)**: In `GraphComputer` traversals, `TemporalGraphViewStrategy` pushes `atTime()` and `window()` restrictions into the `Computer`'s vertex and edge `GraphFilter`s prior to distributed execution and rewrites OLAP vertex-navigation steps to preserve temporal bounds across `StarGraph` message passing.
 
 === Time Format
 
@@ -531,21 +600,22 @@ List<Vertex> ranked = g.V().hasLabel("person")
 
 The defaults are `alpha = 0.85`, `beta = 0.5`, normalization enabled, and property name
 `gremlin.temporalPageRank.pageRank`. `alpha` must be greater than zero and less than one; `beta` must be greater
-than zero and at most one. Vertices with no eligible edges receive rank `0.0`. For a multi-interval edge, the
-scan uses its earliest start and latest end.
+than zero and at most one. Vertices with no eligible edges receive rank `0.0`. For a multi-interval edge, each active interval (intersected with any active `atTime()` or `window()` context on its endpoints) is processed as a distinct chronological interaction event, and endpoint liveness is verified at each event's timestamp against the vertex's multi-interval lifetime.
 
 == Summary
 
 The temporal extensions to Apache TinkerPop provide a framework for time-aware graph analysis, while opening the way for more:
 
-- **Lifetime Management** makes temporal validity a first-class property
-- **Allen's Operators** enable sophisticated interval-based queries
+- **Lifetime Management** makes temporal validity a first-class property across single and multi-interval entities
+- **Allen's Operators & Ligozat's Generalized Interval Calculus** enable expressive interval-based, point-interval, convex lattice interval, and multi-interval $(p, q)$-relation queries across `i1 x i2`, `i1 x o1`, and `o1 x o2`
 - **Temporal Paths** allow traversals that respect temporal constraints
-- **Temporal Views** filter later navigation at an instant or within a window
+- **Temporal Views** filter later navigation at an instant or within a window across OLTP and OLAP
 - **Temporal PageRank** ranks vertices using temporal edge order
+- **Temporal Shortest Paths** compute time-respecting shortest paths via `tbfs()` (OLTP) and `temporalShortestPath()` (OLAP)
 
 For more examples and test cases, see:
 - `TemporalPathIntegrationTest.java` - Comprehensive temporal path tests
-- `AllenTemporalIntegrationTest.java` - Allen operator test coverage
+- `AllenTemporalIntegrationTest.java` - Allen operator, convex relation, and indexed `TemporalP` test coverage
+- `GeneralizedRelationTest.java` - Ligozat $(p, q)$-relation, distributive lattice, transposition, and composition tests
 - `AtTimeIntegrationTest.java` and `WindowIntegrationTest.java` - Temporal view tests
 - `MultipleIntervalLifetimeIntegrationTest.java` - Multi-interval mutation tests

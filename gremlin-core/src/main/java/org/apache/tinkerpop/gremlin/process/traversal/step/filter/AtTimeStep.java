@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
+import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertexProperty;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
@@ -68,34 +69,29 @@ public final class AtTimeStep<S> extends FilterStep<S> {
         // Non-element values pass through unchanged.
         if (!(current instanceof Element))
             return true;
-        Lifetime window = Lifetime.from(instant, instant);
-        Lifetime currentContext;
-        if (current instanceof TemporalVertex) currentContext = ((TemporalVertex) current).getLifetime();
-        else if (current instanceof TemporalEdge) currentContext = ((TemporalEdge) current).getLifetime();
-        else if (current instanceof TemporalVertexProperty) currentContext = ((TemporalVertexProperty<?>) current).getLifetime();
-        else currentContext = Lifetime.fromProperties((Element) current);
-
-        java.util.Optional<Lifetime> intersectOpt = LifetimeHelper.intersection(currentContext, window);
-        if (!intersectOpt.isPresent())
+        final Element element = (Element) current;
+        final Element unwrappedTemporal = Lifetime.unwrapTemporalElement(element);
+        final Element baseElement = Lifetime.unwrapElement(unwrappedTemporal);
+        final Lifetime window = Lifetime.from(instant, instant);
+        final Lifetime newContext;
+        if (element != unwrappedTemporal && element instanceof TemporalElement) {
+            final java.util.Optional<Lifetime> intersectOpt = LifetimeHelper.intersection(
+                    ((TemporalElement) element).getLifetime(), window);
+            if (!intersectOpt.isPresent())
+                return false;
+            newContext = intersectOpt.get();
+        } else {
+            newContext = window;
+        }
+        if (!LifetimeHelper.isAliveDuring(baseElement, newContext))
             return false;
 
-        Lifetime newContext = intersectOpt.get();
-
-        if (current instanceof VertexProperty) {
-            final VertexProperty<?> base = (current instanceof TemporalVertexProperty)
-                    ? ((TemporalVertexProperty<?>) current).getBaseVertexProperty()
-                    : (VertexProperty<?>) current;
-            traverser.set((S) new TemporalVertexProperty<>(base, newContext));
-        } else if (current instanceof Vertex) {
-            final Vertex base = (current instanceof TemporalVertex)
-                    ? ((TemporalVertex) current).getBaseVertex()
-                    : (Vertex) current;
-            traverser.set((S) new TemporalVertex(base, newContext));
-        } else if (current instanceof Edge) {
-            final Edge base = (current instanceof TemporalEdge)
-                    ? ((TemporalEdge) current).getBaseEdge()
-                    : (Edge) current;
-            traverser.set((S) new TemporalEdge(base, newContext));
+        if (unwrappedTemporal instanceof VertexProperty) {
+            traverser.set((S) new TemporalVertexProperty<>((VertexProperty<?>) unwrappedTemporal, newContext));
+        } else if (unwrappedTemporal instanceof Vertex) {
+            traverser.set((S) new TemporalVertex((Vertex) unwrappedTemporal, newContext));
+        } else if (unwrappedTemporal instanceof Edge) {
+            traverser.set((S) new TemporalEdge((Edge) unwrappedTemporal, newContext));
         }
 
         return true;

@@ -75,6 +75,7 @@ public class TinkerVertex extends TinkerElement implements Vertex {
             vertex.inEdgesId = inEdgesId;
             vertex.outEdgesId = outEdgesId;
             vertex.properties = properties;
+            vertex.cachedLifetime = this.cachedLifetime;
             return vertex;
         }
 
@@ -99,6 +100,7 @@ public class TinkerVertex extends TinkerElement implements Vertex {
             vertex.properties = result;
         }
 
+        vertex.cachedLifetime = this.cachedLifetime;
         return vertex;
     }
 
@@ -142,8 +144,10 @@ public class TinkerVertex extends TinkerElement implements Vertex {
         // cardinality is single. if it is list/set then we can just ignore the null.
         if (!allowNullPropertyValues && null == value) {
             final VertexProperty.Cardinality card = null == cardinality ? graph.features().vertex().getCardinality(key) : cardinality;
-            if (VertexProperty.Cardinality.single == card)
+            if (VertexProperty.Cardinality.single == card) {
                 properties(key).forEachRemaining(VertexProperty::remove);
+                clearLifetimeCache();
+            }
             return VertexProperty.empty();
         }
 
@@ -166,6 +170,7 @@ public class TinkerVertex extends TinkerElement implements Vertex {
             final List<VertexProperty> list = this.properties.getOrDefault(key, new ArrayList<>());
             list.add(vertexProperty);
             this.properties.put(key, list);
+            clearLifetimeCache();
             TinkerIndexHelper.autoUpdateIndex(this, key, value, null);
             ElementHelper.attachProperties(vertexProperty, keyValues);
             return vertexProperty;
@@ -199,6 +204,7 @@ public class TinkerVertex extends TinkerElement implements Vertex {
         this.properties = null;
         this.graph.removeVertex(this.id);
         this.removed = true;
+        clearLifetimeCache();
     }
 
     @Override

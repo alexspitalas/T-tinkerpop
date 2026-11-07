@@ -182,10 +182,18 @@ public class WindowIntegrationTest {
     }
 
     @Test
-    public void shouldIncludeWindowsTouchingLifetimeBoundaries() {
+    public void shouldExcludeAbuttingWindowBoundariesAndIncludeOverlaps() {
+        // Half-open [2021-01-01, 2022-01-01) abuts bob (starts 2022-01-01), so bob is excluded
         assertThat(g.V().window("2021-01-01", "2022-01-01").values("name").toList(),
-                containsInAnyOrder("alice", "bob", "carol", "eve"));
+                containsInAnyOrder("alice", "carol", "eve"));
+        // Half-open [2030-12-31, 2031-01-01) abuts alice (ends 2030-12-31), so alice is excluded
         assertThat(g.V().window("2030-12-31", "2031-01-01").values("name").toList(),
+                containsInAnyOrder("bob", "carol", "dave"));
+
+        // Strictly overlapping windows include them
+        assertThat(g.V().window("2021-01-01", "2022-01-02").values("name").toList(),
+                containsInAnyOrder("alice", "bob", "carol", "eve"));
+        assertThat(g.V().window("2030-12-30", "2031-01-01").values("name").toList(),
                 containsInAnyOrder("alice", "bob", "carol", "dave"));
     }
 
@@ -238,6 +246,30 @@ public class WindowIntegrationTest {
 
         assertTrue("bob should outrank carol when the future dave->carol edge is excluded",
                 ranks.get("bob") > ranks.get("carol"));
+        assertEquals("carol should have the same baseline rank as eve when future edge is filtered out",
+                ranks.get("eve"), ranks.get("carol"), 1e-6);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void shouldPreserveStarOutEdgesWhenApplyingTemporalGraphFilterOnStarGraph() {
+        final Vertex dave = g.V().has("name", "dave").next();
+        final org.apache.tinkerpop.gremlin.structure.util.star.StarGraph starGraph =
+                org.apache.tinkerpop.gremlin.structure.util.star.StarGraph.of(dave);
+        final org.apache.tinkerpop.gremlin.process.computer.GraphFilter filter =
+                new org.apache.tinkerpop.gremlin.process.computer.GraphFilter();
+        final Lifetime window = Lifetime.from(T_2021, T_2024);
+        filter.setVertexFilter( org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.window(window));
+        filter.setEdgeFilter((org.apache.tinkerpop.gremlin.process.traversal.Traversal)
+                org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.bothE().window(window));
+
+        final java.util.Optional<org.apache.tinkerpop.gremlin.structure.util.star.StarGraph> filtered =
+                starGraph.applyGraphFilter(filter);
+        assertTrue(filtered.isPresent());
+        final List<Edge> outEdges = org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils.asList(
+                filtered.get().getStarVertex().edges(org.apache.tinkerpop.gremlin.structure.Direction.OUT));
+        assertThat(outEdges, hasSize(1));
+        assertThat(outEdges.get(0).label(), is("recommends"));
     }
 
     @Test
@@ -471,6 +503,50 @@ public class WindowIntegrationTest {
 
         assertThat(paths, hasSize(1));
         assertThat(paths.get(0).objects(), contains("alice", "bob"));
+    }
+
+    @Test
+    public void shouldPreserveQueryWindowAcrossMultiHopTraversal() {
+        // dave (2023–forever) --[recommends, 2023–2024]--> bob (2022–2035)
+        // Add a second-hop edge from bob to alice active in [2024-06-01, 2025-06-01]
+        final Vertex bob = g.V().has("name", "bob").next();
+        final Vertex alice = g.V().has("name", "alice").next();
+        g.addE("replies").from(bob).to(alice).lifetime("2024-06-01", "2025-06-01").next();
+
+        // Within window [2023-01-01, 2026-01-01], both hops are alive inside the query window
+        final List<Object> reached = g.V().has("name", "dave")
+                .window("2023-01-01", "2026-01-01")
+                .out("recommends")
+                .out("replies")
+                .values("name")
+                .toList();
+        assertThat(reached, contains("alice"));
+    }
+
+    @Test
+    public void shouldFilterTargetBaseLifetimeWhenAtTimeFollowsWindowOut() {
+        // Connect alice (2020–2030) to eve (alive until 2025-01-01) with an edge alive [2022-01-01, 2025-01-01]
+        final Vertex alice = g.V().has("name", "alice").next();
+        final Vertex eve = g.V().has("name", "eve").next();
+        g.addE("collaborates").from(alice).to(eve).lifetime("2022-01-01", "2025-01-01").next();
+
+        // Walking out("collaborates") in window [2022-01-01, 2029-01-01] reaches eve (since eve is alive in 2022–2025),
+        // but subsequent .atTime(T_2028) must check eve's own base lifetime and filter her out.
+        final List<Object> at2028 = g.V(alice)
+                .window("2022-01-01", "2029-01-01")
+                .out("collaborates")
+                .atTime(T_2028)
+                .values("name")
+                .toList();
+        assertThat(at2028, empty());
+
+        final List<Object> at2024 = g.V(alice)
+                .window("2022-01-01", "2029-01-01")
+                .out("collaborates")
+                .atTime(T_2024)
+                .values("name")
+                .toList();
+        assertThat(at2024, contains("eve"));
     }
 
     // ════════════════════════════════════════════════════════════════════════

@@ -143,7 +143,12 @@ public final class TinkerGraphComputerView {
     }
 
     public boolean legalEdge(final Vertex vertex, final Edge edge) {
-        return !this.graphFilter.hasEdgeFilter() || this.legalEdges.get(vertex.id()).contains(edge.id());
+        if (!legalVertex(edge.outVertex()) || !legalVertex(edge.inVertex()))
+            return false;
+        if (!this.graphFilter.hasEdgeFilter())
+            return true;
+        final Set<Object> edges = this.legalEdges.get(vertex.id());
+        return null != edges && edges.contains(edge.id());
     }
 
     protected void complete() {

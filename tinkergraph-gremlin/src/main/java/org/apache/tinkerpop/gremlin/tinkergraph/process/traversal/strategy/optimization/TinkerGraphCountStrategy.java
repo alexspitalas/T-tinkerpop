@@ -64,6 +64,7 @@ public final class TinkerGraphCountStrategy extends AbstractTraversalStrategy<Tr
         if (steps.size() < 2 ||
                 !(steps.get(0) instanceof GraphStep) ||
                 0 != ((GraphStep) steps.get(0)).getIds().length ||
+                !((GraphStep) steps.get(0)).getAllenFilterSteps().isEmpty() ||
                 !(steps.get(steps.size() - 1) instanceof CountGlobalStep))
             return;
 

@@ -31,6 +31,7 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalEdge;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalVertex;
 import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
@@ -39,6 +40,7 @@ import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -112,6 +114,7 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     private void processAllStarts() {
         computed = true;
         final Map<Object, Vertex> scopedVertices = new LinkedHashMap<>();
+        final Map<Object, Lifetime> vertexContexts = new LinkedHashMap<>();
 
         while (this.starts.hasNext()) {
             final Traverser.Admin<S> traverser = this.starts.next();
@@ -119,6 +122,9 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
                 throw new IllegalArgumentException("temporalPageRank() can only be applied to vertex traversers");
             final Vertex vertex = (Vertex) traverser.get();
             scopedVertices.putIfAbsent(vertex.id(), baseVertex(vertex));
+            if (vertex instanceof TemporalVertex) {
+                vertexContexts.putIfAbsent(vertex.id(), ((TemporalVertex) vertex).getLifetime());
+            }
             traverser.setStepId(this.getNextStep().getId());
             this.barrier.add(traverser);
         }
@@ -127,7 +133,7 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
             return;
 
         validateConfiguration();
-        final List<TemporalEdge> edges = readTemporalEdges(scopedVertices);
+        final List<TemporalEdge> edges = readTemporalEdges(scopedVertices, vertexContexts);
 
         final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(edges, alpha, beta, normalize);
         writeRanks(scopedVertices.values(), propertyName, ranks);
@@ -138,20 +144,73 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
             throw new IllegalArgumentException("Temporal PageRank propertyName must be a non-empty String");
     }
 
-    private List<TemporalEdge> readTemporalEdges(final Map<Object, Vertex> scopedVertices) {
+    private List<TemporalEdge> readTemporalEdges(final Map<Object, Vertex> scopedVertices,
+                                                 final Map<Object, Lifetime> vertexContexts) {
         final List<TemporalEdge> temporalEdges = new ArrayList<>();
         final Set<Object> scopedVertexIds = new HashSet<>(scopedVertices.keySet());
 
+        // Pre-check if any vertex has a restricted property lifetime to bypass redundant liveness checks
+        final Map<Object, Lifetime> restrictedVertexLifetimes = new HashMap<>();
+        boolean anyRestrictedVertex = false;
         for (final Vertex vertex : scopedVertices.values()) {
+            if (Lifetime.hasLifetimeProperties(vertex)) {
+                final Lifetime vLt = Lifetime.getLifetimeFromProperties(vertex);
+                if (!vLt.isUnbounded()) {
+                    anyRestrictedVertex = true;
+                    restrictedVertexLifetimes.put(vertex.id(), vLt);
+                }
+            }
+        }
+
+        for (final Vertex vertex : scopedVertices.values()) {
+            final Lifetime activeContext = vertexContexts.get(vertex.id());
             final Iterator<Edge> edges = vertex.edges(Direction.OUT);
             try {
                 while (edges.hasNext()) {
-                    final TemporalEdge temporalEdge = new TemporalEdge(edges.next());
+                    final Edge rawEdge = edges.next();
+                    final Object outId = rawEdge.outVertex().id();
+                    final Object inId = rawEdge.inVertex().id();
+                    if (!scopedVertexIds.contains(outId) || !scopedVertexIds.contains(inId)) {
+                        continue;
+                    }
 
-                    if (LifetimeHelper.isAliveDuring(temporalEdge.getBaseEdge(), temporalEdge.getLifetime()) &&
-                            scopedVertexIds.contains(temporalEdge.outVertex().id()) &&
-                            scopedVertexIds.contains(temporalEdge.inVertex().id()))
-                        temporalEdges.add(temporalEdge);
+                    Lifetime effectiveLifetime = Lifetime.getLifetimeFromProperties(rawEdge);
+                    if (activeContext != null) {
+                        effectiveLifetime = effectiveLifetime.intersection(activeContext);
+                    }
+                    final Lifetime inContext = vertexContexts.get(inId);
+                    if (inContext != null) {
+                        effectiveLifetime = effectiveLifetime.intersection(inContext);
+                    }
+
+                    if (effectiveLifetime.isEmpty()) {
+                        continue;
+                    }
+
+                    final Lifetime outLt = anyRestrictedVertex ? restrictedVertexLifetimes.get(outId) : null;
+                    final Lifetime inLt = anyRestrictedVertex ? restrictedVertexLifetimes.get(inId) : null;
+                    if (outLt == null && inLt == null) {
+                        temporalEdges.add(new TemporalEdge(rawEdge, effectiveLifetime));
+                    } else {
+                        final int count = effectiveLifetime.getIntervalCount();
+                        if (count == 1) {
+                            final long sMs = effectiveLifetime.getStartMillis(0);
+                            final long eMs = effectiveLifetime.getEndMillis(0);
+                            if ((outLt == null || outLt.intersects(sMs, eMs)) &&
+                                    (inLt == null || inLt.intersects(sMs, eMs))) {
+                                temporalEdges.add(new TemporalEdge(rawEdge, effectiveLifetime));
+                            }
+                        } else {
+                            for (int idx = 0; idx < count; idx++) {
+                                final long sMs = effectiveLifetime.getStartMillis(idx);
+                                final long eMs = effectiveLifetime.getEndMillis(idx);
+                                if ((outLt == null || outLt.intersects(sMs, eMs)) &&
+                                        (inLt == null || inLt.intersects(sMs, eMs))) {
+                                    temporalEdges.add(new TemporalEdge(rawEdge, Lifetime.from(sMs, eMs)));
+                                }
+                            }
+                        }
+                    }
                 }
             } finally {
                 CloseableIterator.closeIterator(edges);

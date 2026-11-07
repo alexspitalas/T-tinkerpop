@@ -42,6 +42,7 @@ import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.InputShim;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.KryoShim;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.OutputShim;
 import org.apache.tinkerpop.gremlin.structure.io.gryo.kryoshim.SerializerShim;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedEdge;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedFactory;
 import org.apache.tinkerpop.gremlin.structure.util.detached.DetachedPath;
@@ -52,6 +53,7 @@ import org.apache.tinkerpop.gremlin.util.function.Lambda;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -510,17 +512,40 @@ public final class GryoSerializersV3 {
         @Override
         public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final TemporalP p) {
             output.writeString(p.getBiPredicate().toString());
-            kryo.writeObject(output, p.getValue());
+            kryo.writeClassAndObject(output, p.getValue());
         }
         @Override
         public <I extends InputShim> TemporalP read(final KryoShim<I, ?> kryo, final I input, final Class<TemporalP> clazz) {
             final String predicate = input.readString();
-            final Object value = kryo.readObject(input, Object.class);
+            final Object value = kryo.readClassAndObject(input);
             try {
                 return (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
             } catch (final Exception e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
+        }
+    }
+
+    public final static class LifetimeSerializer implements SerializerShim<Lifetime> {
+        @Override
+        public <O extends OutputShim> void write(final KryoShim<?, O> kryo, final O output, final Lifetime lifetime) {
+            final int count = lifetime.getIntervalCount();
+            output.writeInt(count);
+            for (int i = 0; i < count; i++) {
+                output.writeLong(lifetime.getStartMillis(i));
+                output.writeLong(lifetime.getEndMillis(i));
+            }
+        }
+
+        @Override
+        public <I extends InputShim> Lifetime read(final KryoShim<I, ?> kryo, final I input, final Class<Lifetime> clazz) {
+            final int size = input.readInt();
+            final long[] raw = new long[size << 1];
+            for (int i = 0; i < size; i++) {
+                raw[i << 1] = input.readLong();
+                raw[(i << 1) + 1] = input.readLong();
+            }
+            return Lifetime.fromRawIntervals(raw);
         }
     }
 

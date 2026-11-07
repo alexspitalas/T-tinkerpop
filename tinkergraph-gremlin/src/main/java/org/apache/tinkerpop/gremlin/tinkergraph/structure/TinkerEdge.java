@@ -84,6 +84,7 @@ public class TinkerEdge extends TinkerElement implements Edge {
 
         if (!allowNullPropertyValues && null == value) {
             properties(key).forEachRemaining(Property::remove);
+            clearLifetimeCache();
             return Property.empty();
         }
 
@@ -91,6 +92,7 @@ public class TinkerEdge extends TinkerElement implements Edge {
         final Property<V> newProperty = new TinkerProperty<>(this, key, value);
         if (null == this.properties) this.properties = new ConcurrentHashMap<>();
         this.properties.put(key, newProperty);
+        clearLifetimeCache();
         TinkerIndexHelper.autoUpdateIndex(this, key, value, oldProperty.isPresent() ? oldProperty.value() : null);
         return newProperty;
     }
@@ -112,6 +114,7 @@ public class TinkerEdge extends TinkerElement implements Edge {
         graph.removeEdge(this.id());
         this.properties = null;
         this.removed = true;
+        clearLifetimeCache();
     }
 
     @Override
@@ -125,6 +128,7 @@ public class TinkerEdge extends TinkerElement implements Edge {
             // shallow copy for non-tx mode
             final TinkerEdge edge = new TinkerEdge(id, outVertex, label, inVertex, currentVersion);
             edge.properties = properties;
+            edge.cachedLifetime = this.cachedLifetime;
             return edge;
         }
 
@@ -137,6 +141,7 @@ public class TinkerEdge extends TinkerElement implements Edge {
             edge.properties = cloned;
         }
 
+        edge.cachedLifetime = this.cachedLifetime;
         return edge;
     }
 

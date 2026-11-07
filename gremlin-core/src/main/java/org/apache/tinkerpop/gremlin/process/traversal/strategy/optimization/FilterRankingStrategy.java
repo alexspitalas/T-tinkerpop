@@ -24,6 +24,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.step.LambdaHolder;
 import org.apache.tinkerpop.gremlin.process.traversal.step.Scoping;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AllenFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AndStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.ClassFilterStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.DedupGlobalStep;
@@ -177,7 +178,7 @@ public final class FilterRankingStrategy extends AbstractTraversalStrategy<Trave
             return 0;
         else if (step instanceof IsStep || step instanceof ClassFilterStep)
             rank = 1;
-        else if (step instanceof HasStep)
+        else if (step instanceof HasStep || step instanceof AllenFilterStep)
             rank = 2;
         else if (step instanceof WherePredicateStep && ((WherePredicateStep) step).getLocalChildren().isEmpty())
             rank = 3;

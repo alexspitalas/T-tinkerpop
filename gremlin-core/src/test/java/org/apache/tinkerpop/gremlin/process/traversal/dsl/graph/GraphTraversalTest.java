@@ -22,6 +22,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.apache.tinkerpop.gremlin.process.traversal.Merge;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
@@ -56,25 +57,12 @@ public class GraphTraversalTest {
     private static Set<String> NO_GRAPH = new HashSet<>(Arrays.asList(
     "asAdmin", "by", "read", "write", "with", "option", "iterate", "to", "from", 
     "profile", "pageRank", "temporalPageRank", "connectedComponent", "peerPressure", "shortestPath",
-    "program", "none", 
-    // existing temporal-lifetime methods
-    "lifetime", "lifetimeProperty",
-    // new Allen temporal methods
-    "temporalBefore", "temporalAfter", "temporalMeets", "temporalMetBy",
-    "temporalOverlaps", "temporalOverlappedBy", "temporalStarts", "temporalStartedBy",
-    "temporalFinishes", "temporalFinishedBy", "temporalDuring", "temporalContains",
-    "temporalEquals"
+    "tbfs", "temporalShortestPath",
+    "program", "none"
     ));
     private static Set<String> NO_ANONYMOUS = new HashSet<>(Arrays.asList("start", "__"));
     private static Set<String> IGNORES_BYTECODE = new HashSet<>(Arrays.asList(
-    "asAdmin", "read", "write", "iterate",
-    // existing temporal-lifetime methods
-    "lifetime", "lifetimeProperty",
-    // new Allen temporal methods
-    "temporalBefore", "temporalAfter", "temporalMeets", "temporalMetBy",
-    "temporalOverlaps", "temporalOverlappedBy", "temporalStarts", "temporalStartedBy",
-    "temporalFinishes", "temporalFinishedBy", "temporalDuring", "temporalContains",
-    "temporalEquals"
+    "asAdmin", "read", "write", "iterate", "tbfs"
     ));
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailPropertyWithNullVertexId() {
@@ -231,7 +219,9 @@ public class GraphTraversalTest {
                             for (int j = 0; j < ((Traversal[]) arguments[i]).length; j++) {
                                 list.add(((Traversal[]) arguments[i])[j] = __.as(randomString(random)).out(randomString(random)).both(randomString(random)).has(randomString(random)).store(randomString(random)));
                             }
-                        } else if (P.class.isAssignableFrom(type))
+                        } else if (TemporalP.class.isAssignableFrom(type))
+                            list.add(arguments[i] = TemporalP.intersects(randomString(random)));
+                        else if (P.class.isAssignableFrom(type))
                             list.add(arguments[i] = P.gte(stepMethod.getName().contains("where") ? randomString(random) : random.nextInt()));
                         else if (Enum.class.isAssignableFrom(type))
                             list.add(arguments[i] = type.getEnumConstants()[0]);

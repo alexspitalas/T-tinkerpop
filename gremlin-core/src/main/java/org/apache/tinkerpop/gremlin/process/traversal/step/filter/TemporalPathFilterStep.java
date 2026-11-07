@@ -19,6 +19,7 @@
 package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 
 import org.apache.tinkerpop.gremlin.process.traversal.Path;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
@@ -27,8 +28,9 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -72,7 +74,10 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
         final Edge edge = (Edge) object;
         final Path path = traverser.path();
-        final Lifetime edgeLifetime = Lifetime.fromProperties(edge);
+        final Lifetime edgeLifetime = LifetimeHelper.resolveEffectiveLifetime(edge);
+        if (edgeLifetime.isEmpty()) {
+            return false;
+        }
 
         switch (type) {
             case CONTINUOUS:
@@ -93,10 +98,11 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         boolean foundOtherEdge = false;
         for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
-            if (obj instanceof Edge && obj != currentEdge) {
+            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
+            if (obj instanceof Edge && !isTrailingCurrent) {
                 foundOtherEdge = true;
                 final Edge prevEdge = (Edge) obj;
-                final Lifetime prevLifetime = Lifetime.fromProperties(prevEdge);
+                final Lifetime prevLifetime = LifetimeHelper.resolveEffectiveLifetime(prevEdge);
                 intersection = LifetimeHelper.intersection(intersection.get(), prevLifetime);
                 if (!intersection.isPresent())
                     return false;
@@ -110,61 +116,88 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
     }
 
     private boolean satisfiesSequential(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
-        // Strict temporal ordering.
-        Edge prevEdge = null;
-        for (int i = path.size() - 1; i >= 0; i--) {
+        // Strict temporal ordering across single or multiple intervals.
+        List<Lifetime.Interval> reachable = null;
+        for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
-            if (obj instanceof Edge && obj != currentEdge) {
-                prevEdge = (Edge) obj;
-                break;
+            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
+            if (obj instanceof Edge && !isTrailingCurrent) {
+                final Lifetime lt = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
+                if (lt.isEmpty())
+                    return false;
+                if (reachable == null) {
+                    reachable = lt.getIntervals();
+                } else {
+                    reachable = advanceSequentialIntervals(reachable, lt.getIntervals());
+                    if (reachable.isEmpty())
+                        return false;
+                }
             }
         }
 
-        if (prevEdge == null)
+        if (reachable == null)
             return true;
 
-        final Lifetime prevLifetime = Lifetime.fromProperties(prevEdge);
-        final Date prevEnd = prevLifetime.getEndDate();
-        final Date edgeStart = edgeLifetime.getStartDate();
+        return !advanceSequentialIntervals(reachable, edgeLifetime.getIntervals()).isEmpty();
+    }
 
-        // Previous edge must be BEFORE or MEET current edge.
-        if (!LifetimeHelper.isSequential(prevLifetime, edgeLifetime)) return false;
-
-        // Check Min/Max delay
-        if (minDelay > 0 || maxDelay < Long.MAX_VALUE) {
-            final long delay = edgeStart.getTime() - prevEnd.getTime();
-            if (delay < minDelay) return false;
-            if (delay > maxDelay) return false;
+    private List<Lifetime.Interval> advanceSequentialIntervals(final List<Lifetime.Interval> prevIntervals,
+                                                               final List<Lifetime.Interval> nextIntervals) {
+        final List<Lifetime.Interval> validNext = new ArrayList<>();
+        for (final Lifetime.Interval nextIv : nextIntervals) {
+            final long nextStart = nextIv.getStartMillis();
+            for (final Lifetime.Interval prevIv : prevIntervals) {
+                if (Temporal.precedes.testIntervalPair(prevIv, nextIv) || Temporal.meets.testIntervalPair(prevIv, nextIv)) {
+                    final long delay = nextStart - prevIv.getEndMillis();
+                    if (delay >= minDelay && delay <= maxDelay) {
+                        validNext.add(nextIv);
+                        break;
+                    }
+                }
+            }
         }
-
-        return true;
+        return validNext;
     }
 
     private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
-        // Consecutive edges need to overlap (inclusive).
-        Edge prevEdge = null;
-        for (int i = path.size() - 1; i >= 0; i--) {
+        // Consecutive edges need to overlap along a connected chain of reachable sub-intervals.
+        List<Lifetime.Interval> reachable = null;
+        for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
-            if (obj instanceof Edge && obj != currentEdge) {
-                prevEdge = (Edge) obj;
-                break;
+            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
+            if (obj instanceof Edge && !isTrailingCurrent) {
+                final Lifetime lt = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
+                if (lt.isEmpty())
+                    return false;
+                if (reachable == null) {
+                    reachable = lt.getIntervals();
+                } else {
+                    reachable = advancePairwiseIntervals(reachable, lt.getIntervals());
+                    if (reachable.isEmpty())
+                        return false;
+                }
             }
         }
 
-        if (prevEdge == null)
+        if (reachable == null)
             return true;
 
-        final Lifetime prevLifetime = Lifetime.fromProperties(prevEdge);
-        final Date prevStart = prevLifetime.getStartDate();
+        return !advancePairwiseIntervals(reachable, edgeLifetime.getIntervals()).isEmpty();
+    }
 
-        if (!LifetimeHelper.intersects(prevLifetime, edgeLifetime)) return false;
-
-        if (monotone) {
-            // Monotone: current edge start >= previous edge start
-            if (edgeLifetime.getStartDate().before(prevStart)) return false;
+    private List<Lifetime.Interval> advancePairwiseIntervals(final List<Lifetime.Interval> prevIntervals,
+                                                             final List<Lifetime.Interval> nextIntervals) {
+        final List<Lifetime.Interval> validNext = new ArrayList<>();
+        for (final Lifetime.Interval nextIv : nextIntervals) {
+            for (final Lifetime.Interval prevIv : prevIntervals) {
+                if (Temporal.intersects.testIntervalPair(prevIv, nextIv)
+                        && (!monotone || nextIv.getStartMillis() >= prevIv.getStartMillis())) {
+                    validNext.add(nextIv);
+                    break;
+                }
+            }
         }
-
-        return true;
+        return validNext;
     }
 
     @Override

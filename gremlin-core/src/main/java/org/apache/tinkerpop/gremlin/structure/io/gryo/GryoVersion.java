@@ -20,6 +20,7 @@ package org.apache.tinkerpop.gremlin.structure.io.gryo;
 
 import org.apache.tinkerpop.gremlin.process.computer.GraphFilter;
 import org.apache.tinkerpop.gremlin.process.computer.MapReduce;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.decoration.VertexProgramStrategy;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.optimization.GraphFilterStrategy;
 import org.apache.tinkerpop.gremlin.process.computer.util.MapMemory;
@@ -74,6 +75,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.Path
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.CountStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.ProductiveByStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.RepeatUnrollStrategy;
+import org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphViewStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.EdgeLabelVerificationStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.LambdaRestrictionStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.ReadOnlyStrategy;
@@ -340,6 +342,10 @@ public enum GryoVersion {
             add(GryoTypeReg.of(Pick.class, 137));
             add(GryoTypeReg.of(DT.class, 198));
             add(GryoTypeReg.of(Merge.class, 196));
+            add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
+            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
+            add(GryoTypeReg.of(TemporalPathTarget.class, 202));
+            add(GryoTypeReg.of(Lifetime.class, 203, new GryoSerializersV3.LifetimeSerializer()));
             add(GryoTypeReg.of(HashSetSupplier.class, 136, new UtilSerializers.HashSetSupplierSerializer()));
             add(GryoTypeReg.of(MultiComparator.class, 165));
 
@@ -366,6 +372,7 @@ public enum GryoVersion {
             add(GryoTypeReg.of(PathProcessorStrategy.class, 153));
             add(GryoTypeReg.of(PathRetractionStrategy.class, 154));
             add(GryoTypeReg.of(RepeatUnrollStrategy.class, 156));
+            add(GryoTypeReg.of(TemporalGraphViewStrategy.class, 204));
             add(GryoTypeReg.of(GraphFilterStrategy.class, 157));
             add(GryoTypeReg.of(LambdaRestrictionStrategy.class, 158));
             add(GryoTypeReg.of(ReadOnlyStrategy.class, 159));
@@ -545,7 +552,9 @@ public enum GryoVersion {
             add(GryoTypeReg.of(DT.class, 198));
             add(GryoTypeReg.of(Merge.class, 196));
             add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
-            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));          // ***LAST ID***
+            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
+            add(GryoTypeReg.of(TemporalPathTarget.class, 202));
+            add(GryoTypeReg.of(Lifetime.class, 203, new GryoSerializersV1.LifetimeSerializer()));
             add(GryoTypeReg.of(HashSetSupplier.class, 136, new UtilSerializers.HashSetSupplierSerializer()));
             add(GryoTypeReg.of(MultiComparator.class, 165));
 
@@ -615,6 +624,7 @@ public enum GryoVersion {
             add(GryoTypeReg.of(PathProcessorStrategy.class, 153));
             add(GryoTypeReg.of(PathRetractionStrategy.class, 154));
             add(GryoTypeReg.of(RepeatUnrollStrategy.class, 156));
+            add(GryoTypeReg.of(TemporalGraphViewStrategy.class, 204));          // ***LAST ID***
             add(GryoTypeReg.of(GraphFilterStrategy.class, 157));
             add(GryoTypeReg.of(LambdaRestrictionStrategy.class, 158));
             add(GryoTypeReg.of(ReadOnlyStrategy.class, 159));
@@ -635,8 +645,6 @@ public enum GryoVersion {
             add(GryoTypeReg.of(LabelledCounter.class, 180));
             add(GryoTypeReg.of(Stack.class, 181));
             add(GryoTypeReg.of(ReferenceMap.class, 182));
-            add(GryoTypeReg.of(LifetimeStep.LifetimeMode.class, 199));
-            add(GryoTypeReg.of(Lifetime.DropMode.class, 200));
         }};
     }
 

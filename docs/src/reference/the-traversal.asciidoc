@@ -4444,14 +4444,12 @@ g.V().has('name','marko').
       with(TemporalShortestPathVertexProgram.TARGET, 'EARLIEST_ARRIVAL')
 
 // Pre-filtering with window(): 
-// You can restrict the distributed traversal to only search edges valid during a specific window
+// TemporalGraphViewStrategy automatically pushes the window to GraphComputer and clips multi-interval edges
 Date startDate = ...
 Date endDate = ...
 g.withComputer().V().has('name','marko').
-    temporalShortestPath().
-      with(TemporalShortestPathVertexProgram.INITIAL_TIME, startDate.getTime()).
-      with(TemporalShortestPathVertexProgram.TARGET, 'EARLIEST_ARRIVAL').
-      with('~tinkerpop.temporalShortestPathVertexProgram.edges', __.outE().window(startDate, endDate))
+    window(startDate, endDate).
+    temporalShortestPath(TemporalPathTarget.EARLIEST_ARRIVAL, startDate.getTime())
 ----
 
 [[tbfs-step]]
@@ -4471,9 +4469,9 @@ g.V().has('name', 'josh').
     tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, initialTime)
 
 // Pre-filtering with window(): 
-// To window an OLTP temporal search, restrict the graph using a subgraph first
-g.E().window(startDate, endDate).subgraph('w').cap('w').next().
-    traversal().V().has('name', 'josh').
+// Active window() and atTime() contexts automatically clip multi-interval edges during tbfs()
+g.V().has('name', 'josh').
+    window(startDate, endDate).
     tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, startDate)
 ----
 

@@ -92,6 +92,7 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
 
     private static final String STATE = "gremlin.temporalShortestPathVertexProgram.state";
     private static final String PATHS = "gremlin.temporalShortestPathVertexProgram.paths";
+    private static final String CAUSAL_TIMES = "gremlin.temporalShortestPathVertexProgram.causalTimes";
     private static final String VOTE_TO_HALT = "gremlin.temporalShortestPathVertexProgram.voteToHalt";
 
     private static final int SEARCH = 0;
@@ -119,6 +120,7 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
 
     private static final Set<VertexComputeKey> VERTEX_COMPUTE_KEYS = new HashSet<>(Arrays.asList(
             VertexComputeKey.of(PATHS, true),
+            VertexComputeKey.of(CAUSAL_TIMES, true),
             VertexComputeKey.of(TraversalVertexProgram.HALTED_TRAVERSERS, false)));
 
     private final Set<MemoryComputeKey> memoryComputeKeys = new HashSet<>(Arrays.asList(
@@ -285,13 +287,16 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
 
             // start to track paths for all valid start-vertices
             final Map<Vertex, Pair<Number, Set<Path>>> paths = new HashMap<>();
+            final Map<Vertex, Number> causalTimes = new HashMap<>();
             final Path path;
             final Set<Path> pathSet = new HashSet<>();
 
             pathSet.add(path = makePath(vertex));
             paths.put(vertex, Pair.with(this.initialTime, pathSet));
+            causalTimes.put(vertex, this.initialTime);
 
             vertex.property(VertexProperty.Cardinality.single, PATHS, paths);
+            vertex.property(VertexProperty.Cardinality.single, CAUSAL_TIMES, causalTimes);
 
             // send messages to valid adjacent vertices
             processEdges(vertex, path, this.initialTime, messenger);
@@ -303,16 +308,21 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
             // load existing paths to this vertex and extend them based on messages received from adjacent vertices
             final Map<Vertex, Pair<Number, Set<Path>>> paths =
                     vertex.<Map<Vertex, Pair<Number, Set<Path>>>>property(PATHS).orElseGet(HashMap::new);
+            final Map<Vertex, Number> causalTimes =
+                    vertex.<Map<Vertex, Number>>property(CAUSAL_TIMES).orElseGet(HashMap::new);
             final Iterator<Triplet<Path, Edge, Number>> iterator = messenger.receiveMessages();
 
             while (iterator.hasNext()) {
 
                 final Triplet<Path, Edge, Number> triplet = iterator.next();
                 final Path sourcePath = triplet.getValue0();
+                final Edge edge = triplet.getValue1();
                 final Number distance = triplet.getValue2();
                 final Vertex sourceVertex = sourcePath.get(0);
+                final Number nextCausalTime = resolveNextCausalTime(edge, distance);
 
-                Path newPath = null;
+                Path candidatePath = null;
+                boolean shouldPropagate = false;
 
                 // already know a path coming from this source vertex?
                 if (paths.containsKey(sourceVertex)) {
@@ -320,8 +330,8 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
                     final Number currentShortestDistance = paths.get(sourceVertex).getValue0();
                     final int cmp = NumberHelper.compare(distance, currentShortestDistance);
 
-                    boolean isBetter = false;
-                    boolean isEqual = (cmp == 0);
+                    final boolean isBetter;
+                    final boolean isEqual = (cmp == 0);
                     if (this.target == TemporalPathTarget.EARLIEST_ARRIVAL || this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
                         isBetter = (cmp < 0);
                     } else {
@@ -329,31 +339,63 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
                     }
 
                     if (isBetter || isEqual) {
-                        newPath = extendPath(sourcePath, triplet.getValue1(), vertex);
-                        if (isBetter) {
-                            // if the path length is smaller than the current shortest path's length, replace the
-                            // current set of shortest paths
-                            final Set<Path> pathSet = new HashSet<>();
-                            pathSet.add(newPath);
-                            paths.put(sourceVertex, Pair.with(distance, pathSet));
-                        } else {
-                            // if the path length is equal to the current shortest path's length, add the new path
-                            // to the set of shortest paths
-                            paths.get(sourceVertex).getValue1().add(newPath);
+                        candidatePath = extendPath(sourcePath, this.includeEdges ? edge : null, vertex);
+                        if (!exceedsMaxDistance(candidatePath, distance)) {
+                            shouldPropagate = true;
+                            if (isBetter) {
+                                // if the path length is smaller than the current shortest path's length, replace the
+                                // current set of shortest paths
+                                final Set<Path> pathSet = new HashSet<>();
+                                pathSet.add(candidatePath);
+                                paths.put(sourceVertex, Pair.with(distance, pathSet));
+                            } else {
+                                // if the path length is equal to the current shortest path's length, add the new path
+                                // to the set of shortest paths
+                                paths.get(sourceVertex).getValue1().add(candidatePath);
+                            }
                         }
                     }
-                } else if (!exceedsMaxDistance(distance)) {
-                    // store the new path as the shortest path from the source vertex to the current vertex
-                    final Set<Path> pathSet = new HashSet<>();
-                    pathSet.add(newPath = extendPath(sourcePath, triplet.getValue1(), vertex));
-                    paths.put(sourceVertex, Pair.with(distance, pathSet));
+                } else {
+                    candidatePath = extendPath(sourcePath, this.includeEdges ? edge : null, vertex);
+                    if (!exceedsMaxDistance(candidatePath, distance)) {
+                        // store the new path as the shortest path from the source vertex to the current vertex
+                        final Set<Path> pathSet = new HashSet<>();
+                        pathSet.add(candidatePath);
+                        paths.put(sourceVertex, Pair.with(distance, pathSet));
+                        shouldPropagate = true;
+                    }
                 }
 
-                // if a new path was found, send messages to adjacent vertices, otherwise do nothing as there's no
-                // chance to find any new paths going forward
-                if (newPath != null) {
+                // Also track the best causal time at this vertex per sourceVertex so that intermediate paths
+                // with a better causal arrival/departure time can unlock downstream edges (e.g. EARLIEST_DEPARTURE
+                // or LATEST_ARRIVAL where the target metric and causal propagation time differ).
+                final Number currentBestCausal = causalTimes.get(sourceVertex);
+                final boolean isBetterCausal;
+                if (currentBestCausal == null) {
+                    isBetterCausal = true;
+                } else {
+                    final int causalCmp = NumberHelper.compare(nextCausalTime, currentBestCausal);
+                    if (this.target == TemporalPathTarget.EARLIEST_ARRIVAL || this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
+                        isBetterCausal = (causalCmp < 0);
+                    } else {
+                        isBetterCausal = (causalCmp > 0);
+                    }
+                }
+
+                if (isBetterCausal) {
+                    if (candidatePath == null) {
+                        candidatePath = extendPath(sourcePath, this.includeEdges ? edge : null, vertex);
+                    }
+                    if (!exceedsMaxDistance(candidatePath, distance)) {
+                        causalTimes.put(sourceVertex, nextCausalTime);
+                        shouldPropagate = true;
+                    }
+                }
+
+                if (shouldPropagate) {
                     vertex.property(VertexProperty.Cardinality.single, PATHS, paths);
-                    processEdges(vertex, newPath, distance, messenger);
+                    vertex.property(VertexProperty.Cardinality.single, CAUSAL_TIMES, causalTimes);
+                    processEdges(vertex, candidatePath, nextCausalTime, messenger);
                     voteToHalt = false;
                 }
             }
@@ -480,38 +522,41 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
                 
             if (currentPath.objects().contains(otherV)) continue;
                 
-            Lifetime lifetime = Lifetime.fromProperties(edge);
+            Lifetime lifetime = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
             if (lifetime.isEmpty()) continue;
             
             long cTime = currentDistance.longValue();
-            long bestStart = -1;
-            long bestEnd = -1;
-            
-            if (this.target == TemporalPathTarget.EARLIEST_ARRIVAL || this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-                Lifetime.Interval optimal = lifetime.getFirstIntervalStartingAfter(cTime);
-                if (optimal != null) {
-                    bestStart = optimal.getStart().getTime();
-                    bestEnd = optimal.getEnd().getTime();
-                }
-            } else {
-                Lifetime.Interval optimal = lifetime.getLastIntervalEndingBefore(cTime);
-                if (optimal != null) {
-                    bestStart = optimal.getStart().getTime();
-                    bestEnd = optimal.getEnd().getTime();
-                }
-            }
-            
-            if (bestStart != -1) {
-                long passTime = -1;
+            final int optimalIdx = (this.target == TemporalPathTarget.EARLIEST_ARRIVAL || this.target == TemporalPathTarget.EARLIEST_DEPARTURE)
+                    ? lifetime.getFirstIntervalIndexStartingAfter(cTime)
+                    : lifetime.getLastIntervalIndexEndingBefore(cTime);
+
+            if (optimalIdx >= 0) {
+                final long bestStart = lifetime.getStartMillis(optimalIdx);
+                final long bestEnd = lifetime.getEndMillis(optimalIdx);
+                final long passTime;
                 if (this.target == TemporalPathTarget.EARLIEST_ARRIVAL) passTime = bestEnd;
                 else if (this.target == TemporalPathTarget.EARLIEST_DEPARTURE) passTime = bestStart;
                 else if (this.target == TemporalPathTarget.LATEST_DEPARTURE) passTime = bestStart;
-                else if (this.target == TemporalPathTarget.LATEST_ARRIVAL) passTime = bestEnd;
-                
+                else passTime = bestEnd;
+
                 messenger.sendMessage(MessageScope.Global.of(otherV),
-                        Triplet.with(currentPath, this.includeEdges ? edge : null, passTime));
+                        Triplet.with(currentPath, edge, passTime));
             }
         }
+    }
+
+    private Number resolveNextCausalTime(final Edge edge, final Number distance) {
+        if (edge == null || distance == null) return distance;
+        if (this.target == TemporalPathTarget.EARLIEST_DEPARTURE) {
+            final Lifetime lt = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
+            final int idx = lt.getFirstIntervalIndexStartingAfter(distance.longValue());
+            if (idx >= 0) return lt.getEndMillis(idx);
+        } else if (this.target == TemporalPathTarget.LATEST_ARRIVAL) {
+            final Lifetime lt = org.apache.tinkerpop.gremlin.util.LifetimeHelper.resolveEffectiveLifetime(edge);
+            final int idx = lt.getLastIntervalIndexEndingBefore(distance.longValue());
+            if (idx >= 0) return lt.getStartMillis(idx);
+        }
+        return distance;
     }
 
     private void updateHaltedTraversers(final Vertex vertex, final Memory memory) {
@@ -542,12 +587,13 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
         return traversal.tryNext().orElse(0);
     }
 
-    private boolean exceedsMaxDistance(final Number distance) {
-        // This method is used to stop the message sending for paths that exceed the specified maximum distance. Since
-        // custom distances can be negative, this method should only return true if the distance is calculated based on
-        // the number of hops.
-        return this.distanceEqualsNumberOfHops && this.maxDistance != null
-                && NumberHelper.compare(distance, this.maxDistance) > 0;
+    private boolean exceedsMaxDistance(final Path path, final Number distance) {
+        if (this.maxDistance == null) return false;
+        if (this.distanceEqualsNumberOfHops) {
+            final int hops = this.includeEdges ? (path.size() - 1) / 2 : path.size() - 1;
+            return NumberHelper.compare(hops, this.maxDistance) > 0;
+        }
+        return NumberHelper.compare(distance, this.maxDistance) > 0;
     }
 
     /**
@@ -556,6 +602,11 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
      * @param memory The VertexProgram's memory.
      */
     private void collectShortestPaths(final Vertex vertex, final Memory memory) {
+
+        final VertexProperty<Map<Vertex, Number>> causalProperty = vertex.property(CAUSAL_TIMES);
+        if (causalProperty.isPresent()) {
+            causalProperty.remove();
+        }
 
         final VertexProperty<Map<Vertex, Pair<Number, Set<Path>>>> pathProperty = vertex.property(PATHS);
 
@@ -567,9 +618,7 @@ public class TemporalShortestPathVertexProgram implements VertexProgram<Triplet<
             for (final Pair<Number, Set<Path>> pair : paths.values()) {
                 for (final Path path : pair.getValue1()) {
                     if (isEndVertex(vertex)) {
-                        if (this.distanceEqualsNumberOfHops ||
-                                this.maxDistance == null ||
-                                NumberHelper.compare(pair.getValue0(), this.maxDistance) <= 0) {
+                        if (!exceedsMaxDistance(path, pair.getValue0())) {
                             result.add(path);
                         }
                     }
