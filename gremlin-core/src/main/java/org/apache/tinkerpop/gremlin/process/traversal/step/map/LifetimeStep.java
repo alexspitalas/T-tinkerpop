@@ -244,6 +244,8 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                         "Cannot " + operation + " edge lifetime [" + finalLifetime.getStartDate() + ", " + finalLifetime.getEndDate() +
                                 "] because one or both vertices do not exist during this time period.");
             }
+        } else if (element instanceof VertexProperty) {
+            finalLifetime.attachTo(element);
         }
 
         return traverser;

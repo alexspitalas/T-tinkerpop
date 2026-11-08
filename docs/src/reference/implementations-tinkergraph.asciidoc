@@ -141,7 +141,7 @@ type coercion related to element identifiers as described in the <<next section,
 [[temporal-tinkerindex]]
 === Temporal Indexing and In-Memory Caching
 
-TinkerGraph natively supports `O(log |E| + R)` global graph indexing for temporal multi-interval properties. When an `Element` is created with a `Lifetime` property, TinkerGraph dynamically indexes its timestamps into an augmented AVL `IntervalTree` under the hood via `TemporalTinkerIndex`.
+TinkerGraph natively supports `O(log |E| + R)` global graph indexing for temporal multi-interval properties. When `graph.createIndex('temporalIntervals', Vertex.class)` (or `Edge.class`) is enabled, TinkerGraph dynamically indexes bounded element lifetimes (whether configured via `.lifetime(...)` or via `startTime`/`endTime` properties) into an augmented AVL `IntervalTree` under the hood via `TemporalTinkerIndex`, and simultaneously tracks static (untimed, `Lifetime.UNBOUNDED` = `[-∞, +∞)`) elements so that open-world temporal steps (such as `g.V().temporalContains(ref)` and `g.V().temporalIntersects(ref)`) return identical results with or without an index. Explicit property lookups via `.has('temporalIntervals', TemporalP...)` require the element to possess explicit temporal bounds.
 
 The interval tree operates under standard half-open interval semantics `[start, end)`, where each node maintains the maximum `end` boundary of its subtree (`maxEnd`). This allows subtree pruning during range and point overlap queries.
 

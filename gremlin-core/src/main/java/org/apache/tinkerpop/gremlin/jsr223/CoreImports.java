@@ -43,12 +43,15 @@ import org.apache.tinkerpop.gremlin.process.computer.clustering.peerpressure.Pee
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankMapReduce;
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.ShortestPathVertexProgram;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalShortestPathVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.MemoryTraversalSideEffects;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.TraversalVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ConnectedComponent;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.PageRank;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.PeerPressure;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRank;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.decoration.VertexProgramStrategy;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.optimization.GraphFilterStrategy;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.strategy.verification.VertexProgramRestrictionStrategy;
@@ -65,6 +68,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pick;
 import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
 import org.apache.tinkerpop.gremlin.process.traversal.Translator;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
@@ -117,6 +122,9 @@ import org.apache.tinkerpop.gremlin.structure.T;
 import org.apache.tinkerpop.gremlin.structure.Transaction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.io.GraphReader;
 import org.apache.tinkerpop.gremlin.structure.io.GraphWriter;
 import org.apache.tinkerpop.gremlin.structure.io.Io;
@@ -210,6 +218,14 @@ public final class CoreImports {
         CLASS_IMPORTS.add(Pick.class);
         CLASS_IMPORTS.add(P.class);
         CLASS_IMPORTS.add(TextP.class);
+        CLASS_IMPORTS.add(Temporal.class);
+        CLASS_IMPORTS.add(Temporal.Quantifier.class);
+        CLASS_IMPORTS.add(TemporalP.class);
+        CLASS_IMPORTS.add(Lifetime.class);
+        CLASS_IMPORTS.add(Lifetime.DropMode.class);
+        CLASS_IMPORTS.add(GeneralizedRelation.class);
+        CLASS_IMPORTS.add(GeneralizedIntervalRelation.class);
+        CLASS_IMPORTS.add(TemporalPathTarget.class);
         CLASS_IMPORTS.add(WithOptions.class);
         // remote
         CLASS_IMPORTS.add(RemoteConnection.class);
@@ -313,8 +329,10 @@ public final class CoreImports {
         CLASS_IMPORTS.add(PageRank.class);
         CLASS_IMPORTS.add(PageRankMapReduce.class);
         CLASS_IMPORTS.add(PageRankVertexProgram.class);
+        CLASS_IMPORTS.add(TemporalPageRank.class);
         CLASS_IMPORTS.add(ShortestPath.class);
         CLASS_IMPORTS.add(ShortestPathVertexProgram.class);
+        CLASS_IMPORTS.add(TemporalShortestPathVertexProgram.class);
         CLASS_IMPORTS.add(GraphFilterStrategy.class);
         CLASS_IMPORTS.add(TraversalVertexProgram.class);
         CLASS_IMPORTS.add(VertexProgramStrategy.class);
@@ -362,6 +380,8 @@ public final class CoreImports {
         Collections.addAll(ENUM_IMPORTS, Scope.values());
         Collections.addAll(ENUM_IMPORTS, T.values());
         Collections.addAll(ENUM_IMPORTS, Pick.values());
+        Collections.addAll(ENUM_IMPORTS, TemporalPathTarget.values());
+        Collections.addAll(ENUM_IMPORTS, Lifetime.DropMode.values());
 
         ////////////
         // FIELDS //

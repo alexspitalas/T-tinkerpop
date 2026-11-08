@@ -25,6 +25,7 @@ import org.apache.tinkerpop.gremlin.process.remote.traversal.DefaultRemoteTraver
 import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
@@ -33,6 +34,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.strategy.TraversalStrategy
 import org.apache.tinkerpop.gremlin.process.traversal.util.AndP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.OrP;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.function.Lambda;
 import org.apache.tinkerpop.shaded.jackson.core.JsonGenerator;
@@ -48,6 +51,7 @@ import org.apache.tinkerpop.shaded.jackson.databind.ser.std.StdSerializer;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -147,6 +151,39 @@ final class TraversalSerializersV2 {
         public void serialize(final P p, final JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
                 throws IOException {
             jsonGenerator.writeStartObject();
+            if (p instanceof TemporalP) {
+                final TemporalP tp = (TemporalP) p;
+                final String predName;
+                final Object valObj;
+                if (tp.getBiPredicate() == Temporal.generalized) {
+                    predName = tp.getQuantifier() == Temporal.Quantifier.ANY ? "anyGeneralized" : "generalized";
+                    if (tp.getGeneralizedRelation() != null) {
+                        valObj = Arrays.asList(tp.getValue(), tp.getGeneralizedRelation());
+                    } else if (tp.getGeneralizedIntervalRelation() != null) {
+                        valObj = Arrays.asList(tp.getValue(), tp.getGeneralizedIntervalRelation());
+                    } else {
+                        valObj = tp.getValue();
+                    }
+                } else if (tp.getQuantifier() == Temporal.Quantifier.ANY) {
+                    predName = "any";
+                    valObj = Arrays.asList(tp.getBiPredicate(), tp.getValue());
+                } else {
+                    predName = tp.getPredicateName();
+                    valObj = tp.getValue();
+                }
+                jsonGenerator.writeStringField(GraphSONTokens.PREDICATE, predName);
+                if (valObj instanceof Collection) {
+                    jsonGenerator.writeArrayFieldStart(GraphSONTokens.VALUE);
+                    for (final Object object : (Collection) valObj) {
+                        jsonGenerator.writeObject(object);
+                    }
+                    jsonGenerator.writeEndArray();
+                } else {
+                    jsonGenerator.writeObjectField(GraphSONTokens.VALUE, valObj);
+                }
+                jsonGenerator.writeEndObject();
+                return;
+            }
             jsonGenerator.writeStringField(GraphSONTokens.PREDICATE, p.getPredicateName());
             if (p instanceof ConnectiveP) {
                 jsonGenerator.writeArrayFieldStart(GraphSONTokens.VALUE);
@@ -537,6 +574,27 @@ final class TraversalSerializersV2 {
                 }
             }
             try {
+                if ("any".equals(predicate) && value instanceof List && ((List<?>) value).size() == 2) {
+                    final List<?> pair = (List<?>) value;
+                    final Temporal op = pair.get(0) instanceof Temporal ? (Temporal) pair.get(0) : Temporal.valueOf(pair.get(0).toString());
+                    return TemporalP.any(op, pair.get(1));
+                } else if (("generalized".equals(predicate) || "anyGeneralized".equals(predicate))
+                        && value instanceof List && ((List<?>) value).size() == 2) {
+                    final List<?> pair = (List<?>) value;
+                    final Object target = pair.get(0);
+                    final Object spec = pair.get(1);
+                    final TemporalP tp;
+                    if (spec instanceof GeneralizedRelation) {
+                        tp = TemporalP.generalized(target, (GeneralizedRelation) spec);
+                    } else if (spec instanceof GeneralizedIntervalRelation) {
+                        tp = TemporalP.generalized(target, (GeneralizedIntervalRelation) spec);
+                    } else {
+                        tp = TemporalP.generalized(value);
+                    }
+                    return "anyGeneralized".equals(predicate) ? tp.any() : tp;
+                } else if ("anyGeneralized".equals(predicate)) {
+                    return TemporalP.anyGeneralized(value);
+                }
                 return (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
             } catch (final Exception e) {
                 throw new IllegalStateException(e.getMessage(), e);
@@ -569,6 +627,146 @@ final class TraversalSerializersV2 {
         public Lifetime deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException {
             final String text = jsonParser.getText();
             return text.isEmpty() ? Lifetime.empty() : Lifetime.fromTemporalIntervals(text);
+        }
+
+        @Override
+        public boolean isCachable() {
+            return true;
+        }
+    }
+
+    final static class IntervalJacksonSerializer extends StdScalarSerializer<Lifetime.Interval> {
+        public IntervalJacksonSerializer() {
+            super(Lifetime.Interval.class);
+        }
+
+        @Override
+        public void serialize(final Lifetime.Interval interval, final JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
+                throws IOException {
+            jsonGenerator.writeString(interval.getStartMillis() + ":" + interval.getEndMillis());
+        }
+    }
+
+    final static class IntervalJacksonDeserializer extends StdDeserializer<Lifetime.Interval> {
+        public IntervalJacksonDeserializer() {
+            super(Lifetime.Interval.class);
+        }
+
+        @Override
+        public Lifetime.Interval deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException {
+            final String text = jsonParser.getText();
+            final int colon = text.indexOf(':');
+            if (colon <= 0 || colon != text.lastIndexOf(':')) {
+                throw new IOException("Invalid Lifetime.Interval format: " + text);
+            }
+            return new Lifetime.Interval(Long.parseLong(text.substring(0, colon)), Long.parseLong(text.substring(colon + 1)));
+        }
+
+        @Override
+        public boolean isCachable() {
+            return true;
+        }
+    }
+
+    final static class GeneralizedRelationJacksonSerializer extends StdScalarSerializer<GeneralizedRelation> {
+        public GeneralizedRelationJacksonSerializer() {
+            super(GeneralizedRelation.class);
+        }
+
+        @Override
+        public void serialize(final GeneralizedRelation rel, final JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
+                throws IOException {
+            final StringBuilder sb = new StringBuilder();
+            sb.append(rel.getP()).append(',').append(rel.getQ()).append(':');
+            for (int i = 1; i <= rel.getP(); i++) {
+                if (i > 1) sb.append(',');
+                sb.append(rel.getZone(i));
+            }
+            jsonGenerator.writeString(sb.toString());
+        }
+    }
+
+    final static class GeneralizedRelationJacksonDeserializer extends StdDeserializer<GeneralizedRelation> {
+        public GeneralizedRelationJacksonDeserializer() {
+            super(GeneralizedRelation.class);
+        }
+
+        @Override
+        public GeneralizedRelation deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException {
+            return parseGeneralizedRelation(jsonParser.getText());
+        }
+
+        static GeneralizedRelation parseGeneralizedRelation(final String text) throws IOException {
+            final int colon = text.indexOf(':');
+            if (colon <= 0) throw new IOException("Invalid GeneralizedRelation format: " + text);
+            final String[] pq = text.substring(0, colon).split(",");
+            final int p = Integer.parseInt(pq[0]);
+            final int q = Integer.parseInt(pq[1]);
+            final String[] zoneStrs = text.substring(colon + 1).split(",");
+            final int[] zones = new int[p];
+            for (int i = 0; i < p; i++) {
+                zones[i] = Integer.parseInt(zoneStrs[i]);
+            }
+            return new GeneralizedRelation(p, q, zones);
+        }
+
+        @Override
+        public boolean isCachable() {
+            return true;
+        }
+    }
+
+    final static class GeneralizedIntervalRelationJacksonSerializer extends StdScalarSerializer<GeneralizedIntervalRelation> {
+        public GeneralizedIntervalRelationJacksonSerializer() {
+            super(GeneralizedIntervalRelation.class);
+        }
+
+        @Override
+        public void serialize(final GeneralizedIntervalRelation rel, final JsonGenerator jsonGenerator, final SerializerProvider serializerProvider)
+                throws IOException {
+            final StringBuilder sb = new StringBuilder();
+            sb.append(rel.getP()).append(',').append(rel.getQ()).append(':');
+            if (rel.isEmpty()) {
+                sb.append("EMPTY");
+            } else {
+                for (int i = 1; i <= rel.getP(); i++) {
+                    if (i > 1) sb.append(',');
+                    sb.append(rel.getLower().getZone(i));
+                }
+                sb.append(':');
+                for (int i = 1; i <= rel.getP(); i++) {
+                    if (i > 1) sb.append(',');
+                    sb.append(rel.getUpper().getZone(i));
+                }
+            }
+            jsonGenerator.writeString(sb.toString());
+        }
+    }
+
+    final static class GeneralizedIntervalRelationJacksonDeserializer extends StdDeserializer<GeneralizedIntervalRelation> {
+        public GeneralizedIntervalRelationJacksonDeserializer() {
+            super(GeneralizedIntervalRelation.class);
+        }
+
+        @Override
+        public GeneralizedIntervalRelation deserialize(final JsonParser jsonParser, final DeserializationContext deserializationContext) throws IOException {
+            final String text = jsonParser.getText();
+            final String[] parts = text.split(":");
+            final String[] pq = parts[0].split(",");
+            final int p = Integer.parseInt(pq[0]);
+            final int q = Integer.parseInt(pq[1]);
+            if ("EMPTY".equals(parts[1])) {
+                return GeneralizedIntervalRelation.empty(p, q);
+            }
+            final String[] lowerStrs = parts[1].split(",");
+            final String[] upperStrs = parts[2].split(",");
+            final int[] lowerZones = new int[p];
+            final int[] upperZones = new int[p];
+            for (int i = 0; i < p; i++) {
+                lowerZones[i] = Integer.parseInt(lowerStrs[i]);
+                upperZones[i] = Integer.parseInt(upperStrs[i]);
+            }
+            return new GeneralizedIntervalRelation(new GeneralizedRelation(p, q, lowerZones), new GeneralizedRelation(p, q, upperZones));
         }
 
         @Override

@@ -47,9 +47,11 @@ public class TemporalP extends P<Object> {
                 final Object spec = pair.get(1);
                 if (spec instanceof GeneralizedRelation) {
                     this.value = target;
+                    this.originalValue = target;
                     this.generalizedRelation = (GeneralizedRelation) spec;
                 } else if (spec instanceof GeneralizedIntervalRelation) {
                     this.value = target;
+                    this.originalValue = target;
                     this.generalizedIntervalRelation = (GeneralizedIntervalRelation) spec;
                 }
             }
@@ -180,6 +182,18 @@ public class TemporalP extends P<Object> {
 
     public static TemporalP generalized(final Object value) {
         return new TemporalP(Temporal.generalized, value);
+    }
+
+    public static TemporalP anyGeneralized(final Object value, final GeneralizedRelation relation) {
+        return new TemporalP(value, relation).any();
+    }
+
+    public static TemporalP anyGeneralized(final Object value, final GeneralizedIntervalRelation intervalRelation) {
+        return new TemporalP(value, intervalRelation).any();
+    }
+
+    public static TemporalP anyGeneralized(final Object value) {
+        return new TemporalP(Temporal.generalized, value).any();
     }
 
     /**

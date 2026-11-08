@@ -167,6 +167,8 @@ public class TinkerVertexProperty<V> extends TinkerElement implements VertexProp
             ((AbstractTinkerGraph)vertex.graph()).touch(vertex);
 
             this.vertex.properties.get(this.key).remove(this);
+            clearLifetimeCache();
+            this.vertex.clearLifetimeCache();
             if (this.vertex.properties.get(this.key).size() == 0) {
                 this.vertex.properties.remove(this.key);
                 TinkerIndexHelper.removeIndex(this.vertex, this.key, this.value);
@@ -180,8 +182,6 @@ public class TinkerVertexProperty<V> extends TinkerElement implements VertexProp
             if (delete.get()) TinkerIndexHelper.removeIndex(this.vertex, this.key, this.value);
             this.properties = null;
             this.removed = true;
-            clearLifetimeCache();
-            this.vertex.clearLifetimeCache();
         }
     }
 

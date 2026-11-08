@@ -221,9 +221,7 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     }
 
     private Vertex baseVertex(final Vertex vertex) {
-        if (vertex instanceof TemporalVertex)
-            return ((TemporalVertex) vertex).getBaseVertex();
-        return vertex;
+        return (Vertex) Lifetime.unwrapElement(vertex);
     }
 
     private void writeRanks(final Iterable<Vertex> vertices, final String propertyName,
@@ -258,7 +256,7 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     @Override
     public int hashCode() {
         return super.hashCode() ^ Double.hashCode(this.alpha) ^ Double.hashCode(this.beta) ^
-                this.propertyName.hashCode() ^ Boolean.hashCode(this.normalize);
+                this.propertyName.hashCode() ^ Boolean.hashCode(this.normalize) ^ this.parameters.hashCode();
     }
 
     @Override

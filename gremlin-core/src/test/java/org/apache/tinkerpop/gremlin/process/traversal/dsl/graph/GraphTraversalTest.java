@@ -182,6 +182,16 @@ public class GraphTraversalTest {
                         list.add(arguments[0] = (long) (Math.abs(random.nextInt(10))));
                         list.add(arguments[1] = (long) (Math.abs(random.nextInt(10) + 100)));
                     }
+                } else if (stepMethod.getName().equals("sequentialPath") && stepMethod.getParameterTypes().length >= 2
+                        && long.class.isAssignableFrom(stepMethod.getParameterTypes()[0])) {
+                    list.add(arguments[0] = (long) (Math.abs(random.nextInt(10))));
+                    list.add(arguments[1] = (long) (Math.abs(random.nextInt(10) + 100)));
+                    if (stepMethod.getParameterTypes().length > 2 && String[].class.isAssignableFrom(stepMethod.getParameterTypes()[2])) {
+                        arguments[2] = new String[random.nextInt(10) + 1];
+                        for (int j = 0; j < ((String[]) arguments[2]).length; j++) {
+                            list.add(((String[]) arguments[2])[j] = randomString(random));
+                        }
+                    }
                 } else if (stepMethod.getName().equals("math")) {
                     list.add(arguments[0] = random.nextInt(100) + " + " + random.nextInt(100));
                 } else if (stepMethod.getName().equals("project")) {

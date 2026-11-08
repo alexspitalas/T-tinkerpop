@@ -22,15 +22,14 @@ import org.apache.tinkerpop.gremlin.structure.io.Buffer;
 import org.apache.tinkerpop.gremlin.structure.io.binary.DataType;
 import org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryReader;
 import org.apache.tinkerpop.gremlin.structure.io.binary.GraphBinaryWriter;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 
 /**
- * GraphBinary serializer for {@link Lifetime}.
+ * GraphBinary serializer for {@link Lifetime} and related temporal types.
  */
 public class LifetimeSerializer extends SimpleTypeSerializer<Lifetime> {
 
@@ -56,6 +55,91 @@ public class LifetimeSerializer extends SimpleTypeSerializer<Lifetime> {
         for (int i = 0; i < count; i++) {
             buffer.writeLong(value.getStartMillis(i));
             buffer.writeLong(value.getEndMillis(i));
+        }
+    }
+
+    public static class IntervalSerializer extends SimpleTypeSerializer<Lifetime.Interval> {
+        public IntervalSerializer() {
+            super(DataType.INTERVAL);
+        }
+
+        @Override
+        protected Lifetime.Interval readValue(final Buffer buffer, final GraphBinaryReader context) throws IOException {
+            return new Lifetime.Interval(buffer.readLong(), buffer.readLong());
+        }
+
+        @Override
+        protected void writeValue(final Lifetime.Interval value, final Buffer buffer, final GraphBinaryWriter context) throws IOException {
+            buffer.writeLong(value.getStartMillis());
+            buffer.writeLong(value.getEndMillis());
+        }
+    }
+
+    public static class GeneralizedRelationSerializer extends SimpleTypeSerializer<GeneralizedRelation> {
+        public GeneralizedRelationSerializer() {
+            super(DataType.GENERALIZEDRELATION);
+        }
+
+        @Override
+        protected GeneralizedRelation readValue(final Buffer buffer, final GraphBinaryReader context) throws IOException {
+            final int p = buffer.readInt();
+            final int q = buffer.readInt();
+            final int[] zones = new int[p];
+            for (int i = 0; i < p; i++) {
+                zones[i] = buffer.readInt();
+            }
+            return new GeneralizedRelation(p, q, zones);
+        }
+
+        @Override
+        protected void writeValue(final GeneralizedRelation value, final Buffer buffer, final GraphBinaryWriter context) throws IOException {
+            buffer.writeInt(value.getP());
+            buffer.writeInt(value.getQ());
+            for (int i = 1; i <= value.getP(); i++) {
+                buffer.writeInt(value.getZone(i));
+            }
+        }
+    }
+
+    public static class GeneralizedIntervalRelationSerializer extends SimpleTypeSerializer<GeneralizedIntervalRelation> {
+        public GeneralizedIntervalRelationSerializer() {
+            super(DataType.GENERALIZEDINTERVALRELATION);
+        }
+
+        @Override
+        protected GeneralizedIntervalRelation readValue(final Buffer buffer, final GraphBinaryReader context) throws IOException {
+            final int p = buffer.readInt();
+            final int q = buffer.readInt();
+            final boolean empty = buffer.readBoolean();
+            if (empty) {
+                return GeneralizedIntervalRelation.empty(p, q);
+            }
+            final int[] lowerZones = new int[p];
+            for (int i = 0; i < p; i++) {
+                lowerZones[i] = buffer.readInt();
+            }
+            final int[] upperZones = new int[p];
+            for (int i = 0; i < p; i++) {
+                upperZones[i] = buffer.readInt();
+            }
+            return new GeneralizedIntervalRelation(
+                    new GeneralizedRelation(p, q, lowerZones),
+                    new GeneralizedRelation(p, q, upperZones));
+        }
+
+        @Override
+        protected void writeValue(final GeneralizedIntervalRelation value, final Buffer buffer, final GraphBinaryWriter context) throws IOException {
+            buffer.writeInt(value.getP());
+            buffer.writeInt(value.getQ());
+            buffer.writeBoolean(value.isEmpty());
+            if (!value.isEmpty()) {
+                for (int i = 1; i <= value.getP(); i++) {
+                    buffer.writeInt(value.getLower().getZone(i));
+                }
+                for (int i = 1; i <= value.getP(); i++) {
+                    buffer.writeInt(value.getUpper().getZone(i));
+                }
+            }
         }
     }
 }

@@ -30,6 +30,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Pop;
 import org.apache.tinkerpop.gremlin.process.traversal.SackFunctions;
 import org.apache.tinkerpop.gremlin.process.traversal.Scope;
 import org.apache.tinkerpop.gremlin.process.traversal.TextP;
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
@@ -98,6 +99,8 @@ import org.apache.tinkerpop.gremlin.structure.io.binary.types.VertexSerializer;
 import org.apache.tinkerpop.gremlin.structure.io.binary.types.YearMonthSerializer;
 import org.apache.tinkerpop.gremlin.structure.io.binary.types.ZoneOffsetSerializer;
 import org.apache.tinkerpop.gremlin.structure.io.binary.types.ZonedDateTimeSerializer;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.function.Lambda;
 import org.javatuples.Pair;
@@ -182,9 +185,14 @@ public class TypeSerializerRegistry {
             new RegistryEntry<>(TextP.class, new PSerializer<>(DataType.TEXTP, TextP.class)),
             new RegistryEntry<>(TemporalP.class, new PSerializer<>(DataType.TEMPORALP, TemporalP.class)),
             new RegistryEntry<>(Lifetime.class, new LifetimeSerializer()),
+            new RegistryEntry<>(Lifetime.Interval.class, new LifetimeSerializer.IntervalSerializer()),
+            new RegistryEntry<>(GeneralizedRelation.class, new LifetimeSerializer.GeneralizedRelationSerializer()),
+            new RegistryEntry<>(GeneralizedIntervalRelation.class, new LifetimeSerializer.GeneralizedIntervalRelationSerializer()),
             new RegistryEntry<>(LifetimeStep.LifetimeMode.class, EnumSerializer.LifetimeModeSerializer),
             new RegistryEntry<>(Lifetime.DropMode.class, EnumSerializer.DropModeSerializer),
             new RegistryEntry<>(TemporalPathTarget.class, EnumSerializer.TemporalPathTargetSerializer),
+            new RegistryEntry<>(Temporal.class, EnumSerializer.TemporalSerializer),
+            new RegistryEntry<>(Temporal.Quantifier.class, EnumSerializer.TemporalQuantifierSerializer),
             new RegistryEntry<>(Scope.class, EnumSerializer.ScopeSerializer),
             new RegistryEntry<>(T.class, EnumSerializer.TSerializer),
             new RegistryEntry<>(Traverser.class, new TraverserSerializer()),
