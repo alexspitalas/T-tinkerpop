@@ -67,7 +67,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     overlaps { 
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getStartMillis() < l2.getStartMillis() && 
                    l1.getEndMillis() < l2.getEndMillis() && 
                    l1.intersects(l2);
@@ -82,7 +82,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     precedes {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getEndMillis() < l2.getStartMillis();
         }
 
@@ -95,7 +95,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     succeeds {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getStartMillis() > l2.getEndMillis();
         }
 
@@ -120,7 +120,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     meets {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getEndMillis() == l2.getStartMillis();
         }
 
@@ -133,7 +133,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     metBy {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getStartMillis() == l2.getEndMillis();
         }
 
@@ -147,7 +147,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     during {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l2.contains(l1) && (l1.getStartMillis() > l2.getStartMillis() && l1.getEndMillis() < l2.getEndMillis());
         }
 
@@ -185,7 +185,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     starts {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getStartMillis() == l2.getStartMillis() && 
                    l1.getEndMillis() < l2.getEndMillis() && 
                    l2.contains(l1);
@@ -212,7 +212,7 @@ public enum Temporal implements PBiPredicate<Object, Object> {
     finishes {
         @Override
         public boolean test(final Lifetime l1, final Lifetime l2) {
-            if (l1 == null || l2 == null) return false;
+            if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
             return l1.getEndMillis() == l2.getEndMillis() && 
                    l1.getStartMillis() > l2.getStartMillis() && 
                    l2.contains(l1);

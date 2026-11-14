@@ -649,6 +649,10 @@ public final class Lifetime implements Serializable {
                 i++;
             } else if (e2 < e1) {
                 j++;
+            } else if (s1 < s2 && s2 == e2) {
+                i++;
+            } else if (s2 < s1 && s1 == e1) {
+                j++;
             } else {
                 i++;
                 j++;
@@ -712,17 +716,13 @@ public final class Lifetime implements Serializable {
         if (r1.length == 0 || r2.length == 0) return false;
         if (this.isUnbounded() || window.isUnbounded()) return true;
 
-        final long startA = r1[0];
-        final long endA = r1[r1.length - 1];
-        final long startB = r2[0];
-        final long endB = r2[r2.length - 1];
-        if (!intersectsRange(startA, endA, startB, endB)) return false;
-
         final int n1 = r1.length >>> 1;
         final int n2 = r2.length >>> 1;
         if (n1 == 1 && n2 == 1) {
             return intersectsRange(r1[0], r1[1], r2[0], r2[1]);
         }
+
+        if (r1[r1.length - 1] < r2[0] || r2[r2.length - 1] < r1[0]) return false;
 
         int i = 0, j = 0;
         while (i < n1 && j < n2) {
@@ -759,7 +759,8 @@ public final class Lifetime implements Serializable {
         for (int j = 0; j < nb; j++) {
             final long sB = b[j << 1];
             final long eB = b[(j << 1) + 1];
-            while (i < na && a[(i << 1) + 1] < eB) {
+            while (i < na && (a[(i << 1) + 1] < eB
+                    || (sB == eB && a[(i << 1) + 1] == eB && a[i << 1] < eB))) {
                 i++;
             }
             if (i >= na) return false;
@@ -815,13 +816,16 @@ public final class Lifetime implements Serializable {
      * or {@code -1} if none exists. Zero heap allocations.
      */
     public int getFirstIntervalIndexStartingAfter(final long time) {
-        if (rawIntervals.length == 0) return -1;
-        int low = 0;
-        int high = (rawIntervals.length >>> 1) - 1;
-        int resultIdx = -1;
+        final long[] raw = this.rawIntervals;
+        final int n = raw.length >>> 1;
+        if (n == 0 || raw[(n - 1) << 1] < time) return -1;
+        if (raw[0] >= time) return 0;
+        int low = 1;
+        int high = n - 2;
+        int resultIdx = n - 1;
         while (low <= high) {
             final int mid = (low + high) >>> 1;
-            if (rawIntervals[mid << 1] >= time) {
+            if (raw[mid << 1] >= time) {
                 resultIdx = mid;
                 high = mid - 1;
             } else {
@@ -845,13 +849,16 @@ public final class Lifetime implements Serializable {
      * or {@code -1} if none exists. Zero heap allocations.
      */
     public int getLastIntervalIndexEndingBefore(final long time) {
-        if (rawIntervals.length == 0) return -1;
-        int low = 0;
-        int high = (rawIntervals.length >>> 1) - 1;
-        int resultIdx = -1;
+        final long[] raw = this.rawIntervals;
+        final int n = raw.length >>> 1;
+        if (n == 0 || raw[1] > time) return -1;
+        if (raw[((n - 1) << 1) + 1] <= time) return n - 1;
+        int low = 1;
+        int high = n - 2;
+        int resultIdx = 0;
         while (low <= high) {
             final int mid = (low + high) >>> 1;
-            if (rawIntervals[(mid << 1) + 1] <= time) {
+            if (raw[(mid << 1) + 1] <= time) {
                 resultIdx = mid;
                 low = mid + 1;
             } else {

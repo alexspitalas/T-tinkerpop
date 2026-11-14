@@ -196,17 +196,27 @@ public final class GeneralizedRelation implements Serializable, Comparable<Gener
             return raw;
         }
         int count = 0;
+        long prev = Long.MIN_VALUE;
         for (int i = 0; i < intervalCount; i++) {
             final long s = raw[i << 1];
             final long e = raw[(i << 1) + 1];
-            count += (s == e) ? 1 : 2;
+            if (count == 0 || s > prev) {
+                count++;
+                prev = s;
+            }
+            if (e > s) {
+                count++;
+                prev = e;
+            }
         }
         final long[] points = new long[count];
         int idx = 0;
         for (int i = 0; i < intervalCount; i++) {
             final long s = raw[i << 1];
             final long e = raw[(i << 1) + 1];
-            points[idx++] = s;
+            if (idx == 0 || s > points[idx - 1]) {
+                points[idx++] = s;
+            }
             if (e > s) {
                 points[idx++] = e;
             }
@@ -612,6 +622,28 @@ public final class GeneralizedRelation implements Serializable, Comparable<Gener
             }
         }
         return true;
+    }
+
+    public boolean testIntervalPair(final long xStart, final long xEnd, final long yStart, final long yEnd) {
+        if (xStart > xEnd || yStart > yEnd) {
+            return false;
+        }
+        final int xArity = (xStart == xEnd) ? 1 : 2;
+        final int yArity = (yStart == yEnd) ? 1 : 2;
+        if (this.p != xArity || this.q != yArity) {
+            return false;
+        }
+        if (zoneInSubInterval(xStart, yStart, yEnd) != this.zones[0]) {
+            return false;
+        }
+        return xArity == 1 || zoneInSubInterval(xEnd, yStart, yEnd) == this.zones[1];
+    }
+
+    static int zoneInSubInterval(final long pt, final long yStart, final long yEnd) {
+        if (yStart == yEnd) {
+            return pt < yStart ? 0 : (pt == yStart ? 1 : 2);
+        }
+        return pt < yStart ? 0 : (pt == yStart ? 1 : (pt < yEnd ? 2 : (pt == yEnd ? 3 : 4)));
     }
 
     private void checkSameArity(final GeneralizedRelation other) {

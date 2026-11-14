@@ -89,7 +89,8 @@ limits. An element with no lifetime properties is therefore treated as always va
 and other steps that read `Lifetime` values. The `getEndTime()` step uses the same normalized open-ended behavior and
 returns the maximum representable end time when no end bound is stored. When `temporalIntervals` is
 present, it is authoritative; the two outer-bound properties do not represent gaps between intervals. An edge
-lifetime must be contained in the lifetimes of both endpoint vertices when it is set or changed.
+lifetime must be contained in the lifetimes of both endpoint vertices when it is set or changed, and a
+vertex-property lifetime must be contained in its parent vertex's lifetime.
 
 === Adding and Dropping Intervals
 
@@ -108,8 +109,13 @@ g.V(contract).addInterval("2032-01-01", "2032-12-31").iterate();
 List<Lifetime.Interval> activePeriods = g.V(contract).getLifetime().next().getIntervals();
 ----
 
-The default `Lifetime.DropMode.SOFT` rejects a drop that leaves no intervals.
-`dropInterval(start, end, Lifetime.DropMode.HARD)` removes the element when its entire lifetime is subtracted.
+The default `Lifetime.DropMode.SOFT` rejects a drop that leaves no intervals on the target element or on any affected
+timed incident edge or timed vertex property.
+`dropInterval(start, end, Lifetime.DropMode.HARD)` removes the element (and any timed incident edge or timed vertex
+property) when its entire lifetime is subtracted.
+When a vertex's lifetime is shrunk via `dropInterval()` or replaced via `lifetime()`, timed incident edges and timed
+vertex properties are intersected with the vertex's new lifetime so they remain a subspace of it (leaving adjacent
+vertices and untimed edges/properties unchanged).
 Removing a vertex also removes its incident edges. A drop that misses all intervals leaves the lifetime unchanged.
 
 === Temporal Views

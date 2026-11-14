@@ -28,6 +28,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.step.LambdaHolder;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AndStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.DedupGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.DropStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.FilterStep;
@@ -35,6 +36,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.filter.HasStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.OrStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.RangeGlobalStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.TraversalFilterStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.MatchStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.EmptyStep;
@@ -179,7 +181,9 @@ public final class InlineFilterStrategy extends AbstractTraversalStrategy<Traver
                         DropStep.class,
                         RangeGlobalStep.class,
                         DedupGlobalStep.class,
-                        LambdaHolder.class)) {
+                        LambdaHolder.class,
+                        AtTimeStep.class,
+                        WindowStep.class)) {
             final Step<?, ?> finalStep = childTraversal.getEndStep();
             TraversalHelper.insertTraversal((Step) step, childTraversal, traversal);
             TraversalHelper.copyLabels(step, finalStep, false);
@@ -242,7 +246,9 @@ public final class InlineFilterStrategy extends AbstractTraversalStrategy<Traver
                             DropStep.class,
                             RangeGlobalStep.class,
                             DedupGlobalStep.class,
-                            LambdaHolder.class)) {
+                            LambdaHolder.class,
+                            AtTimeStep.class,
+                            WindowStep.class)) {
                 process = false;
                 break;
             }

@@ -166,6 +166,46 @@ public class MultipleIntervalLifetimeIntegrationTest {
     }
 
     @Test
+    public void shouldSupportMultiIntervalContinuousAndPairwiseContinuousPathsWithWindow() {
+        final Vertex a = g.addV("person").property("name", "a").next();
+        final Vertex b = g.addV("person").property("name", "b").next();
+        final Vertex c = g.addV("person").property("name", "c").next();
+        final Vertex dCont = g.addV("person").property("name", "d_cont").next();
+        final Vertex dPairwiseOnly = g.addV("person").property("name", "d_pairwise").next();
+
+        // Hop 1 (a->b): [100, 200) and [500, 600)
+        g.addE("collab").from(a).to(b).lifetime(100L, 200L).addInterval(500L, 600L).next();
+        // Hop 2 (b->c): [150, 250) and [550, 650)
+        g.addE("collab").from(b).to(c).lifetime(150L, 250L).addInterval(550L, 650L).next();
+        // Hop 3a (c->dCont): [580, 700) overlaps [550, 600) common to both a->b and b->c
+        g.addE("collab").from(c).to(dCont).lifetime(580L, 700L).next();
+        // Hop 3b (c->dPairwiseOnly): [220, 300) overlaps b->c's [150, 250) but NOT a->b's [100, 200)
+        g.addE("collab").from(c).to(dPairwiseOnly).lifetime(220L, 300L).next();
+
+        assertEquals(Arrays.asList("d_cont"),
+                g.V(a).continuousPath("collab").continuousPath("collab").continuousPath("collab")
+                        .values("name").toList());
+
+        assertEquals(Arrays.asList("d_cont", "d_pairwise"),
+                g.V(a).pairwiseContinuousPath(true, "collab")
+                        .pairwiseContinuousPath(true, "collab")
+                        .pairwiseContinuousPath(true, "collab")
+                        .values("name").toList());
+
+        // Restricting to window [0, 400) removes the [500, 700) intervals, so continuousPath is empty
+        // while pairwiseContinuousPath still reaches d_pairwise via [100, 200) -> [150, 250) -> [220, 300)
+        assertTrue(g.V(a).window(0L, 400L)
+                .continuousPath("collab").continuousPath("collab").continuousPath("collab")
+                .toList().isEmpty());
+        assertEquals(Arrays.asList("d_pairwise"),
+                g.V(a).window(0L, 400L)
+                        .pairwiseContinuousPath("collab")
+                        .pairwiseContinuousPath("collab")
+                        .pairwiseContinuousPath("collab")
+                        .values("name").toList());
+    }
+
+    @Test
     public void shouldSupportMultiIntervalAndWindowedTemporalPageRank() {
         final Vertex a = g.addV("person").property("name", "a").next();
         final Vertex b = g.addV("person").property("name", "b").next();
@@ -222,6 +262,192 @@ public class MultipleIntervalLifetimeIntegrationTest {
                         org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_ARRIVAL,
                         50L)
                 .toList().size());
+    }
+
+    @Test
+    public void shouldCascadeVertexDropIntervalToIncidentEdgesAndKeepAdjacentVerticesUnchanged() {
+        final Vertex a = g.addV("person").property("name", "a")
+                .lifetime("2020-01-01", "2030-01-01").next();
+        final Vertex b = g.addV("person").property("name", "b")
+                .lifetime("2020-01-01", "2030-01-01").next();
+
+        final Edge outEdge = g.addE("knows").from(a).to(b)
+                .property("weight", 1.0)
+                .lifetime("2022-01-01", "2028-01-01").next();
+        final Edge inEdge = g.addE("follows").from(b).to(a)
+                .lifetime("2021-01-01", "2027-01-01").next();
+        final Edge selfLoop = g.addE("self").from(a).to(a)
+                .lifetime("2023-01-01", "2029-01-01").next();
+        final Edge untimedEdge = g.addE("untimed").from(a).to(b).next();
+
+        g.V(a).dropInterval("2024-01-01", "2026-01-01").iterate();
+
+        assertEquals(Arrays.asList(
+                        interval("2020-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2030-01-01")),
+                Lifetime.fromProperties(a).getIntervals());
+
+        // Adjacent vertex b is unaffected
+        assertEquals(Arrays.asList(interval("2020-01-01", "2030-01-01")),
+                Lifetime.fromProperties(b).getIntervals());
+
+        // Incident timed edges (out, in, self-loop) are trimmed to stay within a's lifetime
+        assertEquals(Arrays.asList(
+                        interval("2022-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2028-01-01")),
+                Lifetime.fromProperties(outEdge).getIntervals());
+        assertEquals(Double.valueOf(1.0), outEdge.value("weight"));
+
+        assertEquals(Arrays.asList(
+                        interval("2021-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2027-01-01")),
+                Lifetime.fromProperties(inEdge).getIntervals());
+
+        assertEquals(Arrays.asList(
+                        interval("2023-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2029-01-01")),
+                Lifetime.fromProperties(selfLoop).getIntervals());
+
+        // Untimed incident edge and untimed vertex property remain untimed
+        assertFalse(Lifetime.hasLifetimeProperties(untimedEdge));
+        assertFalse(Lifetime.hasLifetimeProperties(a.property("name")));
+    }
+
+    @Test
+    public void shouldCascadeVertexDropIntervalToTimedProperties() {
+        final Vertex alice = g.addV("person").property("name", "alice")
+                .lifetime("2020-01-01", "2030-01-01")
+                .lifetimeProperty("title", "Engineer", "2022-01-01", "2028-01-01")
+                .lifetimeProperty("title", "Lead", "2025-01-01", "2029-01-01")
+                .next();
+
+        g.V(alice).dropInterval("2024-01-01", "2026-01-01").iterate();
+
+        final java.util.Map<Object, Lifetime> titleLifetimes = new java.util.HashMap<>();
+        alice.properties("title").forEachRemaining(vp -> titleLifetimes.put(vp.value(), Lifetime.fromProperties(vp)));
+
+        assertEquals(Arrays.asList(
+                        interval("2022-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2028-01-01")),
+                titleLifetimes.get("Engineer").getIntervals());
+        assertEquals(Arrays.asList(
+                        interval("2026-01-01", "2029-01-01")),
+                titleLifetimes.get("Lead").getIntervals());
+        assertTrue(g.V(alice).atTime("2025-06-01").values("title").toList().isEmpty());
+        assertEquals(Arrays.asList("Engineer", "Lead"),
+                g.V(alice).atTime("2027-01-01").values("title").toList());
+        assertFalse(Lifetime.hasLifetimeProperties(alice.property("name")));
+        assertEquals("alice", alice.value("name"));
+    }
+
+    @Test
+    public void shouldRejectSoftDropAndRemoveOnHardDropWhenIncidentEdgeOrPropertyBecomesEmpty() {
+        final Vertex a = g.addV("person").property("name", "a")
+                .lifetime("2020-01-01", "2030-01-01")
+                .lifetimeProperty("tempRole", "intern", "2024-06-01", "2024-09-01")
+                .next();
+        final Vertex b = g.addV("person").property("name", "b")
+                .lifetime("2020-01-01", "2030-01-01").next();
+
+        final Edge longEdge = g.addE("knows").from(a).to(b)
+                .lifetime("2020-01-01", "2030-01-01").next();
+        final Edge shortEdge = g.addE("mentors").from(a).to(b)
+                .lifetime("2024-03-01", "2024-11-01").next();
+
+        // SOFT mode rejects atomically when an incident edge would become empty
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(a).dropInterval("2024-01-01", "2025-01-01").iterate());
+
+        // Nothing was mutated on SOFT failure
+        assertEquals(Arrays.asList(interval("2020-01-01", "2030-01-01")),
+                Lifetime.fromProperties(a).getIntervals());
+        assertEquals(Arrays.asList(interval("2020-01-01", "2030-01-01")),
+                Lifetime.fromProperties(longEdge).getIntervals());
+        assertTrue(g.E(shortEdge.id()).hasNext());
+        assertTrue(a.property("tempRole").isPresent());
+
+        // HARD mode trims overlapping edges/properties and removes the emptied ones while keeping vertex a alive
+        g.V(a).dropInterval("2024-01-01", "2025-01-01", Lifetime.DropMode.HARD).iterate();
+
+        assertTrue(g.V(a.id()).hasNext());
+        assertEquals(Arrays.asList(
+                        interval("2020-01-01", "2024-01-01"),
+                        interval("2025-01-01", "2030-01-01")),
+                Lifetime.fromProperties(a).getIntervals());
+        assertEquals(Arrays.asList(
+                        interval("2020-01-01", "2024-01-01"),
+                        interval("2025-01-01", "2030-01-01")),
+                Lifetime.fromProperties(longEdge).getIntervals());
+        assertFalse(g.E(shortEdge.id()).hasNext());
+        assertFalse(a.property("tempRole").isPresent());
+        assertEquals("a", a.value("name"));
+    }
+
+    @Test
+    public void shouldEnforceVertexPropertyContainmentAndCascadeOnVertexReplace() {
+        final Vertex a = g.addV("person")
+                .lifetime("2020-01-01", "2030-01-01")
+                .lifetimeProperty("role", "engineer", "2021-01-01", "2025-01-01")
+                .next();
+        final Vertex b = g.addV("person")
+                .lifetime("2020-01-01", "2030-01-01").next();
+        final Edge edge = g.addE("knows").from(a).to(b)
+                .lifetime("2020-01-01", "2028-01-01").next();
+
+        // Setting a property lifetime outside parent vertex fails
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(a).lifetimeProperty("bad", "val", "2019-01-01", "2025-01-01").iterate());
+
+        // Expanding a VertexProperty outside parent vertex fails; shrinking within parent succeeds
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(a).properties("role").addInterval("2029-01-01", "2031-01-01").iterate());
+        g.V(a).properties("role").dropInterval("2022-01-01", "2023-01-01").iterate();
+        assertEquals(Arrays.asList(
+                        interval("2021-01-01", "2022-01-01"),
+                        interval("2023-01-01", "2025-01-01")),
+                Lifetime.fromProperties(a.property("role")).getIntervals());
+
+        // Replacing vertex lifetime shrinks incident edge and timed property to the new intersection
+        g.V(a).lifetime("2022-06-01", "2026-01-01").iterate();
+        assertEquals(Arrays.asList(interval("2022-06-01", "2026-01-01")),
+                Lifetime.fromProperties(edge).getIntervals());
+        assertEquals(Arrays.asList(interval("2023-01-01", "2025-01-01")),
+                Lifetime.fromProperties(a.property("role")).getIntervals());
+
+        // Setting or adding an empty lifetime is rejected
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(a).lifetime(Lifetime.EMPTY).iterate());
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(a).addInterval(Lifetime.EMPTY, null).iterate());
+    }
+
+    @Test
+    public void shouldHandleDropIntervalOnUntimedEdgeAndUntimedIncidentEdgeMakingEndpointsDisjoint() {
+        final Vertex a = g.addV("person").lifetime("2020-01-01", "2030-01-01").next();
+        final Vertex b = g.addV("person").lifetime("2020-01-01", "2030-01-01").next();
+        final Edge untimedEdge = g.addE("knows").from(a).to(b).next();
+
+        // Missed drop on untimed edge between bounded vertices leaves it untimed
+        g.E(untimedEdge).dropInterval("2031-01-01", "2032-01-01").iterate();
+        assertFalse(Lifetime.hasLifetimeProperties(untimedEdge));
+
+        // Partial drop on untimed edge between bounded vertices resolves against endpoint intersection
+        g.E(untimedEdge).dropInterval("2024-01-01", "2026-01-01").iterate();
+        assertEquals(Arrays.asList(
+                        interval("2020-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2030-01-01")),
+                Lifetime.fromProperties(untimedEdge).getIntervals());
+
+        // Untimed incident edge between vertices that become temporally disjoint: SOFT rejects, HARD removes
+        final Vertex c = g.addV("person").lifetime("2024-01-01", "2025-01-01").next();
+        final Edge untimedToC = g.addE("links").from(b).to(c).next();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(b).dropInterval("2024-01-01", "2025-01-01").iterate());
+        assertTrue(g.E(untimedToC.id()).hasNext());
+
+        g.V(b).dropInterval("2024-01-01", "2025-01-01", Lifetime.DropMode.HARD).iterate();
+        assertFalse(g.E(untimedToC.id()).hasNext());
     }
 
     private static Lifetime.Interval interval(final Object startTime, final Object endTime) {
