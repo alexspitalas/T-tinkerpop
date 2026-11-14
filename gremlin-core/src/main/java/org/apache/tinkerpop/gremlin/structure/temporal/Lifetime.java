@@ -816,13 +816,16 @@ public final class Lifetime implements Serializable {
      * or {@code -1} if none exists. Zero heap allocations.
      */
     public int getFirstIntervalIndexStartingAfter(final long time) {
-        if (rawIntervals.length == 0) return -1;
-        int low = 0;
-        int high = (rawIntervals.length >>> 1) - 1;
-        int resultIdx = -1;
+        final long[] raw = this.rawIntervals;
+        final int n = raw.length >>> 1;
+        if (n == 0 || raw[(n - 1) << 1] < time) return -1;
+        if (raw[0] >= time) return 0;
+        int low = 1;
+        int high = n - 2;
+        int resultIdx = n - 1;
         while (low <= high) {
             final int mid = (low + high) >>> 1;
-            if (rawIntervals[mid << 1] >= time) {
+            if (raw[mid << 1] >= time) {
                 resultIdx = mid;
                 high = mid - 1;
             } else {
@@ -846,13 +849,16 @@ public final class Lifetime implements Serializable {
      * or {@code -1} if none exists. Zero heap allocations.
      */
     public int getLastIntervalIndexEndingBefore(final long time) {
-        if (rawIntervals.length == 0) return -1;
-        int low = 0;
-        int high = (rawIntervals.length >>> 1) - 1;
-        int resultIdx = -1;
+        final long[] raw = this.rawIntervals;
+        final int n = raw.length >>> 1;
+        if (n == 0 || raw[1] > time) return -1;
+        if (raw[((n - 1) << 1) + 1] <= time) return n - 1;
+        int low = 1;
+        int high = n - 2;
+        int resultIdx = 0;
         while (low <= high) {
             final int mid = (low + high) >>> 1;
-            if (rawIntervals[(mid << 1) + 1] <= time) {
+            if (raw[(mid << 1) + 1] <= time) {
                 resultIdx = mid;
                 low = mid + 1;
             } else {

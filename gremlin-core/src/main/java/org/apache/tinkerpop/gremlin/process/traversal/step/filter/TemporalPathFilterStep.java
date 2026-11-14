@@ -90,7 +90,13 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
     private boolean satisfiesContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
         // All edges in the path must overlap.
-        Lifetime intersection = null;
+        // Fast path tracks a single interval [interStart, interEnd] in primitives with zero heap allocations
+        // while all edges have 1 interval (N = 1), falling back to Lifetime.intersection only when N > 1.
+        boolean hasPrev = false;
+        long interStart = 0L;
+        long interEnd = 0L;
+        Lifetime multiIntersection = null;
+
         for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
             final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
@@ -99,18 +105,45 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
                 if (prevLifetime.isEmpty()) {
                     return false;
                 }
-                if (intersection == null) {
-                    intersection = prevLifetime;
+                final long[] raw = prevLifetime.getRawIntervals();
+                if (!hasPrev) {
+                    hasPrev = true;
+                    if (raw.length == 2) {
+                        interStart = raw[0];
+                        interEnd = raw[1];
+                    } else {
+                        multiIntersection = prevLifetime;
+                    }
+                } else if (multiIntersection == null && raw.length == 2) {
+                    if (!Temporal.intersects.testIntervalPair(interStart, interEnd, raw[0], raw[1])) {
+                        return false;
+                    }
+                    interStart = Math.max(interStart, raw[0]);
+                    interEnd = Math.min(interEnd, raw[1]);
                 } else {
-                    intersection = intersection.intersection(prevLifetime);
-                    if (intersection.isEmpty()) {
+                    if (multiIntersection == null) {
+                        multiIntersection = prevLifetime.intersection(Lifetime.from(interStart, interEnd));
+                    } else {
+                        multiIntersection = multiIntersection.intersection(prevLifetime);
+                    }
+                    if (multiIntersection.isEmpty()) {
                         return false;
                     }
                 }
             }
         }
 
-        return intersection == null || intersection.intersects(edgeLifetime);
+        if (!hasPrev) {
+            return true;
+        }
+        if (multiIntersection != null) {
+            return multiIntersection.intersects(edgeLifetime);
+        }
+        final long[] curRaw = edgeLifetime.getRawIntervals();
+        if (curRaw.length == 2) {
+            return Temporal.intersects.testIntervalPair(interStart, interEnd, curRaw[0], curRaw[1]);
+        }
+        return edgeLifetime.intersects(interStart, interEnd);
     }
 
     private boolean satisfiesSequential(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
@@ -168,7 +201,7 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
     /**
      * When {@code maxDelay < Long.MAX_VALUE}, an earlier-ending interval can fail {@code maxDelay}
-     * on a later hop while a later-ending interval on the same edge succeeds, so all reachable end times
+     * on a later hop while a later-ending interval on the same edge succeeds, so all reachable intervals
      * must be retained and advanced via a linear two-pointer window.
      */
     private boolean satisfiesSequentialBounded(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
@@ -176,8 +209,8 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
             return hasNoPrecedingEdge(path, currentEdge);
         }
         final long effMinDelay = Math.max(0L, minDelay);
-        long[] prevEnds = null;
-        int prevCount = 0;
+        long[] prevRaw = null;
+        int prevPairs = 0;
 
         for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
@@ -189,28 +222,31 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
                 }
                 final long[] raw = lt.getRawIntervals();
                 final int count = raw.length >>> 1;
-                if (prevEnds == null) {
-                    prevEnds = new long[count];
-                    for (int j = 0; j < count; j++) {
-                        prevEnds[j] = raw[(j << 1) + 1];
-                    }
-                    prevCount = count;
-                } else {
-                    final long[] nextEnds = new long[count];
-                    prevCount = advanceSequentialEnds(prevEnds, prevCount, raw, count, effMinDelay, maxDelay, nextEnds);
-                    if (prevCount == 0) {
+                if (prevRaw == null) {
+                    prevRaw = raw;
+                    prevPairs = count;
+                } else if (count == 1) {
+                    if (advanceSequentialRaw(prevRaw, prevPairs, raw, 1, effMinDelay, maxDelay, null) == 0) {
                         return false;
                     }
-                    prevEnds = nextEnds;
+                    prevRaw = raw;
+                    prevPairs = 1;
+                } else {
+                    final long[] nextRaw = new long[raw.length];
+                    prevPairs = advanceSequentialRaw(prevRaw, prevPairs, raw, count, effMinDelay, maxDelay, nextRaw);
+                    if (prevPairs == 0) {
+                        return false;
+                    }
+                    prevRaw = nextRaw;
                 }
             }
         }
 
-        if (prevEnds == null) {
+        if (prevRaw == null) {
             return true;
         }
         final long[] currentRaw = edgeLifetime.getRawIntervals();
-        return advanceSequentialEnds(prevEnds, prevCount, currentRaw, currentRaw.length >>> 1, effMinDelay, maxDelay, null) > 0;
+        return advanceSequentialRaw(prevRaw, prevPairs, currentRaw, currentRaw.length >>> 1, effMinDelay, maxDelay, null) > 0;
     }
 
     private static boolean hasNoPrecedingEdge(final Path path, final Edge currentEdge) {
@@ -224,31 +260,34 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
         return true;
     }
 
-    private static int advanceSequentialEnds(final long[] prevEnds, final int prevCount,
-                                             final long[] nextRaw, final int nextCount,
-                                             final long effMinDelay, final long maxDelay,
-                                             final long[] outEnds) {
-        int outCount = 0;
+    private static int advanceSequentialRaw(final long[] prevRaw, final int prevPairs,
+                                            final long[] nextRaw, final int nextPairs,
+                                            final long effMinDelay, final long maxDelay,
+                                            final long[] outRaw) {
+        int outPairs = 0;
         int p = 0;
-        for (int j = 0; j < nextCount; j++) {
+        for (int j = 0; j < nextPairs; j++) {
             final long nextStart = nextRaw[j << 1];
             // Long.compareUnsigned handles signed difference overflow when prevEnd <= nextStart.
-            while (p < prevCount && prevEnds[p] <= nextStart
-                    && Long.compareUnsigned(nextStart - prevEnds[p], maxDelay) > 0) {
+            while (p < prevPairs && prevRaw[(p << 1) + 1] <= nextStart
+                    && Long.compareUnsigned(nextStart - prevRaw[(p << 1) + 1], maxDelay) > 0) {
                 p++;
             }
-            if (p == prevCount) {
+            if (p == prevPairs) {
                 break;
             }
-            final long prevEnd = prevEnds[p];
+            final long prevEnd = prevRaw[(p << 1) + 1];
             if (prevEnd <= nextStart && Long.compareUnsigned(nextStart - prevEnd, effMinDelay) >= 0) {
-                if (outEnds == null) {
+                if (outRaw == null) {
                     return 1;
                 }
-                outEnds[outCount++] = nextRaw[(j << 1) + 1];
+                final int idx = outPairs << 1;
+                outRaw[idx] = nextStart;
+                outRaw[idx + 1] = nextRaw[(j << 1) + 1];
+                outPairs++;
             }
         }
-        return outCount;
+        return outPairs;
     }
 
     private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
@@ -268,6 +307,12 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
                 if (prevRaw == null) {
                     prevRaw = raw;
                     prevPairs = count;
+                } else if (count == 1) {
+                    if (advancePairwiseRaw(prevRaw, prevPairs, raw, 1, null) == 0) {
+                        return false;
+                    }
+                    prevRaw = raw;
+                    prevPairs = 1;
                 } else {
                     final long[] nextRaw = new long[raw.length];
                     prevPairs = advancePairwiseRaw(prevRaw, prevPairs, raw, count, nextRaw);

@@ -430,6 +430,24 @@ public class AtTimeIntegrationTest {
             3, steps.size());
     }
 
+    @Test
+    public void shouldEvaluateAtTimeInsideAndAndFilterWithoutLeakingTemporalContext() {
+        final List<Object> matched = g.V()
+                .and(
+                        atTime(T_2021).has("past_title", "analyst"),
+                        atTime(T_2024).has("current_title", "architect")
+                )
+                .values("name")
+                .toList();
+        assertThat(matched, contains("alice"));
+
+        final List<Object> titles = g.V().has("name", "alice")
+                .filter(atTime(T_2021).has("past_title", "analyst"))
+                .values("past_title", "current_title")
+                .toList();
+        assertThat(titles, containsInAnyOrder("analyst", "architect"));
+    }
+
     private static boolean containsNestedValue(final Object value, final Object expected) {
         if (expected.equals(value))
             return true;

@@ -25,11 +25,13 @@ import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRank;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.VertexStep;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.tinkergraph.process.traversal.step.sideEffect.TinkerGraphStep;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerEdge;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerVertex;
+import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerVertexProperty;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -257,5 +259,53 @@ public class TemporalOptimizationIntegrationTest {
         assertEquals(1, overlappedEdges.size());
         assertEquals(eTrim.id(), overlappedEdges.get(0).id());
         assertFalse(g.E(eDrop.id()).hasNext());
+    }
+
+    @Test
+    public void shouldPreserveCachesFoldedStepsAndPageRankAfterVertexCascade() {
+        graph.createIndex(Lifetime.TEMPORAL_INTERVALS, Vertex.class);
+        graph.createIndex(Lifetime.TEMPORAL_INTERVALS, Edge.class);
+
+        final TinkerVertex a = (TinkerVertex) g.addV("station")
+                .lifetime(100L, 500L)
+                .lifetimeProperty("status", "open", 150L, 450L)
+                .property("code", "ST-A")
+                .next();
+        final TinkerVertex b = (TinkerVertex) g.addV("station")
+                .lifetime(100L, 500L)
+                .next();
+
+        final TinkerEdge e = (TinkerEdge) g.addE("route").from(a).to(b)
+                .lifetime(150L, 450L)
+                .next();
+        final TinkerVertexProperty<?> statusProp = (TinkerVertexProperty<?>) a.property("status");
+
+        // Prime all in-memory TemporalElement caches before cascade
+        assertEquals(Lifetime.from(100L, 500L), a.getLifetime());
+        assertEquals(Lifetime.from(150L, 450L), e.getLifetime());
+        assertEquals(Lifetime.from(150L, 450L), statusProp.getLifetime());
+
+        // Cascade-trim [100, 300) from vertex a -> a becomes [300, 500), e and statusProp become [300, 450)
+        g.V(a).dropInterval(100L, 300L).iterate();
+
+        // 1. In-memory TemporalElement caches must immediately reflect cascaded lifetimes
+        assertEquals(Lifetime.from(300L, 500L), a.getLifetime());
+        assertEquals(Lifetime.from(300L, 450L), e.getLifetime());
+        assertEquals(Lifetime.from(300L, 450L), statusProp.getLifetime());
+
+        // 2. Folded VertexStep AllenFilterStep and properties().atTime() must respect cascaded bounds
+        assertEquals(0, g.V(a).outE("route").temporalIntersects(Lifetime.from(150L, 250L)).count().next().intValue());
+        assertEquals(1, g.V(a).outE("route").temporalIntersects(Lifetime.from(350L, 400L)).count().next().intValue());
+        assertEquals(0, g.V(a).properties("status", "code").atTime(200L).count().next().intValue());
+        assertEquals(2, g.V(a).properties("status", "code").atTime(350L).count().next().intValue());
+
+        // 3. TemporalPageRank within window [150, 250): vertex a is filtered out of the window and b gets 0.0 rank
+        g.V().window(150L, 250L).temporalPageRank().with(TemporalPageRank.propertyName, "earlyRank").iterate();
+        assertFalse(a.property("earlyRank").isPresent());
+        assertEquals(0.0d, (Double) b.value("earlyRank"), 1e-9);
+
+        // Within window [300, 450), the trimmed transition is active and transfers rank from a to b
+        g.V().window(300L, 450L).temporalPageRank().with(TemporalPageRank.propertyName, "lateRank").iterate();
+        assertTrue((Double) b.value("lateRank") > 0.0d);
     }
 }

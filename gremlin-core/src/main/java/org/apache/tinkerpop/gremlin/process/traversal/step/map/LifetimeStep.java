@@ -177,16 +177,21 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
         Lifetime finalLifetime = actualLifetime;
         if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {
-            Lifetime currentLifetime = Lifetime.fromProperties(element);
             final int count = actualLifetime.getIntervalCount();
             if (mode == LifetimeMode.ADD) {
+                Lifetime currentLifetime = Lifetime.fromProperties(element);
                 for (int i = 0; i < count; i++) {
                     currentLifetime = currentLifetime.addInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
                 }
                 finalLifetime = currentLifetime;
             } else if (mode == LifetimeMode.DROP) {
+                final Lifetime initialLifetime = resolveCurrentLifetimeForDrop(element);
+                Lifetime currentLifetime = initialLifetime;
                 for (int i = 0; i < count; i++) {
                     currentLifetime = currentLifetime.dropInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
+                }
+                if (!Lifetime.hasLifetimeProperties(element) && currentLifetime.equals(initialLifetime)) {
+                    return traverser;
                 }
                 finalLifetime = currentLifetime;
             }
@@ -277,11 +282,25 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         final List<Edge> edgesToRemove = new ArrayList<>();
 
         for (final Edge edge : incidentEdges) {
+            final Vertex otherVertex = edge.outVertex().equals(vertex) ? edge.inVertex() : edge.outVertex();
+            final Lifetime maxAllowedEdgeLifetime = (!otherVertex.equals(vertex) && Lifetime.hasLifetimeProperties(otherVertex))
+                    ? finalVertexLifetime.intersection(Lifetime.fromProperties(otherVertex))
+                    : finalVertexLifetime;
+
             if (!Lifetime.hasLifetimeProperties(edge)) {
+                if (maxAllowedEdgeLifetime.isEmpty()) {
+                    if (dropMode == DropMode.SOFT) {
+                        throw new IllegalArgumentException(
+                                "Cannot " + operationVerb() + " vertex lifetime [" + finalVertexLifetime.getStartDate() + ", " +
+                                        finalVertexLifetime.getEndDate() + "] because incident edge " + edge.id() +
+                                        " would have an empty lifetime.");
+                    }
+                    edgesToRemove.add(edge);
+                }
                 continue;
             }
             final Lifetime edgeLifetime = Lifetime.fromProperties(edge);
-            final Lifetime updatedEdgeLifetime = edgeLifetime.intersection(finalVertexLifetime);
+            final Lifetime updatedEdgeLifetime = edgeLifetime.intersection(maxAllowedEdgeLifetime);
             if (updatedEdgeLifetime.isEmpty()) {
                 if (dropMode == DropMode.SOFT) {
                     throw new IllegalArgumentException(
@@ -317,11 +336,27 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             }
         });
 
-        finalVertexLifetime.attachTo(vertex);
         edgesToUpdate.forEach((edge, lt) -> lt.attachTo(edge));
         edgesToRemove.forEach(Edge::remove);
         propertiesToUpdate.forEach((vp, lt) -> lt.attachTo(vp));
         propertiesToRemove.forEach(VertexProperty::remove);
+        finalVertexLifetime.attachTo(vertex);
+    }
+
+    private Lifetime resolveCurrentLifetimeForDrop(final Element element) {
+        if (Lifetime.hasLifetimeProperties(element)) {
+            return Lifetime.fromProperties(element);
+        }
+        if (element instanceof Edge) {
+            final Edge edge = (Edge) element;
+            return Lifetime.fromProperties(edge.outVertex())
+                    .intersection(Lifetime.fromProperties(edge.inVertex()));
+        }
+        if (element instanceof VertexProperty) {
+            final VertexProperty<?> vp = (VertexProperty<?>) element;
+            return Lifetime.fromProperties(vp.element());
+        }
+        return Lifetime.fromProperties(element);
     }
 
     private static boolean isSystemLifetimeProperty(final String key) {

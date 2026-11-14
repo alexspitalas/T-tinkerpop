@@ -318,14 +318,24 @@ public class MultipleIntervalLifetimeIntegrationTest {
         final Vertex alice = g.addV("person").property("name", "alice")
                 .lifetime("2020-01-01", "2030-01-01")
                 .lifetimeProperty("title", "Engineer", "2022-01-01", "2028-01-01")
+                .lifetimeProperty("title", "Lead", "2025-01-01", "2029-01-01")
                 .next();
 
         g.V(alice).dropInterval("2024-01-01", "2026-01-01").iterate();
 
+        final java.util.Map<Object, Lifetime> titleLifetimes = new java.util.HashMap<>();
+        alice.properties("title").forEachRemaining(vp -> titleLifetimes.put(vp.value(), Lifetime.fromProperties(vp)));
+
         assertEquals(Arrays.asList(
                         interval("2022-01-01", "2024-01-01"),
                         interval("2026-01-01", "2028-01-01")),
-                Lifetime.fromProperties(alice.property("title")).getIntervals());
+                titleLifetimes.get("Engineer").getIntervals());
+        assertEquals(Arrays.asList(
+                        interval("2026-01-01", "2029-01-01")),
+                titleLifetimes.get("Lead").getIntervals());
+        assertTrue(g.V(alice).atTime("2025-06-01").values("title").toList().isEmpty());
+        assertEquals(Arrays.asList("Engineer", "Lead"),
+                g.V(alice).atTime("2027-01-01").values("title").toList());
         assertFalse(Lifetime.hasLifetimeProperties(alice.property("name")));
         assertEquals("alice", alice.value("name"));
     }
@@ -409,6 +419,35 @@ public class MultipleIntervalLifetimeIntegrationTest {
                 () -> g.V(a).lifetime(Lifetime.EMPTY).iterate());
         assertThrows(IllegalArgumentException.class,
                 () -> g.V(a).addInterval(Lifetime.EMPTY, null).iterate());
+    }
+
+    @Test
+    public void shouldHandleDropIntervalOnUntimedEdgeAndUntimedIncidentEdgeMakingEndpointsDisjoint() {
+        final Vertex a = g.addV("person").lifetime("2020-01-01", "2030-01-01").next();
+        final Vertex b = g.addV("person").lifetime("2020-01-01", "2030-01-01").next();
+        final Edge untimedEdge = g.addE("knows").from(a).to(b).next();
+
+        // Missed drop on untimed edge between bounded vertices leaves it untimed
+        g.E(untimedEdge).dropInterval("2031-01-01", "2032-01-01").iterate();
+        assertFalse(Lifetime.hasLifetimeProperties(untimedEdge));
+
+        // Partial drop on untimed edge between bounded vertices resolves against endpoint intersection
+        g.E(untimedEdge).dropInterval("2024-01-01", "2026-01-01").iterate();
+        assertEquals(Arrays.asList(
+                        interval("2020-01-01", "2024-01-01"),
+                        interval("2026-01-01", "2030-01-01")),
+                Lifetime.fromProperties(untimedEdge).getIntervals());
+
+        // Untimed incident edge between vertices that become temporally disjoint: SOFT rejects, HARD removes
+        final Vertex c = g.addV("person").lifetime("2024-01-01", "2025-01-01").next();
+        final Edge untimedToC = g.addE("links").from(b).to(c).next();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> g.V(b).dropInterval("2024-01-01", "2025-01-01").iterate());
+        assertTrue(g.E(untimedToC.id()).hasNext());
+
+        g.V(b).dropInterval("2024-01-01", "2025-01-01", Lifetime.DropMode.HARD).iterate();
+        assertFalse(g.E(untimedToC.id()).hasNext());
     }
 
     private static Lifetime.Interval interval(final Object startTime, final Object endTime) {
