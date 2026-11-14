@@ -229,4 +229,33 @@ public class TemporalOptimizationIntegrationTest {
             assertTrue("PageRank score should be non-negative: " + score, score >= 0.0);
         }
     }
+
+    @Test
+    public void shouldKeepEdgeIndexConsistentAfterVertexDropIntervalCascade() {
+        graph.createIndex(Lifetime.TEMPORAL_INTERVALS, Vertex.class);
+        graph.createIndex(Lifetime.TEMPORAL_INTERVALS, Edge.class);
+
+        final Vertex a = g.addV("city").lifetime(100L, 500L).next();
+        final Vertex b = g.addV("city").lifetime(100L, 500L).next();
+
+        final Edge eTrim = g.addE("train").from(a).to(b).lifetime(150L, 450L).next();
+        final Edge eDrop = g.addE("bus").from(a).to(b).lifetime(220L, 280L).next();
+
+        g.V(a).dropInterval(200L, 300L, Lifetime.DropMode.HARD).iterate();
+
+        // Dropped interval [200, 300) should no longer match either edge via index pushdown
+        final Lifetime droppedWindow = Lifetime.from(210L, 290L);
+        assertEquals(0, g.E().temporalIntersects(droppedWindow).toList().size());
+
+        // Retained interval [300, 450) should still intersect [350, 400) and Allen-overlap [350, 500)
+        final Lifetime lateWindow = Lifetime.from(350L, 400L);
+        final List<Edge> intersectedEdges = g.E().temporalIntersects(lateWindow).toList();
+        assertEquals(1, intersectedEdges.size());
+        assertEquals(eTrim.id(), intersectedEdges.get(0).id());
+
+        final List<Edge> overlappedEdges = g.E().temporalOverlaps(Lifetime.from(350L, 500L)).toList();
+        assertEquals(1, overlappedEdges.size());
+        assertEquals(eTrim.id(), overlappedEdges.get(0).id());
+        assertFalse(g.E(eDrop.id()).hasNext());
+    }
 }

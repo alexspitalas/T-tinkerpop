@@ -304,4 +304,18 @@ public class GeneralizedRelationTest {
         assertEquals(Arrays.asList("x1 >= y1", "x1 < y2", "x2 > y1", "x2 <= y2"),
                 GeneralizedIntervalRelation.ALLEN_ENCLOSED_BY.toInequations());
     }
+
+    @Test
+    public void shouldSupportAnyGeneralizedAndRightBoundaryPointExtraction() {
+        final Lifetime closedRight = Lifetime.from(100L, 200L).addInterval(200L, 200L);
+        final Lifetime other = Lifetime.from(200L, 300L);
+        assertEquals(GeneralizedRelation.ALLEN_MEETS, GeneralizedRelation.between(closedRight, other));
+
+        final Lifetime multi = Lifetime.from(100L, 200L).addInterval(400L, 500L);
+        final Lifetime ref = Lifetime.from(150L, 250L);
+        assertTrue(org.apache.tinkerpop.gremlin.process.traversal.TemporalP
+                .anyGeneralized(ref, GeneralizedRelation.ALLEN_OVERLAPS).test(multi));
+        assertFalse(org.apache.tinkerpop.gremlin.process.traversal.TemporalP
+                .anyGeneralized(ref, GeneralizedRelation.ALLEN_DURING).test(multi));
+    }
 }

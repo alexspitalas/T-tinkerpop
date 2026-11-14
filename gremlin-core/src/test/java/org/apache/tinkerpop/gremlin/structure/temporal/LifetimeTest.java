@@ -609,6 +609,27 @@ public class LifetimeTest {
         assertSame(Lifetime.UNBOUNDED, Lifetime.fromProperties(adjacent));
     }
 
+    @Test
+    public void shouldSupportContainsAndIntersectionWithRightBoundaryPointInterval() {
+        final Lifetime closedRight = Lifetime.from(100L, 200L).addInterval(200L, 200L);
+        final Lifetime boundaryPoint = Lifetime.from(200L, 200L);
+        final Lifetime overlappingClosedRight = Lifetime.from(150L, 200L).addInterval(200L, 200L);
+        final Lifetime startingAtBoundary = Lifetime.from(200L, 300L);
+
+        assertTrue(closedRight.contains(closedRight));
+        assertTrue(closedRight.contains(boundaryPoint));
+        assertTrue(closedRight.contains(overlappingClosedRight));
+        assertTrue(closedRight.intersects(boundaryPoint));
+        assertTrue(boundaryPoint.intersects(closedRight));
+        assertTrue(closedRight.intersects(startingAtBoundary));
+        assertTrue(startingAtBoundary.intersects(closedRight));
+        assertEquals(boundaryPoint, closedRight.intersection(boundaryPoint));
+        assertEquals(boundaryPoint, boundaryPoint.intersection(closedRight));
+        assertEquals(boundaryPoint, closedRight.intersection(startingAtBoundary));
+        assertEquals(boundaryPoint, startingAtBoundary.intersection(closedRight));
+        assertEquals(overlappingClosedRight, closedRight.intersection(overlappingClosedRight));
+    }
+
     private static Element elementWithProperties(final Object startTime, final Object endTime) {
         final Element element = mock(Element.class);
         final Property<Object> startTimeProperty = null == startTime ? Property.empty() : property(startTime);
