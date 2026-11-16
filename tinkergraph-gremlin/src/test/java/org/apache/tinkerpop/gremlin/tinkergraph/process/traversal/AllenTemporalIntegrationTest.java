@@ -275,6 +275,31 @@ public class AllenTemporalIntegrationTest {
     }
 
     @Test
+    public void shouldPreserveAllReachableIntervalsForBoundedDelaySequentialPath() {
+        final Vertex a = g.addV("station").property("name", "A").next();
+        final Vertex b = g.addV("station").property("name", "B").next();
+        final Vertex c = g.addV("station").property("name", "C").next();
+        final Vertex dReachableViaSecond = g.addV("station").property("name", "D_second").next();
+        final Vertex dTooLate = g.addV("station").property("name", "D_too_late").next();
+
+        // Hop 1 (A -> B): [100, 200)
+        g.addE("leg").from(a).to(b).lifetime(100L, 200L).next();
+        // Hop 2 (B -> C): [210, 230) (delay 10) and [240, 260) (delay 40) are both reachable under maxDelay=50
+        g.addE("leg").from(b).to(c).lifetime(210L, 230L).addInterval(240L, 260L).next();
+        // Hop 3 valid (C -> D_second): [290, 310) fails maxDelay=50 from [210, 230) (delay 60), succeeds from [240, 260) (delay 30)
+        g.addE("leg").from(c).to(dReachableViaSecond).lifetime(290L, 310L).next();
+        // Hop 3 invalid (C -> D_too_late): [320, 350) exceeds maxDelay=50 from both intervals (delays 90 and 60)
+        g.addE("leg").from(c).to(dTooLate).lifetime(320L, 350L).next();
+
+        assertThat(g.V(a)
+                .sequentialPath(0L, 50L, "leg")
+                .sequentialPath(0L, 50L, "leg")
+                .sequentialPath(0L, 50L, "leg")
+                .values("name").toList(),
+                contains("D_second"));
+    }
+
+    @Test
     public void shouldTreatStaticAndStartEndElementsIdenticallyWithAndWithoutTemporalIndex() {
         // Add a static vertex BEFORE index creation
         final Vertex staticBefore = g.addV("item").property("name", "static-before").next();

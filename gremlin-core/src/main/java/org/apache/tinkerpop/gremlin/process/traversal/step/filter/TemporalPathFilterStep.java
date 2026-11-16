@@ -28,10 +28,7 @@ import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -93,111 +90,280 @@ public final class TemporalPathFilterStep<S> extends FilterStep<S> {
 
     private boolean satisfiesContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
         // All edges in the path must overlap.
-        Optional<Lifetime> intersection = Optional.of(Lifetime.from(null, null));
+        // Fast path tracks a single interval [interStart, interEnd] in primitives with zero heap allocations
+        // while all edges have 1 interval (N = 1), falling back to Lifetime.intersection only when N > 1.
+        boolean hasPrev = false;
+        long interStart = 0L;
+        long interEnd = 0L;
+        Lifetime multiIntersection = null;
 
-        boolean foundOtherEdge = false;
         for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
             final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
             if (obj instanceof Edge && !isTrailingCurrent) {
-                foundOtherEdge = true;
-                final Edge prevEdge = (Edge) obj;
-                final Lifetime prevLifetime = LifetimeHelper.resolveEffectiveLifetime(prevEdge);
-                intersection = LifetimeHelper.intersection(intersection.get(), prevLifetime);
-                if (!intersection.isPresent())
+                final Lifetime prevLifetime = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
+                if (prevLifetime.isEmpty()) {
                     return false;
-            }
-        }
-
-        if (!foundOtherEdge)
-            return true;
-
-        return LifetimeHelper.intersection(intersection.get(), edgeLifetime).isPresent();
-    }
-
-    private boolean satisfiesSequential(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
-        // Strict temporal ordering across single or multiple intervals.
-        List<Lifetime.Interval> reachable = null;
-        for (int i = 0; i < path.size(); i++) {
-            final Object obj = path.get(i);
-            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
-            if (obj instanceof Edge && !isTrailingCurrent) {
-                final Lifetime lt = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
-                if (lt.isEmpty())
-                    return false;
-                if (reachable == null) {
-                    reachable = lt.getIntervals();
-                } else {
-                    reachable = advanceSequentialIntervals(reachable, lt.getIntervals());
-                    if (reachable.isEmpty())
-                        return false;
                 }
-            }
-        }
-
-        if (reachable == null)
-            return true;
-
-        return !advanceSequentialIntervals(reachable, edgeLifetime.getIntervals()).isEmpty();
-    }
-
-    private List<Lifetime.Interval> advanceSequentialIntervals(final List<Lifetime.Interval> prevIntervals,
-                                                               final List<Lifetime.Interval> nextIntervals) {
-        final List<Lifetime.Interval> validNext = new ArrayList<>();
-        for (final Lifetime.Interval nextIv : nextIntervals) {
-            final long nextStart = nextIv.getStartMillis();
-            for (final Lifetime.Interval prevIv : prevIntervals) {
-                if (Temporal.precedes.testIntervalPair(prevIv, nextIv) || Temporal.meets.testIntervalPair(prevIv, nextIv)) {
-                    final long delay = nextStart - prevIv.getEndMillis();
-                    if (delay >= minDelay && delay <= maxDelay) {
-                        validNext.add(nextIv);
-                        break;
+                final long[] raw = prevLifetime.getRawIntervals();
+                if (!hasPrev) {
+                    hasPrev = true;
+                    if (raw.length == 2) {
+                        interStart = raw[0];
+                        interEnd = raw[1];
+                    } else {
+                        multiIntersection = prevLifetime;
+                    }
+                } else if (multiIntersection == null && raw.length == 2) {
+                    if (!Temporal.intersects.testIntervalPair(interStart, interEnd, raw[0], raw[1])) {
+                        return false;
+                    }
+                    interStart = Math.max(interStart, raw[0]);
+                    interEnd = Math.min(interEnd, raw[1]);
+                } else {
+                    if (multiIntersection == null) {
+                        multiIntersection = prevLifetime.intersection(Lifetime.from(interStart, interEnd));
+                    } else {
+                        multiIntersection = multiIntersection.intersection(prevLifetime);
+                    }
+                    if (multiIntersection.isEmpty()) {
+                        return false;
                     }
                 }
             }
         }
-        return validNext;
+
+        if (!hasPrev) {
+            return true;
+        }
+        if (multiIntersection != null) {
+            return multiIntersection.intersects(edgeLifetime);
+        }
+        final long[] curRaw = edgeLifetime.getRawIntervals();
+        if (curRaw.length == 2) {
+            return Temporal.intersects.testIntervalPair(interStart, interEnd, curRaw[0], curRaw[1]);
+        }
+        return edgeLifetime.intersects(interStart, interEnd);
     }
 
-    private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
-        // Consecutive edges need to overlap along a connected chain of reachable sub-intervals.
-        List<Lifetime.Interval> reachable = null;
+    private boolean satisfiesSequential(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
+        if (maxDelay == Long.MAX_VALUE) {
+            return satisfiesSequentialUnbounded(path, currentEdge, edgeLifetime);
+        }
+        return satisfiesSequentialBounded(path, currentEdge, edgeLifetime);
+    }
+
+    /**
+     * When {@code maxDelay == Long.MAX_VALUE}, only the earliest-ending reachable interval on each hop
+     * is needed: in a normalized {@link Lifetime}, intervals are sorted by start and non-overlapping
+     * with non-decreasing end times, so the first interval starting at or after {@code prevEnd + minDelay}
+     * dominates all later intervals for both causality and {@code delay >= minDelay}.
+     */
+    private boolean satisfiesSequentialUnbounded(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
+        boolean hasPrev = false;
+        long earliestEnd = 0L;
         for (int i = 0; i < path.size(); i++) {
             final Object obj = path.get(i);
             final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
             if (obj instanceof Edge && !isTrailingCurrent) {
                 final Lifetime lt = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
-                if (lt.isEmpty())
+                if (lt.isEmpty()) {
                     return false;
-                if (reachable == null) {
-                    reachable = lt.getIntervals();
+                }
+                if (!hasPrev) {
+                    earliestEnd = lt.getEndMillis(0);
+                    hasPrev = true;
                 } else {
-                    reachable = advancePairwiseIntervals(reachable, lt.getIntervals());
-                    if (reachable.isEmpty())
+                    final int idx = findFirstSequentialIntervalIndex(lt, earliestEnd);
+                    if (idx < 0) {
                         return false;
+                    }
+                    earliestEnd = lt.getEndMillis(idx);
                 }
             }
         }
 
-        if (reachable == null)
+        if (!hasPrev) {
             return true;
-
-        return !advancePairwiseIntervals(reachable, edgeLifetime.getIntervals()).isEmpty();
+        }
+        return findFirstSequentialIntervalIndex(edgeLifetime, earliestEnd) >= 0;
     }
 
-    private List<Lifetime.Interval> advancePairwiseIntervals(final List<Lifetime.Interval> prevIntervals,
-                                                             final List<Lifetime.Interval> nextIntervals) {
-        final List<Lifetime.Interval> validNext = new ArrayList<>();
-        for (final Lifetime.Interval nextIv : nextIntervals) {
-            for (final Lifetime.Interval prevIv : prevIntervals) {
-                if (Temporal.intersects.testIntervalPair(prevIv, nextIv)
-                        && (!monotone || nextIv.getStartMillis() >= prevIv.getStartMillis())) {
-                    validNext.add(nextIv);
+    private int findFirstSequentialIntervalIndex(final Lifetime lt, final long prevEnd) {
+        if (minDelay <= 0L) {
+            return lt.getFirstIntervalIndexStartingAfter(prevEnd);
+        }
+        if (prevEnd > Long.MAX_VALUE - minDelay) {
+            return -1;
+        }
+        return lt.getFirstIntervalIndexStartingAfter(prevEnd + minDelay);
+    }
+
+    /**
+     * When {@code maxDelay < Long.MAX_VALUE}, an earlier-ending interval can fail {@code maxDelay}
+     * on a later hop while a later-ending interval on the same edge succeeds, so all reachable intervals
+     * must be retained and advanced via a linear two-pointer window.
+     */
+    private boolean satisfiesSequentialBounded(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
+        if (maxDelay < 0L || minDelay > maxDelay) {
+            return hasNoPrecedingEdge(path, currentEdge);
+        }
+        final long effMinDelay = Math.max(0L, minDelay);
+        long[] prevRaw = null;
+        int prevPairs = 0;
+
+        for (int i = 0; i < path.size(); i++) {
+            final Object obj = path.get(i);
+            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
+            if (obj instanceof Edge && !isTrailingCurrent) {
+                final Lifetime lt = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
+                if (lt.isEmpty()) {
+                    return false;
+                }
+                final long[] raw = lt.getRawIntervals();
+                final int count = raw.length >>> 1;
+                if (prevRaw == null) {
+                    prevRaw = raw;
+                    prevPairs = count;
+                } else if (count == 1) {
+                    if (advanceSequentialRaw(prevRaw, prevPairs, raw, 1, effMinDelay, maxDelay, null) == 0) {
+                        return false;
+                    }
+                    prevRaw = raw;
+                    prevPairs = 1;
+                } else {
+                    final long[] nextRaw = new long[raw.length];
+                    prevPairs = advanceSequentialRaw(prevRaw, prevPairs, raw, count, effMinDelay, maxDelay, nextRaw);
+                    if (prevPairs == 0) {
+                        return false;
+                    }
+                    prevRaw = nextRaw;
+                }
+            }
+        }
+
+        if (prevRaw == null) {
+            return true;
+        }
+        final long[] currentRaw = edgeLifetime.getRawIntervals();
+        return advanceSequentialRaw(prevRaw, prevPairs, currentRaw, currentRaw.length >>> 1, effMinDelay, maxDelay, null) > 0;
+    }
+
+    private static boolean hasNoPrecedingEdge(final Path path, final Edge currentEdge) {
+        for (int i = 0; i < path.size(); i++) {
+            final Object obj = path.get(i);
+            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
+            if (obj instanceof Edge && !isTrailingCurrent) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int advanceSequentialRaw(final long[] prevRaw, final int prevPairs,
+                                            final long[] nextRaw, final int nextPairs,
+                                            final long effMinDelay, final long maxDelay,
+                                            final long[] outRaw) {
+        int outPairs = 0;
+        int p = 0;
+        for (int j = 0; j < nextPairs; j++) {
+            final long nextStart = nextRaw[j << 1];
+            // Long.compareUnsigned handles signed difference overflow when prevEnd <= nextStart.
+            while (p < prevPairs && prevRaw[(p << 1) + 1] <= nextStart
+                    && Long.compareUnsigned(nextStart - prevRaw[(p << 1) + 1], maxDelay) > 0) {
+                p++;
+            }
+            if (p == prevPairs) {
+                break;
+            }
+            final long prevEnd = prevRaw[(p << 1) + 1];
+            if (prevEnd <= nextStart && Long.compareUnsigned(nextStart - prevEnd, effMinDelay) >= 0) {
+                if (outRaw == null) {
+                    return 1;
+                }
+                final int idx = outPairs << 1;
+                outRaw[idx] = nextStart;
+                outRaw[idx + 1] = nextRaw[(j << 1) + 1];
+                outPairs++;
+            }
+        }
+        return outPairs;
+    }
+
+    private boolean satisfiesPairwiseContinuous(final Path path, final Edge currentEdge, final Lifetime edgeLifetime) {
+        // Consecutive edges need to overlap along a connected chain of reachable sub-intervals.
+        long[] prevRaw = null;
+        int prevPairs = 0;
+        for (int i = 0; i < path.size(); i++) {
+            final Object obj = path.get(i);
+            final boolean isTrailingCurrent = (i == path.size() - 1 && obj == currentEdge);
+            if (obj instanceof Edge && !isTrailingCurrent) {
+                final Lifetime lt = LifetimeHelper.resolveEffectiveLifetime((Edge) obj);
+                if (lt.isEmpty()) {
+                    return false;
+                }
+                final long[] raw = lt.getRawIntervals();
+                final int count = raw.length >>> 1;
+                if (prevRaw == null) {
+                    prevRaw = raw;
+                    prevPairs = count;
+                } else if (count == 1) {
+                    if (advancePairwiseRaw(prevRaw, prevPairs, raw, 1, null) == 0) {
+                        return false;
+                    }
+                    prevRaw = raw;
+                    prevPairs = 1;
+                } else {
+                    final long[] nextRaw = new long[raw.length];
+                    prevPairs = advancePairwiseRaw(prevRaw, prevPairs, raw, count, nextRaw);
+                    if (prevPairs == 0) {
+                        return false;
+                    }
+                    prevRaw = nextRaw;
+                }
+            }
+        }
+
+        if (prevRaw == null) {
+            return true;
+        }
+        final long[] currentRaw = edgeLifetime.getRawIntervals();
+        return advancePairwiseRaw(prevRaw, prevPairs, currentRaw, currentRaw.length >>> 1, null) > 0;
+    }
+
+    private int advancePairwiseRaw(final long[] prevRaw, final int prevPairs,
+                                   final long[] nextRaw, final int nextPairs,
+                                   final long[] outRaw) {
+        int outPairs = 0;
+        int p = 0;
+        for (int j = 0; j < nextPairs; j++) {
+            final long nextStart = nextRaw[j << 1];
+            final long nextEnd = nextRaw[(j << 1) + 1];
+            while (p < prevPairs && prevRaw[(p << 1) + 1] < nextStart) {
+                p++;
+            }
+            if (p == prevPairs) {
+                break;
+            }
+            for (int k = p; k < prevPairs; k++) {
+                final long prevStart = prevRaw[k << 1];
+                if (prevStart > nextEnd || (monotone && prevStart > nextStart)) {
+                    break;
+                }
+                final long prevEnd = prevRaw[(k << 1) + 1];
+                if (Temporal.intersects.testIntervalPair(prevStart, prevEnd, nextStart, nextEnd)) {
+                    if (outRaw == null) {
+                        return 1;
+                    }
+                    final int idx = outPairs << 1;
+                    outRaw[idx] = nextStart;
+                    outRaw[idx + 1] = nextEnd;
+                    outPairs++;
                     break;
                 }
             }
         }
-        return validNext;
+        return outPairs;
     }
 
     @Override

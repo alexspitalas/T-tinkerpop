@@ -398,14 +398,22 @@ public final class GeneralizedIntervalRelation implements Serializable {
     }
 
     public boolean testIntervalPair(final long xStart, final long xEnd, final long yStart, final long yEnd) {
-        if (empty || p != 2 || q != 2 || xStart >= xEnd || yStart >= yEnd) {
+        if (empty || xStart > xEnd || yStart > yEnd) {
             return false;
         }
-        final int z1 = xStart < yStart ? 0 : (xStart == yStart ? 1 : (xStart < yEnd ? 2 : (xStart == yEnd ? 3 : 4)));
+        final int xArity = (xStart == xEnd) ? 1 : 2;
+        final int yArity = (yStart == yEnd) ? 1 : 2;
+        if (p != xArity || q != yArity) {
+            return false;
+        }
+        final int z1 = GeneralizedRelation.zoneInSubInterval(xStart, yStart, yEnd);
         if (z1 < lower.getZone(1) || z1 > upper.getZone(1)) {
             return false;
         }
-        final int z2 = xEnd < yStart ? 0 : (xEnd == yStart ? 1 : (xEnd < yEnd ? 2 : (xEnd == yEnd ? 3 : 4)));
+        if (xArity == 1) {
+            return true;
+        }
+        final int z2 = GeneralizedRelation.zoneInSubInterval(xEnd, yStart, yEnd);
         return z2 >= lower.getZone(2) && z2 <= upper.getZone(2);
     }
 

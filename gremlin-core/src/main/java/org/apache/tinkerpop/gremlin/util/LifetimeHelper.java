@@ -20,6 +20,8 @@ package org.apache.tinkerpop.gremlin.util;
 
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedEdge;
@@ -54,6 +56,11 @@ public final class LifetimeHelper {
             final Edge edge = (Edge) base;
             return isAliveDuring(edge.outVertex(), window)
                     && isAliveDuring(edge.inVertex(), window);
+        }
+
+        if (base instanceof VertexProperty) {
+            final Vertex parent = ((VertexProperty<?>) base).element();
+            return parent == null || isAliveDuring(parent, window);
         }
 
         return true;

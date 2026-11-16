@@ -29,6 +29,9 @@ import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyProperty;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
@@ -66,6 +69,21 @@ public class TemporalPathFilterLogicTest {
             when(edge.property(Lifetime.END_TIME)).thenReturn(EmptyProperty.instance());
         }
         
+        return edge;
+    }
+
+    private Edge mockMultiIntervalEdge(long... startEndPairs) {
+        final List<Lifetime.Interval> intervals = new ArrayList<>();
+        for (int i = 0; i < startEndPairs.length; i += 2) {
+            intervals.add(new Lifetime.Interval(startEndPairs[i], startEndPairs[i + 1]));
+        }
+        final String serialized = Lifetime.from(intervals).toTemporalIntervalsString();
+        final Edge edge = Mockito.mock(Edge.class);
+        final Property<Object> ivProp = Mockito.mock(Property.class);
+        when(ivProp.isPresent()).thenReturn(true);
+        when(ivProp.value()).thenReturn(serialized);
+        when(ivProp.orElse(null)).thenReturn(serialized);
+        when(edge.property(Lifetime.TEMPORAL_INTERVALS)).thenReturn(ivProp);
         return edge;
     }
 
@@ -375,5 +393,156 @@ public class TemporalPathFilterLogicTest {
         Edge e3 = mockEdge("2023-01-01T09:00:00", "2023-01-01T11:00:00");
         Path pathPass = mockPath(e1, e3);
         assertTrue("Decreasing start time should pass in non-monotone mode", step.filter(mockTraverser(e3, pathPass)));
+    }
+
+    @Test
+    public void shouldFilterMultiIntervalSequentialPathWithUnboundedMaxDelay() {
+        final TemporalPathFilterStep<Edge> step = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            10L, Long.MAX_VALUE, false
+        );
+
+        // e1: [10, 20), [500, 600)
+        final Edge e1 = mockMultiIntervalEdge(10, 20, 500, 600);
+        // e2: [25, 28) (violates minDelay 10 from 20), [30, 40) (valid: delay=10), [100, 110)
+        final Edge e2 = mockMultiIntervalEdge(25, 28, 30, 40, 100, 110);
+        // e3: [50, 60) -> delay from e2's [30, 40) is 10 >= 10 -> PASS
+        final Edge e3Valid = mockMultiIntervalEdge(50, 60);
+        assertTrue(step.filter(mockTraverser(e3Valid, mockPath(e1, e2, e3Valid))));
+
+        // e3Early: [49, 60) -> delay from e2's earliest reachable [30, 40) is 9 < 10 -> FAIL
+        final Edge e3TooEarly = mockMultiIntervalEdge(49, 60);
+        assertFalse(step.filter(mockTraverser(e3TooEarly, mockPath(e1, e2, e3TooEarly))));
+
+        // Unreachable early interval on e2 should not unlock e3:
+        // eA=[100, 200), eB={[50, 80), [250, 300)}, eC=[120, 150)
+        final Edge eA = mockMultiIntervalEdge(100, 200);
+        final Edge eB = mockMultiIntervalEdge(50, 80, 250, 300);
+        final Edge eC = mockMultiIntervalEdge(120, 150);
+        assertFalse(step.filter(mockTraverser(eC, mockPath(eA, eB, eC))));
+    }
+
+    @Test
+    public void shouldRetainAllReachableIntervalsWhenMaxDelayIsBounded() {
+        // minDelay = 0, maxDelay = 50
+        final TemporalPathFilterStep<Edge> step = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            0L, 50L, false
+        );
+
+        // e1: [100, 200)
+        // e2: {[210, 230), [240, 260)} -> both reachable from e1 (delays 10 and 40 <= 50)
+        // e3: [290, 310) -> from first interval [210, 230) delay=60 (>50), from second [240, 260) delay=30 (<=50)
+        final Edge e1 = mockMultiIntervalEdge(100, 200);
+        final Edge e2 = mockMultiIntervalEdge(210, 230, 240, 260);
+        final Edge e3 = mockMultiIntervalEdge(290, 310);
+        assertTrue("Later reachable interval on e2 should satisfy maxDelay to e3",
+            step.filter(mockTraverser(e3, mockPath(e1, e2, e3))));
+
+        // Ensure intervals on e2 that exceed maxDelay from e1 are NOT carried to e3:
+        // e1=[100, 120), e2={[125, 130), [200, 210)}, e3=[220, 230), maxDelay=30
+        final TemporalPathFilterStep<Edge> tightStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            0L, 30L, false
+        );
+        final Edge t1 = mockMultiIntervalEdge(100, 120);
+        final Edge t2 = mockMultiIntervalEdge(125, 130, 200, 210); // [200, 210) is delay 80 > 30
+        final Edge t3 = mockMultiIntervalEdge(220, 230);            // delay 90 > 30 from [125, 130)
+        assertFalse("Unreachable later interval on e2 must not validate e3",
+            tightStep.filter(mockTraverser(t3, mockPath(t1, t2, t3))));
+
+        // Ensure later reachable interval on e1 can satisfy maxDelay to e2:
+        final Edge m1 = mockMultiIntervalEdge(100, 120, 180, 200);
+        final Edge m2 = mockMultiIntervalEdge(210, 220);
+        assertTrue(tightStep.filter(mockTraverser(m2, mockPath(m1, m2))));
+    }
+
+    @Test
+    public void shouldHandleSequentialPointIntervalsAndExtremeTimestampBoundaries() {
+        final TemporalPathFilterStep<Edge> unboundedStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL
+        );
+
+        // Point intervals meeting half-open and point intervals
+        final Edge p1 = mockMultiIntervalEdge(100, 100);
+        final Edge p2 = mockMultiIntervalEdge(100, 200);
+        final Edge p3 = mockMultiIntervalEdge(200, 200);
+        assertTrue(unboundedStep.filter(mockTraverser(p3, mockPath(p1, p2, p3))));
+
+        // Overflow safety: prevEnd = Long.MAX_VALUE with positive minDelay must fail cleanly
+        final TemporalPathFilterStep<Edge> minDelayStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            10L, Long.MAX_VALUE, false
+        );
+        final Edge openEnded = mockMultiIntervalEdge(100, Long.MAX_VALUE);
+        final Edge atMax = mockMultiIntervalEdge(Long.MAX_VALUE, Long.MAX_VALUE);
+        assertFalse(minDelayStep.filter(mockTraverser(atMax, mockPath(openEnded, atMax))));
+
+        // Overflow safety in bounded delay with negative start/end and Long.MAX_VALUE
+        final TemporalPathFilterStep<Edge> boundedStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            0L, 100L, false
+        );
+        final Edge negToMax = mockMultiIntervalEdge(-50, -10, Long.MAX_VALUE - 50, Long.MAX_VALUE - 20);
+        assertTrue(boundedStep.filter(mockTraverser(atMax, mockPath(negToMax, atMax))));
+        final Edge onlyNeg = mockMultiIntervalEdge(-50, -10);
+        assertFalse(boundedStep.filter(mockTraverser(atMax, mockPath(onlyNeg, atMax))));
+
+        // Impossible delay bounds (minDelay > maxDelay) allow single edge, reject 2+ edges
+        final TemporalPathFilterStep<Edge> impossibleStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.SEQUENTIAL,
+            100L, 50L, false
+        );
+        assertTrue(impossibleStep.filter(mockTraverser(p1, mockPath(p1))));
+        assertFalse(impossibleStep.filter(mockTraverser(p2, mockPath(p1, p2))));
+    }
+
+    @Test
+    public void shouldFilterMultiIntervalPairwiseContinuousPath() {
+        final TemporalPathFilterStep<Edge> monotoneStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.PAIRWISE_CONTINUOUS,
+            0L, Long.MAX_VALUE, true
+        );
+        final Edge e1 = mockMultiIntervalEdge(100, 200, 500, 600);
+        // [50, 150) intersects [100, 200) but violates monotone (50 < 100); [550, 650) intersects [500, 600) and 550 >= 500
+        final Edge e2 = mockMultiIntervalEdge(50, 150, 550, 650);
+        final Edge e3Valid = mockMultiIntervalEdge(580, 700);
+        final Edge e3Invalid = mockMultiIntervalEdge(120, 180);
+
+        assertTrue(monotoneStep.filter(mockTraverser(e3Valid, mockPath(e1, e2, e3Valid))));
+        assertFalse(monotoneStep.filter(mockTraverser(e3Invalid, mockPath(e1, e2, e3Invalid))));
+    }
+
+    @Test
+    public void shouldFilterMultiIntervalContinuousPath() {
+        final TemporalPathFilterStep<Edge> continuousStep = new TemporalPathFilterStep<>(
+            mockTraversal(),
+            TemporalPathFilterStep.TemporalPathType.CONTINUOUS
+        );
+
+        // e1 and e2 share two disjoint intersection windows: [150, 200) and [550, 600)
+        final Edge e1 = mockMultiIntervalEdge(100, 200, 500, 600);
+        final Edge e2 = mockMultiIntervalEdge(150, 250, 550, 650);
+        // e3Valid overlaps the second shared window [550, 600) at [580, 600)
+        final Edge e3Valid = mockMultiIntervalEdge(300, 400, 580, 700);
+        // e3Invalid sits in the gap [200, 550) and misses both shared windows
+        final Edge e3Invalid = mockMultiIntervalEdge(210, 240, 510, 540);
+
+        assertTrue(continuousStep.filter(mockTraverser(e3Valid, mockPath(e1, e2, e3Valid))));
+        assertFalse(continuousStep.filter(mockTraverser(e3Invalid, mockPath(e1, e2, e3Invalid))));
+
+        // Closed-right boundary via half-open + point interval: {[100, 200), [200, 200)} intersected across 3 hops at [200, 200)
+        final Edge p1 = mockMultiIntervalEdge(100, 200, 200, 200);
+        final Edge p2 = mockMultiIntervalEdge(200, 200, 300, 400);
+        final Edge p3 = mockMultiIntervalEdge(200, 200);
+        assertTrue(continuousStep.filter(mockTraverser(p3, mockPath(p1, p2, p3))));
     }
 }

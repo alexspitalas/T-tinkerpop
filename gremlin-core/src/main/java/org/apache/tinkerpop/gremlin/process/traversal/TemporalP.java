@@ -102,12 +102,33 @@ public class TemporalP extends P<Object> {
     public boolean test(final Object testValue) {
         if (this.biPredicate == Temporal.generalized) {
             if (this.generalizedRelation != null) {
+                if (this.quantifier == Temporal.Quantifier.ANY
+                        && this.generalizedRelation.getP() <= 2
+                        && this.generalizedRelation.getQ() <= 2) {
+                    final Lifetime l1 = Temporal.extractLifetime(testValue);
+                    final Lifetime l2 = Temporal.extractLifetime(this.value);
+                    if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
+                    final long[] r1 = l1.getRawIntervals();
+                    final long[] r2 = l2.getRawIntervals();
+                    final int n1 = r1.length >>> 1;
+                    final int n2 = r2.length >>> 1;
+                    for (int i = 0; i < n1; i++) {
+                        final long xS = r1[i << 1];
+                        final long xE = r1[(i << 1) + 1];
+                        for (int j = 0; j < n2; j++) {
+                            if (this.generalizedRelation.testIntervalPair(xS, xE, r2[j << 1], r2[(j << 1) + 1])) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
                 return this.generalizedRelation.test(testValue, this.value);
             }
             if (this.generalizedIntervalRelation != null) {
                 if (this.quantifier == Temporal.Quantifier.ANY
-                        && this.generalizedIntervalRelation.getP() == 2
-                        && this.generalizedIntervalRelation.getQ() == 2) {
+                        && this.generalizedIntervalRelation.getP() <= 2
+                        && this.generalizedIntervalRelation.getQ() <= 2) {
                     final Lifetime l1 = Temporal.extractLifetime(testValue);
                     final Lifetime l2 = Temporal.extractLifetime(this.value);
                     if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) return false;
