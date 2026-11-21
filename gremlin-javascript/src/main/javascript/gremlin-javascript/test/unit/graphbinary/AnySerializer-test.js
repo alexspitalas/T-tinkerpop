@@ -352,7 +352,7 @@ describe('GraphBinary.AnySerializer', () => {
       { err:/buffer is empty/,                    b:[] },
       { err:/buffer is empty/,                    b:[] },
 
-      { err:/unknown {type_code}/,                b:[0x30] },
+      { err:/unknown {type_code}/,                b:[0x3A] },
       { err:/unknown {type_code}/,                b:[0x8F] },
       { err:/unknown {type_code}/,                b:[0xFF] },
 

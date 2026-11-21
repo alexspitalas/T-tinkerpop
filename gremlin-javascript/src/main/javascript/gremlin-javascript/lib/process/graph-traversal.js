@@ -1701,6 +1701,163 @@ class GraphTraversal extends Traversal {
     this.bytecode.addStep('write', args);
     return this;
   }
+
+  // Temporal steps (T-TinkerPop)
+  _normalizeTemporalArgs(args) {
+    const minSafe = BigInt(Number.MIN_SAFE_INTEGER);
+    const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+    return args.map((arg) => (typeof arg === 'bigint' && arg >= minSafe && arg <= maxSafe ? Number(arg) : arg));
+  }
+
+  lifetime(...args) {
+    this.bytecode.addStep('lifetime', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  addInterval(...args) {
+    this.bytecode.addStep('addInterval', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  dropInterval(...args) {
+    this.bytecode.addStep('dropInterval', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  lifetimeProperty(...args) {
+    this.bytecode.addStep('lifetimeProperty', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  getStartTime(...args) {
+    this.bytecode.addStep('getStartTime', args);
+    return this;
+  }
+
+  getEndTime(...args) {
+    this.bytecode.addStep('getEndTime', args);
+    return this;
+  }
+
+  getLifetime(...args) {
+    this.bytecode.addStep('getLifetime', args);
+    return this;
+  }
+
+  atTime(...args) {
+    this.bytecode.addStep('atTime', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  window(...args) {
+    this.bytecode.addStep('window', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalAfter(...args) {
+    this.bytecode.addStep('temporalAfter', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalBefore(...args) {
+    this.bytecode.addStep('temporalBefore', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalContains(...args) {
+    this.bytecode.addStep('temporalContains', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalDuring(...args) {
+    this.bytecode.addStep('temporalDuring', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalEquals(...args) {
+    this.bytecode.addStep('temporalEquals', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalFinishes(...args) {
+    this.bytecode.addStep('temporalFinishes', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalFinishedBy(...args) {
+    this.bytecode.addStep('temporalFinishedBy', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalMeets(...args) {
+    this.bytecode.addStep('temporalMeets', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalMetBy(...args) {
+    this.bytecode.addStep('temporalMetBy', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalOverlaps(...args) {
+    this.bytecode.addStep('temporalOverlaps', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalOverlappedBy(...args) {
+    this.bytecode.addStep('temporalOverlappedBy', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalStarts(...args) {
+    this.bytecode.addStep('temporalStarts', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalStartedBy(...args) {
+    this.bytecode.addStep('temporalStartedBy', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalIntersects(...args) {
+    this.bytecode.addStep('temporalIntersects', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalDisjoint(...args) {
+    this.bytecode.addStep('temporalDisjoint', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  continuousPath(...args) {
+    this.bytecode.addStep('continuousPath', args);
+    return this;
+  }
+
+  sequentialPath(...args) {
+    this.bytecode.addStep('sequentialPath', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  pairwiseContinuousPath(...args) {
+    this.bytecode.addStep('pairwiseContinuousPath', args);
+    return this;
+  }
+
+  temporalPageRank(...args) {
+    this.bytecode.addStep('temporalPageRank', args);
+    return this;
+  }
+
+  tbfs(...args) {
+    this.bytecode.addStep('tbfs', this._normalizeTemporalArgs(args));
+    return this;
+  }
+
+  temporalShortestPath(...args) {
+    this.bytecode.addStep('temporalShortestPath', this._normalizeTemporalArgs(args));
+    return this;
+  }
 }
 
 class CardinalityValue extends Bytecode {
@@ -1866,6 +2023,37 @@ const statics = {
   valueMap: (...args) => callOnEmptyTraversal('valueMap', args),
   values: (...args) => callOnEmptyTraversal('values', args),
   where: (...args) => callOnEmptyTraversal('where', args),
+  // Temporal anonymous steps (T-TinkerPop)
+  lifetime: (...args) => callOnEmptyTraversal('lifetime', args),
+  addInterval: (...args) => callOnEmptyTraversal('addInterval', args),
+  dropInterval: (...args) => callOnEmptyTraversal('dropInterval', args),
+  lifetimeProperty: (...args) => callOnEmptyTraversal('lifetimeProperty', args),
+  getStartTime: (...args) => callOnEmptyTraversal('getStartTime', args),
+  getEndTime: (...args) => callOnEmptyTraversal('getEndTime', args),
+  getLifetime: (...args) => callOnEmptyTraversal('getLifetime', args),
+  atTime: (...args) => callOnEmptyTraversal('atTime', args),
+  window: (...args) => callOnEmptyTraversal('window', args),
+  temporalAfter: (...args) => callOnEmptyTraversal('temporalAfter', args),
+  temporalBefore: (...args) => callOnEmptyTraversal('temporalBefore', args),
+  temporalContains: (...args) => callOnEmptyTraversal('temporalContains', args),
+  temporalDuring: (...args) => callOnEmptyTraversal('temporalDuring', args),
+  temporalEquals: (...args) => callOnEmptyTraversal('temporalEquals', args),
+  temporalFinishes: (...args) => callOnEmptyTraversal('temporalFinishes', args),
+  temporalFinishedBy: (...args) => callOnEmptyTraversal('temporalFinishedBy', args),
+  temporalMeets: (...args) => callOnEmptyTraversal('temporalMeets', args),
+  temporalMetBy: (...args) => callOnEmptyTraversal('temporalMetBy', args),
+  temporalOverlaps: (...args) => callOnEmptyTraversal('temporalOverlaps', args),
+  temporalOverlappedBy: (...args) => callOnEmptyTraversal('temporalOverlappedBy', args),
+  temporalStarts: (...args) => callOnEmptyTraversal('temporalStarts', args),
+  temporalStartedBy: (...args) => callOnEmptyTraversal('temporalStartedBy', args),
+  temporalIntersects: (...args) => callOnEmptyTraversal('temporalIntersects', args),
+  temporalDisjoint: (...args) => callOnEmptyTraversal('temporalDisjoint', args),
+  continuousPath: (...args) => callOnEmptyTraversal('continuousPath', args),
+  sequentialPath: (...args) => callOnEmptyTraversal('sequentialPath', args),
+  pairwiseContinuousPath: (...args) => callOnEmptyTraversal('pairwiseContinuousPath', args),
+  temporalPageRank: (...args) => callOnEmptyTraversal('temporalPageRank', args),
+  tbfs: (...args) => callOnEmptyTraversal('tbfs', args),
+  temporalShortestPath: (...args) => callOnEmptyTraversal('temporalShortestPath', args),
 };
 
 module.exports = {

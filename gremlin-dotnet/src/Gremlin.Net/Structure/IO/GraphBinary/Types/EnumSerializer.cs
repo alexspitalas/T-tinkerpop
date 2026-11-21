@@ -106,6 +106,23 @@ namespace Gremlin.Net.Structure.IO.GraphBinary.Types
         /// </summary>
         public static readonly EnumSerializer<T> TSerializer =
             new EnumSerializer<T>(DataType.T, T.GetByValue);
+
+#pragma warning disable 1591
+        public static readonly EnumSerializer<LifetimeMode> LifetimeModeSerializer =
+            new EnumSerializer<LifetimeMode>(DataType.LifetimeMode, LifetimeMode.GetByValue);
+
+        public static readonly EnumSerializer<DropMode> DropModeSerializer =
+            new EnumSerializer<DropMode>(DataType.DropMode, DropMode.GetByValue);
+
+        public static readonly EnumSerializer<TemporalPathTarget> TemporalPathTargetSerializer =
+            new EnumSerializer<TemporalPathTarget>(DataType.TemporalPathTarget, TemporalPathTarget.GetByValue);
+
+        public static readonly EnumSerializer<Temporal> TemporalSerializer =
+            new EnumSerializer<Temporal>(DataType.Temporal, Temporal.GetByValue);
+
+        public static readonly EnumSerializer<TemporalQuantifier> TemporalQuantifierSerializer =
+            new EnumSerializer<TemporalQuantifier>(DataType.TemporalQuantifier, TemporalQuantifier.GetByValue);
+#pragma warning restore 1591
     }
 
     /// <summary>

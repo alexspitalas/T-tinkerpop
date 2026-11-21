@@ -307,6 +307,38 @@ type AnonymousTraversal interface {
 	With(args ...interface{}) *GraphTraversal
 	// Write adds the write step to the GraphTraversal.
 	Write(args ...interface{}) *GraphTraversal
+
+	// Temporal steps (T-TinkerPop)
+	Lifetime(args ...interface{}) *GraphTraversal
+	AddInterval(args ...interface{}) *GraphTraversal
+	DropInterval(args ...interface{}) *GraphTraversal
+	LifetimeProperty(args ...interface{}) *GraphTraversal
+	GetStartTime(args ...interface{}) *GraphTraversal
+	GetEndTime(args ...interface{}) *GraphTraversal
+	GetLifetime(args ...interface{}) *GraphTraversal
+	AtTime(args ...interface{}) *GraphTraversal
+	Window(args ...interface{}) *GraphTraversal
+	TemporalAfter(args ...interface{}) *GraphTraversal
+	TemporalBefore(args ...interface{}) *GraphTraversal
+	TemporalContains(args ...interface{}) *GraphTraversal
+	TemporalDuring(args ...interface{}) *GraphTraversal
+	TemporalEquals(args ...interface{}) *GraphTraversal
+	TemporalFinishes(args ...interface{}) *GraphTraversal
+	TemporalFinishedBy(args ...interface{}) *GraphTraversal
+	TemporalMeets(args ...interface{}) *GraphTraversal
+	TemporalMetBy(args ...interface{}) *GraphTraversal
+	TemporalOverlaps(args ...interface{}) *GraphTraversal
+	TemporalOverlappedBy(args ...interface{}) *GraphTraversal
+	TemporalStarts(args ...interface{}) *GraphTraversal
+	TemporalStartedBy(args ...interface{}) *GraphTraversal
+	TemporalIntersects(args ...interface{}) *GraphTraversal
+	TemporalDisjoint(args ...interface{}) *GraphTraversal
+	ContinuousPath(args ...interface{}) *GraphTraversal
+	SequentialPath(args ...interface{}) *GraphTraversal
+	PairwiseContinuousPath(args ...interface{}) *GraphTraversal
+	TemporalPageRank(args ...interface{}) *GraphTraversal
+	Tbfs(args ...interface{}) *GraphTraversal
+	TemporalShortestPath(args ...interface{}) *GraphTraversal
 }
 
 type anonymousTraversal struct {
@@ -992,4 +1024,126 @@ func (anonymousTraversal *anonymousTraversal) With(args ...interface{}) *GraphTr
 // Write adds the write step to the GraphTraversal.
 func (anonymousTraversal *anonymousTraversal) Write(args ...interface{}) *GraphTraversal {
 	return anonymousTraversal.graphTraversal().Write(args...)
+}
+
+// Temporal anonymous steps (T-TinkerPop).
+
+func (anonymousTraversal *anonymousTraversal) Lifetime(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().Lifetime(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) AddInterval(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().AddInterval(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) DropInterval(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().DropInterval(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) LifetimeProperty(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().LifetimeProperty(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) GetStartTime(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().GetStartTime(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) GetEndTime(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().GetEndTime(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) GetLifetime(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().GetLifetime(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) AtTime(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().AtTime(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) Window(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().Window(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalAfter(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalAfter(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalBefore(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalBefore(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalContains(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalContains(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalDuring(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalDuring(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalEquals(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalEquals(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalFinishes(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalFinishes(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalFinishedBy(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalFinishedBy(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalMeets(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalMeets(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalMetBy(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalMetBy(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalOverlaps(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalOverlaps(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalOverlappedBy(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalOverlappedBy(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalStarts(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalStarts(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalStartedBy(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalStartedBy(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalIntersects(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalIntersects(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalDisjoint(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalDisjoint(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) ContinuousPath(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().ContinuousPath(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) SequentialPath(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().SequentialPath(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) PairwiseContinuousPath(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().PairwiseContinuousPath(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalPageRank(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalPageRank(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) Tbfs(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().Tbfs(args...)
+}
+
+func (anonymousTraversal *anonymousTraversal) TemporalShortestPath(args ...interface{}) *GraphTraversal {
+	return anonymousTraversal.graphTraversal().TemporalShortestPath(args...)
 }

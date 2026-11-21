@@ -81,8 +81,28 @@ class Translator:
             return self.process_number(v)
         elif isinstance(v, set):
             return f'[{str(v)[1:-1]}]'
+        elif isinstance(v, TemporalP):
+            return self.process_temporal_predicate(v)
         elif isinstance(v, P):
             return self.process_predicate(v)
+        elif isinstance(v, Lifetime):
+            if v.is_empty():
+                return 'Lifetime.empty()'
+            if v.is_unbounded():
+                return 'Lifetime.UNBOUNDED'
+            return f"Lifetime.fromTemporalIntervals('{v.to_temporal_intervals_string()}')"
+        elif isinstance(v, Interval):
+            return f'new Lifetime.Interval({v.start_millis}L,{v.end_millis}L)'
+        elif isinstance(v, GeneralizedRelation):
+            zones_str = ','.join(str(z) for z in v.zones)
+            return f'new GeneralizedRelation({v.p},{v.q},{zones_str})'
+        elif isinstance(v, GeneralizedIntervalRelation):
+            if v.is_empty():
+                return f'GeneralizedIntervalRelation.empty({v.p},{v.q})'
+            return f'new GeneralizedIntervalRelation({self.fixup(v.lower)},{self.fixup(v.upper)})'
+        elif type(v) in [LifetimeMode, DropMode, TemporalPathTarget, Temporal, TemporalQuantifier]:
+            cls_name = 'Temporal.Quantifier' if type(v) == TemporalQuantifier else type(v).__name__
+            return f'{cls_name}.{v.name}'
         elif type(v) == Vertex:
             return self.process_vertex(v)
         elif type(v) == Edge:
@@ -105,9 +125,24 @@ class Translator:
         s = date.second
         return f'new Date({y},{mo},{d},{h},{mi},{s})'
 
+    def process_temporal_predicate(self, tp):
+        res = f'TemporalP.{tp.bi_predicate.name}({self.fixup(tp.value)}'
+        if tp.generalized_relation is not None:
+            res += f',{self.fixup(tp.generalized_relation)}'
+        elif tp.generalized_interval_relation is not None:
+            res += f',{self.fixup(tp.generalized_interval_relation)}'
+        res += ')'
+        if tp.quantifier == TemporalQuantifier.ANY:
+            res += '.any()'
+        if tp.negated:
+            res += '.negate()'
+        return res
+
     # Do special processing needed to format predicates that come in
     # such as "gt(a)" correctly.
     def process_predicate(self, p):
+        if isinstance(p, TemporalP):
+            return self.process_temporal_predicate(p)
         res = ''
         if p.operator in self.conn_p:
             res += f'{self.process_predicate(p.value)}.{p.operator}({self.process_predicate(p.other)})'
@@ -232,8 +267,14 @@ class Translator:
                     script += f'WithOptions.{self.options[p]}'
                 elif type(p) == Bytecode:
                     script += self.translate(p, True)
+                elif isinstance(p, TemporalP):
+                    script += self.process_temporal_predicate(p)
                 elif isinstance(p, P):
                     script += self.process_predicate(p)
+                elif isinstance(p, (Lifetime, Interval, GeneralizedRelation, GeneralizedIntervalRelation)):
+                    script += self.fixup(p)
+                elif type(p) in [LifetimeMode, DropMode, TemporalPathTarget, Temporal, TemporalQuantifier]:
+                    script += self.fixup(p)
                 elif type(p) == Vertex:
                     script += self.process_vertex(p)
                 elif type(p) == Edge:

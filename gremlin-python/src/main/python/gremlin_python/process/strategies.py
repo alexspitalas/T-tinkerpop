@@ -210,6 +210,16 @@ class EarlyLimitStrategy(TraversalStrategy):
     def __init__(self):
         TraversalStrategy.__init__(self, fqcn=optimization_namespace + 'EarlyLimitStrategy')
 
+
+class TemporalGraphViewStrategy(TraversalStrategy):
+    def __init__(self):
+        TraversalStrategy.__init__(self, fqcn=optimization_namespace + 'TemporalGraphViewStrategy')
+
+
+class TemporalGraphStepStrategy(TraversalStrategy):
+    def __init__(self):
+        TraversalStrategy.__init__(self, fqcn=optimization_namespace + 'TemporalGraphStepStrategy')
+
 ###########################
 # VERIFICATION STRATEGIES #
 ###########################

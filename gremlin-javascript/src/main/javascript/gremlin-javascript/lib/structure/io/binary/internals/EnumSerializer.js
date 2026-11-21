@@ -50,6 +50,11 @@ module.exports = class EnumSerializer {
       { name: 'Pop', code: DT.POP, enum: to_orig_enum(t.pop) },
       { name: 'Scope', code: DT.SCOPE, enum: to_orig_enum(t.scope) },
       { name: 'T', code: DT.T, enum: to_orig_enum(t.t) },
+      { name: 'LifetimeMode', code: DT.LIFETIMEMODE, enum: to_orig_enum(t.lifetimeMode) },
+      { name: 'DropMode', code: DT.DROPMODE, enum: to_orig_enum(t.dropMode) },
+      { name: 'TemporalPathTarget', code: DT.TEMPORALPATHTARGET, enum: to_orig_enum(t.temporalPathTarget) },
+      { name: 'Temporal', code: DT.TEMPORAL, enum: to_orig_enum(t.temporal) },
+      { name: 'Quantifier', code: DT.TEMPORALQUANTIFIER, enum: to_orig_enum(t.temporalQuantifier) },
     ];
     this.byname = {};
     this.bycode = {};

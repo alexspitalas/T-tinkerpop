@@ -105,14 +105,23 @@ class DateSerializer extends TypeSerializer {
 
 class LongSerializer extends TypeSerializer {
   serialize(item) {
+    let val;
+    if (typeof item === 'bigint') {
+      val =
+        item >= BigInt(Number.MIN_SAFE_INTEGER) && item <= BigInt(Number.MAX_SAFE_INTEGER)
+          ? Number(item)
+          : item.toString();
+    } else {
+      val = item.value;
+    }
     return {
       [typeKey]: 'g:Int64',
-      [valueKey]: item.value,
+      [valueKey]: val,
     };
   }
 
   canBeUsedFor(value) {
-    return value instanceof utils.Long;
+    return value instanceof utils.Long || typeof value === 'bigint';
   }
 }
 
@@ -476,14 +485,140 @@ class SetSerializer extends ArraySerializer {
   }
 }
 
+class TemporalPSerializer extends TypeSerializer {
+  serialize(item) {
+    const { predicateName, args } = item.toWireParts();
+    const val = args.length === 1 ? this.writer.adaptObject(args[0]) : this.writer.adaptObject(args);
+    return {
+      [typeKey]: 'g:TemporalP',
+      [valueKey]: {
+        predicate: predicateName,
+        value: val,
+      },
+    };
+  }
+
+  deserialize(obj) {
+    const valObj = obj[valueKey];
+    const pred = valObj.predicate;
+    const val = this.reader.read(valObj.value);
+    if (
+      (pred === 'any' ||
+        pred === 'not' ||
+        pred === 'notAny' ||
+        pred === 'generalized' ||
+        pred === 'anyGeneralized' ||
+        pred === 'notGeneralized' ||
+        pred === 'notAnyGeneralized') &&
+      Array.isArray(val)
+    ) {
+      return t.TemporalP.fromWireParts(pred, val);
+    }
+    return t.TemporalP.fromWireParts(pred, [val]);
+  }
+
+  canBeUsedFor(value) {
+    return value instanceof t.TemporalP;
+  }
+}
+
+class LifetimeSerializer extends TypeSerializer {
+  serialize(item) {
+    return {
+      [typeKey]: 'g:Lifetime',
+      [valueKey]: item.toTemporalIntervalsString(),
+    };
+  }
+
+  deserialize(obj) {
+    return t.Lifetime.fromTemporalIntervals(obj[valueKey]);
+  }
+
+  canBeUsedFor(value) {
+    return value instanceof t.Lifetime;
+  }
+}
+
+class IntervalSerializer extends TypeSerializer {
+  serialize(item) {
+    return {
+      [typeKey]: 'g:Interval',
+      [valueKey]: item.toGraphSONString(),
+    };
+  }
+
+  deserialize(obj) {
+    return t.Interval.fromGraphSONString(obj[valueKey]);
+  }
+
+  canBeUsedFor(value) {
+    return value instanceof t.Interval;
+  }
+}
+
+class GeneralizedRelationSerializer extends TypeSerializer {
+  serialize(item) {
+    return {
+      [typeKey]: 'g:GeneralizedRelation',
+      [valueKey]: item.toGraphSONString(),
+    };
+  }
+
+  deserialize(obj) {
+    return t.GeneralizedRelation.fromGraphSONString(obj[valueKey]);
+  }
+
+  canBeUsedFor(value) {
+    return value instanceof t.GeneralizedRelation;
+  }
+}
+
+class GeneralizedIntervalRelationSerializer extends TypeSerializer {
+  serialize(item) {
+    return {
+      [typeKey]: 'g:GeneralizedIntervalRelation',
+      [valueKey]: item.toGraphSONString(),
+    };
+  }
+
+  deserialize(obj) {
+    return t.GeneralizedIntervalRelation.fromGraphSONString(obj[valueKey]);
+  }
+
+  canBeUsedFor(value) {
+    return value instanceof t.GeneralizedIntervalRelation;
+  }
+}
+
+function makeEnumDeserializer(enumObj) {
+  return class extends TypeSerializer {
+    deserialize(obj) {
+      const name = obj[valueKey];
+      return enumObj[name] || enumObj[String(name).toLowerCase()];
+    }
+  };
+}
+
+const LifetimeModeSerializer = makeEnumDeserializer(t.lifetimeMode);
+const DropModeSerializer = makeEnumDeserializer(t.dropMode);
+const TemporalPathTargetSerializer = makeEnumDeserializer(t.temporalPathTarget);
+const TemporalSerializer = makeEnumDeserializer(t.temporal);
+const TemporalQuantifierSerializer = makeEnumDeserializer(t.temporalQuantifier);
+
 module.exports = {
   BulkSetSerializer,
   BytecodeSerializer,
   DateSerializer,
   DirectionSerializer,
+  DropModeSerializer,
   EdgeSerializer,
   EnumSerializer,
+  GeneralizedIntervalRelationSerializer,
+  GeneralizedRelationSerializer,
+  IntervalSerializer,
   LambdaSerializer,
+  LifetimeModeSerializer,
+  LifetimeSerializer,
   ListSerializer,
   LongSerializer,
   MapSerializer,
@@ -492,6 +627,10 @@ module.exports = {
   PathSerializer,
   PropertySerializer,
   PSerializer,
+  TemporalPathTargetSerializer,
+  TemporalPSerializer,
+  TemporalQuantifierSerializer,
+  TemporalSerializer,
   TextPSerializer,
   SetSerializer,
   TSerializer,

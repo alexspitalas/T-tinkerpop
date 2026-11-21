@@ -30,7 +30,9 @@ from isodate import parse_duration, duration_isoformat
 
 from gremlin_python import statics
 from gremlin_python.statics import FloatType, FunctionType, ShortType, IntType, LongType, TypeType, DictType, ListType, SetType, SingleByte, ByteBufferType, SingleChar
-from gremlin_python.process.traversal import Binding, Bytecode, Direction, P, TextP, Traversal, Traverser, TraversalStrategy, T
+from gremlin_python.process.traversal import Binding, Bytecode, Direction, P, TextP, Traversal, Traverser, \
+    TraversalStrategy, T, Temporal, TemporalQuantifier, LifetimeMode, DropMode, TemporalPathTarget, TemporalP, \
+    Lifetime, Interval, GeneralizedRelation, GeneralizedIntervalRelation
 from gremlin_python.structure.graph import Edge, Property, Vertex, VertexProperty, Path
 from gremlin_python.structure.io.util import HashableDict, SymbolUtil
 
@@ -781,3 +783,118 @@ class MetricsDeserializer(_GraphSONTypeIO):
     @classmethod
     def objectify(cls, d, reader):
         return reader.to_object(d)
+
+
+class TemporalPSerializer(_GraphSONTypeIO):
+    python_type = TemporalP
+    graphson_type = "g:TemporalP"
+
+    @classmethod
+    def dictify(cls, tp, writer):
+        pred_name, args = tp.to_wire_parts()
+        val_obj = args[0] if len(args) == 1 else args
+        out = {"predicate": pred_name, "value": writer.to_dict(val_obj)}
+        return GraphSONUtil.typed_value("TemporalP", out)
+
+    @classmethod
+    def objectify(cls, d, reader):
+        pred = d["predicate"]
+        val = reader.to_object(d["value"])
+        if pred in ("any", "not", "notAny", "generalized", "anyGeneralized",
+                    "notGeneralized", "notAnyGeneralized") and isinstance(val, list):
+            return TemporalP.from_wire_parts(pred, val)
+        return TemporalP.from_wire_parts(pred, [val])
+
+
+class LifetimeIO(_GraphSONTypeIO):
+    python_type = Lifetime
+    graphson_type = "g:Lifetime"
+
+    @classmethod
+    def dictify(cls, lifetime, writer):
+        return GraphSONUtil.typed_value("Lifetime", lifetime.to_temporal_intervals_string())
+
+    @classmethod
+    def objectify(cls, d, reader):
+        return Lifetime.from_temporal_intervals(d)
+
+
+class IntervalIO(_GraphSONTypeIO):
+    python_type = Interval
+    graphson_type = "g:Interval"
+
+    @classmethod
+    def dictify(cls, interval, writer):
+        return GraphSONUtil.typed_value("Interval", interval.to_graphson_string())
+
+    @classmethod
+    def objectify(cls, d, reader):
+        return Interval.from_graphson_string(d)
+
+
+class GeneralizedRelationIO(_GraphSONTypeIO):
+    python_type = GeneralizedRelation
+    graphson_type = "g:GeneralizedRelation"
+
+    @classmethod
+    def dictify(cls, rel, writer):
+        return GraphSONUtil.typed_value("GeneralizedRelation", rel.to_graphson_string())
+
+    @classmethod
+    def objectify(cls, d, reader):
+        return GeneralizedRelation.from_graphson_string(d)
+
+
+class GeneralizedIntervalRelationIO(_GraphSONTypeIO):
+    python_type = GeneralizedIntervalRelation
+    graphson_type = "g:GeneralizedIntervalRelation"
+
+    @classmethod
+    def dictify(cls, rel, writer):
+        return GraphSONUtil.typed_value("GeneralizedIntervalRelation", rel.to_graphson_string())
+
+    @classmethod
+    def objectify(cls, d, reader):
+        return GeneralizedIntervalRelation.from_graphson_string(d)
+
+
+class _VerbatimEnumGraphSONIO(_GraphSONTypeIO):
+    graphson_base_type = None
+
+    @classmethod
+    def dictify(cls, e, writer):
+        return GraphSONUtil.typed_value(cls.graphson_base_type, e.name, "g")
+
+    @classmethod
+    def objectify(cls, d, reader):
+        return cls.python_type[d]
+
+
+class LifetimeModeIO(_VerbatimEnumGraphSONIO):
+    graphson_type = "g:LifetimeMode"
+    graphson_base_type = "LifetimeMode"
+    python_type = LifetimeMode
+
+
+class DropModeIO(_VerbatimEnumGraphSONIO):
+    graphson_type = "g:DropMode"
+    graphson_base_type = "DropMode"
+    python_type = DropMode
+
+
+class TemporalPathTargetIO(_VerbatimEnumGraphSONIO):
+    graphson_type = "g:TemporalPathTarget"
+    graphson_base_type = "TemporalPathTarget"
+    python_type = TemporalPathTarget
+
+
+class TemporalIO(_VerbatimEnumGraphSONIO):
+    graphson_type = "g:Temporal"
+    graphson_base_type = "Temporal"
+    python_type = Temporal
+
+
+class TemporalQuantifierIO(_VerbatimEnumGraphSONIO):
+    graphson_type = "g:Quantifier"
+    graphson_base_type = "Quantifier"
+    python_type = TemporalQuantifier

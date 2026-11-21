@@ -2457,6 +2457,276 @@ namespace Gremlin.Net.Process.Traversal
             return Wrap<TStart, TEnd>(this);
         }
 
+#pragma warning disable 1591
+        // Temporal steps (T-TinkerPop)
+        public GraphTraversal<TStart, TEnd> Lifetime(object? startTime, object? endTime)
+        {
+            Bytecode.AddStep("lifetime", startTime, endTime);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> Lifetime(object? startTime)
+        {
+            Bytecode.AddStep("lifetime", startTime);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> AddInterval(object? startTime, object? endTime)
+        {
+            Bytecode.AddStep("addInterval", startTime, endTime);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> DropInterval(object? startTime, object? endTime)
+        {
+            Bytecode.AddStep("dropInterval", startTime, endTime);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> DropInterval(object? startTime, object? endTime, DropMode dropMode)
+        {
+            Bytecode.AddStep("dropInterval", startTime, endTime, dropMode);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> LifetimeProperty(string propertyKey, object? propertyValue, object? startTime, object? endTime)
+        {
+            Bytecode.AddStep("lifetimeProperty", propertyKey, propertyValue, startTime, endTime);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> LifetimeProperty(string propertyKey, object? startTime, object? endTime)
+        {
+            Bytecode.AddStep("lifetimeProperty", propertyKey, startTime, endTime);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, DateTimeOffset> GetStartTime()
+        {
+            Bytecode.AddStep("getStartTime");
+            return Wrap<TStart, DateTimeOffset>(this);
+        }
+
+        public GraphTraversal<TStart, DateTimeOffset> GetEndTime()
+        {
+            Bytecode.AddStep("getEndTime");
+            return Wrap<TStart, DateTimeOffset>(this);
+        }
+
+        public GraphTraversal<TStart, Gremlin.Net.Process.Traversal.Lifetime> GetLifetime()
+        {
+            Bytecode.AddStep("getLifetime");
+            return Wrap<TStart, Gremlin.Net.Process.Traversal.Lifetime>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> AtTime(object instant)
+        {
+            Bytecode.AddStep("atTime", instant);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> Window(object start, object end)
+        {
+            Bytecode.AddStep("window", start, end);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> Window(Gremlin.Net.Process.Traversal.Lifetime window)
+        {
+            Bytecode.AddStep("window", window);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalAfter(object reference)
+        {
+            Bytecode.AddStep("temporalAfter", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalBefore(object reference)
+        {
+            Bytecode.AddStep("temporalBefore", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalContains(object reference)
+        {
+            Bytecode.AddStep("temporalContains", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalDuring(object reference)
+        {
+            Bytecode.AddStep("temporalDuring", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalEquals(object reference)
+        {
+            Bytecode.AddStep("temporalEquals", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalFinishes(object reference)
+        {
+            Bytecode.AddStep("temporalFinishes", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalFinishedBy(object reference)
+        {
+            Bytecode.AddStep("temporalFinishedBy", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalMeets(object reference)
+        {
+            Bytecode.AddStep("temporalMeets", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalMetBy(object reference)
+        {
+            Bytecode.AddStep("temporalMetBy", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalOverlaps(object reference)
+        {
+            Bytecode.AddStep("temporalOverlaps", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalOverlappedBy(object reference)
+        {
+            Bytecode.AddStep("temporalOverlappedBy", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalStarts(object reference)
+        {
+            Bytecode.AddStep("temporalStarts", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalStartedBy(object reference)
+        {
+            Bytecode.AddStep("temporalStartedBy", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalIntersects(object reference)
+        {
+            Bytecode.AddStep("temporalIntersects", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalDisjoint(object reference)
+        {
+            Bytecode.AddStep("temporalDisjoint", reference);
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, Vertex> ContinuousPath(params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length);
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("continuousPath", args.ToArray());
+            return Wrap<TStart, Vertex>(this);
+        }
+
+        public GraphTraversal<TStart, Vertex> SequentialPath(params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length);
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("sequentialPath", args.ToArray());
+            return Wrap<TStart, Vertex>(this);
+        }
+
+        public GraphTraversal<TStart, Vertex> SequentialPath(long minDelay, long maxDelay, params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length + 2) { minDelay, maxDelay };
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("sequentialPath", args.ToArray());
+            return Wrap<TStart, Vertex>(this);
+        }
+
+        public GraphTraversal<TStart, Vertex> PairwiseContinuousPath(params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length);
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("pairwiseContinuousPath", args.ToArray());
+            return Wrap<TStart, Vertex>(this);
+        }
+
+        public GraphTraversal<TStart, Vertex> PairwiseContinuousPath(bool monotone, params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length + 1) { monotone };
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("pairwiseContinuousPath", args.ToArray());
+            return Wrap<TStart, Vertex>(this);
+        }
+
+        public GraphTraversal<TStart, TEnd> TemporalPageRank()
+        {
+            Bytecode.AddStep("temporalPageRank");
+            return Wrap<TStart, TEnd>(this);
+        }
+
+        public GraphTraversal<TStart, IDictionary<Vertex, long>> Tbfs(TemporalPathTarget target, long initialTime)
+        {
+            Bytecode.AddStep("tbfs", target, initialTime);
+            return Wrap<TStart, IDictionary<Vertex, long>>(this);
+        }
+
+        public GraphTraversal<TStart, IDictionary<Vertex, long>> Tbfs(TemporalPathTarget target, DateTimeOffset initialTime)
+        {
+            Bytecode.AddStep("tbfs", target, initialTime);
+            return Wrap<TStart, IDictionary<Vertex, long>>(this);
+        }
+
+        public GraphTraversal<TStart, IDictionary<Vertex, long>> Tbfs(long initialTime, TemporalPathTarget target, Direction direction, params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length + 3) { initialTime, target, direction };
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("tbfs", args.ToArray());
+            return Wrap<TStart, IDictionary<Vertex, long>>(this);
+        }
+
+        public GraphTraversal<TStart, IDictionary<Vertex, long>> Tbfs(DateTimeOffset initialTime, TemporalPathTarget target, Direction direction, params string[] edgeLabels)
+        {
+            if (edgeLabels == null) throw new ArgumentNullException(nameof(edgeLabels));
+            var args = new List<object?>(edgeLabels.Length + 3) { initialTime, target, direction };
+            args.AddRange(edgeLabels);
+            Bytecode.AddStep("tbfs", args.ToArray());
+            return Wrap<TStart, IDictionary<Vertex, long>>(this);
+        }
+
+        public GraphTraversal<TStart, Path> TemporalShortestPath()
+        {
+            Bytecode.AddStep("temporalShortestPath");
+            return Wrap<TStart, Path>(this);
+        }
+
+        public GraphTraversal<TStart, Path> TemporalShortestPath(TemporalPathTarget target, long initialTime)
+        {
+            Bytecode.AddStep("temporalShortestPath", target, initialTime);
+            return Wrap<TStart, Path>(this);
+        }
+
+        public GraphTraversal<TStart, Path> TemporalShortestPath(TemporalPathTarget target, DateTimeOffset initialTime)
+        {
+            Bytecode.AddStep("temporalShortestPath", target, initialTime);
+            return Wrap<TStart, Path>(this);
+        }
+#pragma warning restore 1591
+
 
         /// <summary>
         /// Make a copy of a traversal that is reset for iteration.

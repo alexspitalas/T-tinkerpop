@@ -56,6 +56,16 @@ namespace Gremlin.Net.Structure.IO.GraphSON
             { "g:VertexProperty", new VertexPropertyDeserializer() },
             { "g:Path", new PathDeserializer() },
             { "g:T", new TDeserializer() },
+            { "g:TemporalP", new TemporalPSerializer() },
+            { "g:Lifetime", new LifetimeSerializer() },
+            { "g:Interval", new IntervalSerializer() },
+            { "g:GeneralizedRelation", new GeneralizedRelationSerializer() },
+            { "g:GeneralizedIntervalRelation", new GeneralizedIntervalRelationSerializer() },
+            { "g:LifetimeMode", new LifetimeModeDeserializer() },
+            { "g:DropMode", new DropModeDeserializer() },
+            { "g:TemporalPathTarget", new TemporalPathTargetDeserializer() },
+            { "g:Temporal", new TemporalDeserializer() },
+            { "g:Quantifier", new TemporalQuantifierDeserializer() },
 
             //Extended
             { "gx:BigDecimal", new DecimalConverter() },

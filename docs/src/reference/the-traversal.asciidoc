@@ -4427,14 +4427,15 @@ It is configurable using the `with()`-modulator.
 [width="100%",cols="3,3,15,5",options="header"]
 |=========================================================
 | Key | Type | Description | Default
-| `target` | `Traversal` | Sets a filter traversal for the end vertices. | all vertices (`+__.identity()+`)
-| `TemporalShortestPathVertexProgram.TARGET` | `String` | Specifies the temporal constraint strategy (`EARLIEST_ARRIVAL`, `EARLIEST_DEPARTURE`, `LATEST_ARRIVAL`, `LATEST_DEPARTURE`). | `EARLIEST_ARRIVAL`
-| `TemporalShortestPathVertexProgram.INITIAL_TIME` | `Long` | The initial time $T_0$ from which to start the temporal traversal. Accepts Epoch milliseconds, which can be extracted from Java Dates. | `0`
-| `edges` | `Traversal` | Sets a `Traversal` that emits the edges to traverse. | `Direction.OUT`
-| `includeEdges` | `Boolean` | Whether to include edges in the result or not. | `false`
+| `target` / `ShortestPath.target` / `TemporalShortestPathVertexProgram.TARGET_VERTEX_FILTER` | `Traversal` | Sets a filter traversal for the end vertices. | all vertices (`+__.identity()+`)
+| `TemporalShortestPathVertexProgram.TARGET` | `TemporalPathTarget` or `String` | Specifies the temporal constraint strategy (`EARLIEST_ARRIVAL`, `EARLIEST_DEPARTURE`, `LATEST_ARRIVAL`, `LATEST_DEPARTURE`). | `EARLIEST_ARRIVAL`
+| `TemporalShortestPathVertexProgram.INITIAL_TIME` | `Long`, `Date`, `Instant`, or ISO `String` | The initial time `T0` from which to start the temporal traversal (epoch milliseconds or parseable temporal value). | `0`
+| `edges` / `ShortestPath.edges` / `TemporalShortestPathVertexProgram.EDGE_TRAVERSAL` | `Traversal` or `Direction` | Sets a `Traversal` or `Direction` that emits the edges to traverse. | `Direction.BOTH` (`+__.bothE()+`)
+| `maxDistance` / `ShortestPath.maxDistance` / `TemporalShortestPathVertexProgram.MAX_DISTANCE` | `Number` | Maximum allowed path length in hops. | unlimited
+| `includeEdges` / `ShortestPath.includeEdges` / `TemporalShortestPathVertexProgram.INCLUDE_EDGES` | `Boolean` | Whether to include edges in the result or not. | `false`
 |=========================================================
 
-[gremlin-groovy,modern]
+[source,groovy]
 ----
 g = g.withComputer()
 // Find Earliest Arrival paths from Marko departing after time 1000
@@ -4445,8 +4446,8 @@ g.V().has('name','marko').
 
 // Pre-filtering with window(): 
 // TemporalGraphViewStrategy automatically pushes the window to GraphComputer and clips multi-interval edges
-Date startDate = ...
-Date endDate = ...
+Date startDate = new Date(1000L)
+Date endDate = new Date(5000L)
 g.withComputer().V().has('name','marko').
     window(startDate, endDate).
     temporalShortestPath(TemporalPathTarget.EARLIEST_ARRIVAL, startDate.getTime())
@@ -4455,18 +4456,19 @@ g.withComputer().V().has('name','marko').
 [[tbfs-step]]
 === TBFS step (Temporal BFS)
 
-For standard OLTP graphs, the `tbfs()` (Temporal BFS) step calculates the optimal temporal paths locally by exploring multi-interval edge timelines. The step has native overloads for both `long` timestamps and `java.util.Date`.
+For standard OLTP graphs, the `tbfs()` (Temporal BFS) step calculates the optimal temporal arrival/departure timestamps locally by exploring multi-interval edge timelines and returns a `Map<Vertex, Long>`. The step has native overloads for both `long` timestamps and `java.util.Date`. The 2-argument overloads default to `Direction.OUT` for forward targets (`EARLIEST_ARRIVAL`, `EARLIEST_DEPARTURE`) and `Direction.IN` for backward targets (`LATEST_DEPARTURE`, `LATEST_ARRIVAL`); use the 4-argument overloads `tbfs(initialTime, target, direction, edgeLabels...)` to specify direction and edge labels explicitly.
 
-[gremlin-groovy,modern]
+[source,groovy]
 ----
 // Find the Latest Departure path to Josh that arrives before time 5000
 g.V().has('name', 'josh').
     tbfs(TemporalPathTarget.LATEST_DEPARTURE, 5000L)
 
 // Find the Earliest Arrival using Java Date
-Date initialTime = ...
+Date startDate = new Date(1000L)
+Date endDate = new Date(5000L)
 g.V().has('name', 'josh').
-    tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, initialTime)
+    tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, startDate)
 
 // Pre-filtering with window(): 
 // Active window() and atTime() contexts automatically clip multi-interval edges during tbfs()
