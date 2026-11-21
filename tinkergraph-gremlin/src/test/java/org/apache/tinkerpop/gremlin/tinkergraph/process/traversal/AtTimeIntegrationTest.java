@@ -448,6 +448,27 @@ public class AtTimeIntegrationTest {
         assertThat(titles, containsInAnyOrder("analyst", "architect"));
     }
 
+    @Test
+    public void shouldEnforceAtTimeInsideOlapRepeatTraversal() {
+        // v1 (2020-2025) -> v2 (2020-2025) -> v3Dead (2020-2021) via untimed edge, and v2 -> v4Alive (2020-2025)
+        final Vertex v1 = g.addV("person").property("name", "v1").lifetime("2020-01-01", "2025-01-01").next();
+        final Vertex v2 = g.addV("person").property("name", "v2").lifetime("2020-01-01", "2025-01-01").next();
+        final Vertex v3Dead = g.addV("person").property("name", "v3Dead").lifetime("2020-01-01", "2021-01-01").next();
+        final Vertex v4Alive = g.addV("person").property("name", "v4Alive").lifetime("2020-01-01", "2025-01-01").next();
+
+        g.addE("knows").from(v1).to(v2).next();
+        g.addE("knows").from(v2).to(v3Dead).next();
+        g.addE("knows").from(v2).to(v4Alive).next();
+
+        final List<String> olapNames = g.withComputer().V(v1)
+                .atTime("2022-06-01")
+                .repeat(org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows")).times(2)
+                .<String>values("name")
+                .toList();
+
+        assertThat(olapNames, contains("v4Alive"));
+    }
+
     private static boolean containsNestedValue(final Object value, final Object expected) {
         if (expected.equals(value))
             return true;

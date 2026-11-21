@@ -308,4 +308,37 @@ public class TemporalOptimizationIntegrationTest {
         g.V().window(300L, 450L).temporalPageRank().with(TemporalPageRank.propertyName, "lateRank").iterate();
         assertTrue((Double) b.value("lateRank") > 0.0d);
     }
+
+    @Test
+    public void shouldClipUntimedAndDisjointEndpointEdgesInTemporalPageRank() {
+        // Disjoint endpoints u [100, 140) and v [160, 200) connected by a raw-property edge [100, 200)
+        // must not produce an active transition because u and v are never simultaneously alive.
+        final Vertex u = g.addV("node").lifetime(100L, 140L).next();
+        final Vertex v = g.addV("node").lifetime(160L, 200L).next();
+        g.addE("link").from(u).to(v).property(Lifetime.TEMPORAL_INTERVALS, "100:200").iterate();
+
+        g.V(u, v).temporalPageRank()
+                .with(TemporalPageRank.propertyName, "disjointRank")
+                .iterate();
+        assertEquals(0.0d, (Double) u.value("disjointRank"), 1e-9);
+        assertEquals(0.0d, (Double) v.value("disjointRank"), 1e-9);
+
+        // Untimed edge a -> b between vertices alive in [100, 200) should be clipped to [100, 200),
+        // releasing mass at t=200 to flow into b -> c [200, 300).
+        final Vertex a = g.addV("node").lifetime(100L, 200L).next();
+        final Vertex b = g.addV("node").lifetime(100L, 300L).next();
+        final Vertex c = g.addV("node").lifetime(200L, 300L).next();
+        g.addE("link").from(a).to(b).iterate();
+        g.addE("link").from(b).to(c).lifetime(200L, 300L).iterate();
+
+        g.V(a, b, c).temporalPageRank()
+                .with(TemporalPageRank.propertyName, "clippedRank")
+                .with(TemporalPageRank.normalize, false)
+                .iterate();
+        // With mass transfer from a->b ending at 200, c receives alpha * ((1 - alpha) + (1 - beta) * alpha * (1 - alpha))
+        // strictly greater than alpha * (1 - alpha) (which is what c would get if a->b ended at MAX_MILLIS).
+        final double alpha = 0.85d;
+        final double withoutTransfer = alpha * (1.0d - alpha);
+        assertTrue((Double) c.value("clippedRank") > withoutTransfer + 1e-6);
+    }
 }

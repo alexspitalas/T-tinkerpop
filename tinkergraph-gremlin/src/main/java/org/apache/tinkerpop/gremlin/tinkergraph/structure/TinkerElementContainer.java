@@ -30,7 +30,7 @@ final class TinkerElementContainer<T extends TinkerElement> {
     /**
      * Committed value of element.
      */
-    private T element;
+    private volatile T element;
     /**
      * Id of element. Used if element is removed or set to {@code null}.
      */
@@ -38,7 +38,7 @@ final class TinkerElementContainer<T extends TinkerElement> {
     /**
      * Used to separate deleted elements from {@code null} ones.
      */
-    private boolean isDeleted = false;
+    private volatile boolean isDeleted = false;
     /**
      * Value of elements updated in current transaction.
      */
@@ -68,6 +68,11 @@ final class TinkerElementContainer<T extends TinkerElement> {
      * Used to protect container from simultaneous modification in different transactions.
      */
     private final ReentrantLock lock = new ReentrantLock();
+
+    /**
+     * Monotonic graph-level commit sequence number of the last commit that updated this container.
+     */
+    private volatile long lastCommitSeq = 0L;
 
     /**
      * Constructor only requires the element id to be stored.
@@ -256,5 +261,13 @@ final class TinkerElementContainer<T extends TinkerElement> {
     public void releaseLock() {
         if (lock.isHeldByCurrentThread())
             lock.unlock();
+    }
+
+    public long getLastCommitSeq() {
+        return lastCommitSeq;
+    }
+
+    public void setLastCommitSeq(final long lastCommitSeq) {
+        this.lastCommitSeq = lastCommitSeq;
     }
 }

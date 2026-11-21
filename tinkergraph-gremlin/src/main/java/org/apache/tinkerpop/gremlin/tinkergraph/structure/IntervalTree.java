@@ -59,6 +59,9 @@ public class IntervalTree<T> {
      * Inserts an element associated with a temporal interval into the tree.
      */
     public void put(long start, long end, T value) {
+        if (start > end) {
+            throw new IllegalArgumentException("Interval start cannot be greater than end: " + start + " > " + end);
+        }
         lock.writeLock().lock();
         try {
             root = insert(root, start, end, value);
@@ -347,11 +350,9 @@ public class IntervalTree<T> {
 
         // Subtree pruning:
         // All intervals in this subtree end at or before node.maxEnd.
-        // For an interval query (start < end), overlap requires start < interval.end <= node.maxEnd,
-        // so if start >= node.maxEnd, no overlap can exist in this subtree.
-        // For a point query (start == end), overlap requires start < interval.end (or start == interval.end for point nodes),
-        // so if start > node.maxEnd, no overlap can exist.
-        if (start > node.maxEnd || (start == node.maxEnd && start < end)) return;
+        // Because the tree may contain instantaneous point intervals [t, t] (which overlap [t, end) when t == start),
+        // we can only prune when start > node.maxEnd.
+        if (start > node.maxEnd) return;
 
         searchOverlaps(node.left, start, end, result);
 
