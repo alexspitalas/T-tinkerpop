@@ -139,7 +139,9 @@ public final class TinkerGraphStep<S, E extends Element> extends GraphStep<S, E>
 
         final Iterator<HasContainer> itty = IteratorUtils.filter(hasContainers.iterator(),
                 c -> (c.getPredicate().getBiPredicate() == Compare.eq ||
-                        TinkerIndexHelper.canQueryTemporally(graph, indexedClass, c.getPredicate().getBiPredicate())) &&
+                        (!(c.getPredicate() instanceof org.apache.tinkerpop.gremlin.process.traversal.TemporalP
+                                && ((org.apache.tinkerpop.gremlin.process.traversal.TemporalP) c.getPredicate()).isNegated())
+                                && TinkerIndexHelper.canQueryTemporally(graph, indexedClass, c.getPredicate().getBiPredicate()))) &&
                         indexedKeys.contains(c.getKey()));
         return itty.hasNext() ? itty.next() : null;
     }

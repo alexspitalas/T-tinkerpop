@@ -20,6 +20,7 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.filter;
 
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.Pop;
+import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
 import org.apache.tinkerpop.gremlin.process.traversal.step.ByModulating;
@@ -31,6 +32,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalProduct;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalRing;
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
+import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 
 import java.util.ArrayList;
@@ -68,7 +70,9 @@ public final class WherePredicateStep<S> extends FilterStep<S> implements Scopin
     private void configurePredicates(final P<Object> predicate) {
         if (predicate instanceof ConnectiveP)
             ((ConnectiveP<Object>) predicate).getPredicates().forEach(this::configurePredicates);
-        else {
+        else if (predicate instanceof TemporalP && !(predicate.getValue() instanceof String)) {
+            this.selectKeys.add(null);
+        } else {
             final String selectKey = getSelectKey(predicate);
             this.selectKeys.add(selectKey);
             this.scopeKeys.add(selectKey);
@@ -84,7 +88,17 @@ public final class WherePredicateStep<S> extends FilterStep<S> implements Scopin
 
             return true;
         } else {
-            final TraversalProduct product = TraversalUtil.produce((S) this.getSafeScopeValue(Pop.last, selectKeysIterator.next(), traverser), this.traversalRing.next());
+            final String selectKey = selectKeysIterator.next();
+            if (null == selectKey) {
+                if (!this.traversalRing.isEmpty() && predicate.getOriginalValue() instanceof Element) {
+                    final TraversalProduct product = TraversalUtil.produce((S) predicate.getOriginalValue(), this.traversalRing.next());
+                    if (product.isProductive())
+                        predicate.setValue(product.get());
+                    return product.isProductive();
+                }
+                return true;
+            }
+            final TraversalProduct product = TraversalUtil.produce((S) this.getSafeScopeValue(Pop.last, selectKey, traverser), this.traversalRing.next());
             if (product.isProductive())
                 predicate.setValue(product.get());
 
@@ -106,8 +120,10 @@ public final class WherePredicateStep<S> extends FilterStep<S> implements Scopin
     }
 
     public void removeStartKey() {
-        this.selectKeys.remove(this.startKey);
-        this.startKey = null;
+        if (null != this.startKey) {
+            this.selectKeys.remove(this.startKey);
+            this.startKey = null;
+        }
     }
 
     @Override
@@ -137,6 +153,7 @@ public final class WherePredicateStep<S> extends FilterStep<S> implements Scopin
         final WherePredicateStep<S> clone = (WherePredicateStep<S>) super.clone();
         clone.predicate = this.predicate.clone();
         clone.traversalRing = this.traversalRing.clone();
+        clone.selectKeys = new ArrayList<>(this.selectKeys);
         return clone;
     }
 

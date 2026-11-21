@@ -18,12 +18,14 @@
  */
 package org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization;
 
+import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalPageRankVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalShortestPathVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TraversalVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.VertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.traversal.Step;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
+import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.AtTimeStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.filter.WindowStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.EdgeOtherVertexStep;
@@ -33,6 +35,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversal
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalHelper;
 import org.apache.tinkerpop.gremlin.process.computer.Computer;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
+import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 
@@ -82,12 +85,13 @@ public final class TemporalGraphViewStrategy
         final boolean isComputerTraversal = traversal.getParent() instanceof VertexProgramStep;
         if (!traversal.isRoot() && !isComputerTraversal) return;
 
-        final List<AtTimeStep> atTimeSteps = TraversalHelper.getStepsOfClass(AtTimeStep.class, traversal);
-        final List<WindowStep> windowSteps = TraversalHelper.getStepsOfClass(WindowStep.class, traversal);
+        final boolean hasTemporalViewStep =
+                TraversalHelper.hasStepOfAssignableClassRecursively(AtTimeStep.class, traversal) ||
+                TraversalHelper.hasStepOfAssignableClassRecursively(WindowStep.class, traversal);
 
         if (isComputerTraversal) {
-            if (!atTimeSteps.isEmpty() || !windowSteps.isEmpty()) {
-                rewriteVertexMoves(traversal);
+            if (hasTemporalViewStep) {
+                rewriteVertexMoves(traversal, null);
             }
             return;
         }
@@ -95,8 +99,8 @@ public final class TemporalGraphViewStrategy
         // Fast-path: no OLAP step → nothing to do.
         if (!TraversalHelper.hasStepOfAssignableClass(VertexProgramStep.class, traversal)) return;
 
-        if (!atTimeSteps.isEmpty() || !windowSteps.isEmpty()) {
-            rewriteVertexMoves(traversal);
+        if (hasTemporalViewStep) {
+            rewriteVertexMoves(traversal, null);
         }
 
         // Track active temporal bounds in traversal order across top-level steps and TraversalVertexProgramStep children,
@@ -118,7 +122,10 @@ public final class TemporalGraphViewStrategy
                 temporalStepCount++;
                 singleAtTimeInstant = (temporalStepCount == 1) ? inst : null;
             } else if (step instanceof TraversalVertexProgramStep) {
-                for (final Traversal.Admin<?, ?> child : ((TraversalVertexProgramStep) step).getGlobalChildren()) {
+                final TraversalVertexProgramStep tvpStep = (TraversalVertexProgramStep) step;
+                final Lifetime inheritedWindow = activeWindow;
+                final Date inheritedAtTime = singleAtTimeInstant;
+                for (final Traversal.Admin<?, ?> child : tvpStep.getGlobalChildren()) {
                     for (final Step<?, ?> childStep : child.getSteps()) {
                         if (childStep instanceof WindowStep) {
                             final Lifetime w = ((WindowStep<?>) childStep).getWindow();
@@ -134,35 +141,68 @@ public final class TemporalGraphViewStrategy
                         }
                     }
                 }
+                if (inheritedWindow != null) {
+                    tvpStep.setComputer(applyTemporalFilterToComputer(tvpStep.getComputer(), inheritedWindow, inheritedAtTime));
+                    for (final Traversal.Admin<?, ?> child : tvpStep.getGlobalChildren()) {
+                        rewriteVertexMoves(child, inheritedWindow);
+                    }
+                }
             } else if (step instanceof VertexProgramStep && activeWindow != null) {
                 final VertexProgramStep vpStep = (VertexProgramStep) step;
-                Computer computer = vpStep.getComputer();
-
-                if (singleAtTimeInstant != null) {
-                    computer = computer.vertices(__.atTime(singleAtTimeInstant))
-                                       .edges((Traversal) __.bothE().atTime(singleAtTimeInstant));
-                } else {
-                    computer = computer.vertices(__.window(activeWindow))
-                                       .edges((Traversal) __.bothE().window(activeWindow));
-                }
-
-                vpStep.setComputer(computer);
+                vpStep.setComputer(applyTemporalFilterToComputer(vpStep.getComputer(), activeWindow, singleAtTimeInstant));
                 if (vpStep instanceof TemporalShortestPathVertexProgramStep) {
                     final TemporalShortestPathVertexProgramStep tspStep = (TemporalShortestPathVertexProgramStep) vpStep;
                     final Traversal.Admin<Vertex, ?> edgeTrav = tspStep.getEdgeTraversal();
                     edgeTrav.addStep(new WindowStep<>(edgeTrav, activeWindow));
                     tspStep.setEdgeTraversal(edgeTrav);
+                } else if (vpStep instanceof TemporalPageRankVertexProgramStep) {
+                    ((TemporalPageRankVertexProgramStep) vpStep).setActiveWindow(activeWindow);
                 }
             }
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Computer applyTemporalFilterToComputer(final Computer computer,
+                                                          final Lifetime activeWindow,
+                                                          final Date singleAtTimeInstant) {
+        final Traversal<Vertex, Vertex> vertexFilter;
+        if (computer.getVertices() != null) {
+            final Traversal.Admin<Vertex, Vertex> cloned = computer.getVertices().asAdmin().clone();
+            if (singleAtTimeInstant != null) {
+                cloned.addStep(new AtTimeStep<>(cloned, singleAtTimeInstant));
+            } else {
+                cloned.addStep(new WindowStep<>(cloned, activeWindow));
+            }
+            vertexFilter = cloned;
+        } else {
+            vertexFilter = singleAtTimeInstant != null ? __.atTime(singleAtTimeInstant) : __.window(activeWindow);
+        }
+
+        final Traversal<Vertex, Edge> edgeFilter;
+        if (computer.getEdges() != null) {
+            final Traversal.Admin<Vertex, Edge> cloned = computer.getEdges().asAdmin().clone();
+            if (singleAtTimeInstant != null) {
+                cloned.addStep(new AtTimeStep<>(cloned, singleAtTimeInstant));
+            } else {
+                cloned.addStep(new WindowStep<>(cloned, activeWindow));
+            }
+            edgeFilter = cloned;
+        } else {
+            edgeFilter = singleAtTimeInstant != null
+                    ? (Traversal) __.bothE().atTime(singleAtTimeInstant)
+                    : (Traversal) __.bothE().window(activeWindow);
+        }
+
+        return computer.vertices(vertexFilter).edges(edgeFilter);
     }
 
     public static TemporalGraphViewStrategy instance() {
         return INSTANCE;
     }
 
-    private void rewriteVertexMoves(final Traversal.Admin<?, ?> traversal) {
-        Lifetime currentBounds = null;
+    private void rewriteVertexMoves(final Traversal.Admin<?, ?> traversal, final Lifetime inheritedBounds) {
+        Lifetime currentBounds = inheritedBounds;
 
         for (final Step<?, ?> step : new ArrayList<>(traversal.getSteps())) {
             if (step instanceof WindowStep) {
@@ -176,11 +216,25 @@ public final class TemporalGraphViewStrategy
                     || step instanceof EdgeVertexStep || step instanceof EdgeOtherVertexStep)) {
                 rewriteVertexMove(traversal, (Step<?, Vertex>) step, currentBounds);
             }
+
+            if (step instanceof TraversalParent && !(step instanceof VertexProgramStep)) {
+                final TraversalParent parent = (TraversalParent) step;
+                // Only global children (e.g. repeat, union, choose, optional, coalesce) can cross
+                // partitions on GraphComputer; injecting WindowStep after VertexStep inside a local
+                // child violates ComputerVerificationStrategy's local star-graph constraint.
+                for (final Traversal.Admin<?, ?> child : parent.getGlobalChildren()) {
+                    rewriteVertexMoves(child, currentBounds);
+                }
+            }
         }
     }
 
     private void rewriteVertexMove(final Traversal.Admin<?, ?> traversal, final Step<?, Vertex> step,
                                    final Lifetime bounds) {
+        final Step<?, ?> nextStep = step.getNextStep();
+        if (nextStep instanceof WindowStep && bounds.equals(((WindowStep<?>) nextStep).getWindow())) {
+            return;
+        }
         final WindowStep<Vertex> vertexWindowStep = new WindowStep<>(traversal, bounds);
 
         TraversalHelper.insertAfterStep(vertexWindowStep, step, traversal);

@@ -21,9 +21,9 @@ package org.apache.tinkerpop.gremlin.tinkergraph.structure;
 
 import org.apache.tinkerpop.gremlin.structure.Element;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Storage for indexes that can be used by different implementations of {@link AbstractTinkerGraph}.
@@ -36,7 +36,7 @@ public abstract class AbstractTinkerIndex<T extends Element> {
 
     protected final Class<T> indexClass;
     protected final AbstractTinkerGraph graph;
-    protected final Set<String> indexedKeys = new HashSet<>();
+    protected final Set<String> indexedKeys = ConcurrentHashMap.newKeySet();
 
     protected AbstractTinkerIndex(final AbstractTinkerGraph graph, final Class<T> indexClass) {
         this.graph = graph;

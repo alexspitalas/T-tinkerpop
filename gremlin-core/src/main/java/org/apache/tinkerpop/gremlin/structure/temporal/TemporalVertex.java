@@ -23,6 +23,7 @@ import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.structure.util.wrapped.WrappedVertex;
 import org.apache.tinkerpop.gremlin.util.LifetimeHelper;
 import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
@@ -143,7 +144,18 @@ public final class TemporalVertex implements Vertex, WrappedVertex<Vertex>, Temp
     @Override
     public <V> VertexProperty<V> property(final String key) {
         final Iterator<VertexProperty<V>> alive = properties(key);
-        return alive.hasNext() ? alive.next() : VertexProperty.empty();
+        try {
+            if (!alive.hasNext()) {
+                return VertexProperty.empty();
+            }
+            final VertexProperty<V> first = alive.next();
+            if (alive.hasNext()) {
+                throw Vertex.Exceptions.multiplePropertiesExistForProvidedKey(key);
+            }
+            return first;
+        } finally {
+            CloseableIterator.closeIterator(alive);
+        }
     }
 
     @Override

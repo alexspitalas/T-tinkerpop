@@ -49,4 +49,11 @@ public final class TemporalPageRank {
      * Configures whether Temporal PageRank values are normalized after the stream scan.
      */
     public static final String normalize = Graph.Hidden.hide("tinkerpop.temporalPageRank.normalize");
+
+    /**
+     * Optional time-bucket width in milliseconds for Temporal PageRank (both OLTP and distributed OLAP execution).
+     * When set to {@code 0} (the default), every distinct edge start timestamp is processed in its own chronological
+     * epoch. Setting a positive width groups edge starts into fixed-width buckets {@code floorDiv(startMs, bucketMillis)}.
+     */
+    public static final String bucketMillis = Graph.Hidden.hide("tinkerpop.temporalPageRank.bucketMillis");
 }

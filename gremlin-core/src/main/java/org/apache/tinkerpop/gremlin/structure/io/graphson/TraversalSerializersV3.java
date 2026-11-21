@@ -160,10 +160,16 @@ final class TraversalSerializersV3 {
             jsonGenerator.writeStartObject();
             if (p instanceof TemporalP) {
                 final TemporalP tp = (TemporalP) p;
+                final boolean isAny = tp.getQuantifier() == Temporal.Quantifier.ANY;
+                final boolean isNegated = tp.isNegated();
                 final String predName;
                 final Object valObj;
                 if (tp.getBiPredicate() == Temporal.generalized) {
-                    predName = tp.getQuantifier() == Temporal.Quantifier.ANY ? "anyGeneralized" : "generalized";
+                    if (isNegated) {
+                        predName = isAny ? "notAnyGeneralized" : "notGeneralized";
+                    } else {
+                        predName = isAny ? "anyGeneralized" : "generalized";
+                    }
                     if (tp.getGeneralizedRelation() != null) {
                         valObj = Arrays.asList(tp.getValue(), tp.getGeneralizedRelation());
                     } else if (tp.getGeneralizedIntervalRelation() != null) {
@@ -171,8 +177,8 @@ final class TraversalSerializersV3 {
                     } else {
                         valObj = tp.getValue();
                     }
-                } else if (tp.getQuantifier() == Temporal.Quantifier.ANY) {
-                    predName = "any";
+                } else if (isAny || isNegated) {
+                    predName = isNegated ? (isAny ? "notAny" : "not") : "any";
                     valObj = Arrays.asList(tp.getBiPredicate(), tp.getValue());
                 } else {
                     predName = tp.getPredicateName();
@@ -659,16 +665,25 @@ final class TraversalSerializersV3 {
                 }
             }
             try {
-                if ("any".equals(predicate) && value instanceof List && ((List<?>) value).size() == 2) {
+                if (("any".equals(predicate) || "all".equals(predicate) || "not".equals(predicate) || "notAny".equals(predicate))
+                        && value instanceof List && ((List<?>) value).size() == 2) {
                     final List<?> pair = (List<?>) value;
                     final Temporal op = pair.get(0) instanceof Temporal ? (Temporal) pair.get(0) : Temporal.valueOf(pair.get(0).toString());
+                    if ("notAny".equals(predicate)) {
+                        return TemporalP.notAny(op, pair.get(1));
+                    } else if ("not".equals(predicate)) {
+                        return TemporalP.not(op, pair.get(1));
+                    } else if ("all".equals(predicate)) {
+                        return TemporalP.all(op, pair.get(1));
+                    }
                     return TemporalP.any(op, pair.get(1));
-                } else if (("generalized".equals(predicate) || "anyGeneralized".equals(predicate))
+                } else if (("generalized".equals(predicate) || "anyGeneralized".equals(predicate)
+                        || "notGeneralized".equals(predicate) || "notAnyGeneralized".equals(predicate))
                         && value instanceof List && ((List<?>) value).size() == 2) {
                     final List<?> pair = (List<?>) value;
                     final Object target = pair.get(0);
                     final Object spec = pair.get(1);
-                    final TemporalP tp;
+                    TemporalP tp;
                     if (spec instanceof GeneralizedRelation) {
                         tp = TemporalP.generalized(target, (GeneralizedRelation) spec);
                     } else if (spec instanceof GeneralizedIntervalRelation) {
@@ -676,9 +691,19 @@ final class TraversalSerializersV3 {
                     } else {
                         tp = TemporalP.generalized(value);
                     }
-                    return "anyGeneralized".equals(predicate) ? tp.any() : tp;
+                    if ("anyGeneralized".equals(predicate) || "notAnyGeneralized".equals(predicate)) {
+                        tp = tp.any();
+                    }
+                    if ("notGeneralized".equals(predicate) || "notAnyGeneralized".equals(predicate)) {
+                        tp = tp.negate();
+                    }
+                    return tp;
                 } else if ("anyGeneralized".equals(predicate)) {
                     return TemporalP.anyGeneralized(value);
+                } else if ("notGeneralized".equals(predicate)) {
+                    return TemporalP.notGeneralized(value);
+                } else if ("notAnyGeneralized".equals(predicate)) {
+                    return TemporalP.notAnyGeneralized(value);
                 }
                 return (TemporalP) tryFindMethod(TemporalP.class, predicate, Object.class).invoke(null, value);
             } catch (final Exception e) {

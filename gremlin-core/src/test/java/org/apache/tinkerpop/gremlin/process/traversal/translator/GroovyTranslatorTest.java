@@ -322,6 +322,42 @@ public class GroovyTranslatorTest {
         assertEquals("g.tx().rollback()", script);
     }
 
+    @Test
+    public void shouldTranslateTemporalTypesWithoutParameters() {
+        final org.apache.tinkerpop.gremlin.structure.temporal.Lifetime bounded =
+                org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.from(100L, 200L).addInterval(300L, 400L);
+        final org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.Interval iv =
+                new org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.Interval(100L, 200L);
+        final org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation rel =
+                org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation.ALLEN_MEETS;
+        final org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation gir =
+                org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation.ALLEN_PRECEDES_OR_MEETS;
+
+        assertTranslation("Lifetime.fromTemporalIntervals(\"100:200,300:400\")", bounded);
+        assertTranslation("Lifetime.empty()", org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.empty());
+        assertTranslation("Lifetime.UNBOUNDED", org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.UNBOUNDED);
+        assertTranslation("new Lifetime.Interval(100L,200L)", iv);
+        assertTranslation("new GeneralizedRelation(2,2,0,1)", rel);
+        assertTranslation("new GeneralizedIntervalRelation(new GeneralizedRelation(2,2,0,0),new GeneralizedRelation(2,2,0,1))", gir);
+        assertTranslation("GeneralizedIntervalRelation.empty(2,2)",
+                org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation.empty(2, 2));
+
+        assertEquals(
+                "g.V().has(\"temporalIntervals\",TemporalP.overlaps(new Lifetime.Interval(100L,200L)).any())",
+                translator.translate(g.V().has("temporalIntervals",
+                        org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(iv).any())).getScript());
+        assertEquals(
+                "g.V().where(TemporalP.generalized(new Lifetime.Interval(100L,200L),new GeneralizedRelation(2,2,0,1)))",
+                translator.translate(g.V().where(
+                        org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(iv, rel))).getScript());
+        assertEquals(
+                "g.V().has(\"temporalIntervals\",TemporalP.overlaps(new Lifetime.Interval(100L,200L)).any().negate())",
+                translator.translate(g.V().has("temporalIntervals",
+                        org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(iv).any().negate())).getScript());
+        org.junit.Assert.assertTrue(org.apache.tinkerpop.gremlin.jsr223.CoreImports.getClassImports()
+                .contains(org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.TemporalPageRankVertexProgram.class));
+    }
+
     private void assertTranslation(final String expectedTranslation, final Object... objs) {
         final String script = translator.translate(g.inject(objs)).getScript();
         assertEquals(String.format("g.inject(%s)", expectedTranslation), script);

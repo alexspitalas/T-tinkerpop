@@ -1744,5 +1744,50 @@ namespace Gremlin.Net.Process.Traversal
             return new GraphTraversal<object, object>().Where(whereTraversal);            
         }
 
+#pragma warning disable 1591
+        // Temporal anonymous steps (T-TinkerPop)
+        public static GraphTraversal<object, object> Lifetime(object? startTime, object? endTime) => new GraphTraversal<object, object>().Lifetime(startTime, endTime);
+        public static GraphTraversal<object, object> Lifetime(object? startTime) => new GraphTraversal<object, object>().Lifetime(startTime);
+        public static GraphTraversal<object, object> AddInterval(object? startTime, object? endTime) => new GraphTraversal<object, object>().AddInterval(startTime, endTime);
+        public static GraphTraversal<object, object> DropInterval(object? startTime, object? endTime) => new GraphTraversal<object, object>().DropInterval(startTime, endTime);
+        public static GraphTraversal<object, object> DropInterval(object? startTime, object? endTime, DropMode dropMode) => new GraphTraversal<object, object>().DropInterval(startTime, endTime, dropMode);
+        public static GraphTraversal<object, object> LifetimeProperty(string propertyKey, object? propertyValue, object? startTime, object? endTime) => new GraphTraversal<object, object>().LifetimeProperty(propertyKey, propertyValue, startTime, endTime);
+        public static GraphTraversal<object, object> LifetimeProperty(string propertyKey, object? startTime, object? endTime) => new GraphTraversal<object, object>().LifetimeProperty(propertyKey, startTime, endTime);
+        public static GraphTraversal<object, DateTimeOffset> GetStartTime() => new GraphTraversal<object, object>().GetStartTime();
+        public static GraphTraversal<object, DateTimeOffset> GetEndTime() => new GraphTraversal<object, object>().GetEndTime();
+        public static GraphTraversal<object, Gremlin.Net.Process.Traversal.Lifetime> GetLifetime() => new GraphTraversal<object, object>().GetLifetime();
+        public static GraphTraversal<object, object> AtTime(object instant) => new GraphTraversal<object, object>().AtTime(instant);
+        public static GraphTraversal<object, object> Window(object start, object end) => new GraphTraversal<object, object>().Window(start, end);
+        public static GraphTraversal<object, object> Window(Gremlin.Net.Process.Traversal.Lifetime window) => new GraphTraversal<object, object>().Window(window);
+        public static GraphTraversal<object, object> TemporalAfter(object reference) => new GraphTraversal<object, object>().TemporalAfter(reference);
+        public static GraphTraversal<object, object> TemporalBefore(object reference) => new GraphTraversal<object, object>().TemporalBefore(reference);
+        public static GraphTraversal<object, object> TemporalContains(object reference) => new GraphTraversal<object, object>().TemporalContains(reference);
+        public static GraphTraversal<object, object> TemporalDuring(object reference) => new GraphTraversal<object, object>().TemporalDuring(reference);
+        public static GraphTraversal<object, object> TemporalEquals(object reference) => new GraphTraversal<object, object>().TemporalEquals(reference);
+        public static GraphTraversal<object, object> TemporalFinishes(object reference) => new GraphTraversal<object, object>().TemporalFinishes(reference);
+        public static GraphTraversal<object, object> TemporalFinishedBy(object reference) => new GraphTraversal<object, object>().TemporalFinishedBy(reference);
+        public static GraphTraversal<object, object> TemporalMeets(object reference) => new GraphTraversal<object, object>().TemporalMeets(reference);
+        public static GraphTraversal<object, object> TemporalMetBy(object reference) => new GraphTraversal<object, object>().TemporalMetBy(reference);
+        public static GraphTraversal<object, object> TemporalOverlaps(object reference) => new GraphTraversal<object, object>().TemporalOverlaps(reference);
+        public static GraphTraversal<object, object> TemporalOverlappedBy(object reference) => new GraphTraversal<object, object>().TemporalOverlappedBy(reference);
+        public static GraphTraversal<object, object> TemporalStarts(object reference) => new GraphTraversal<object, object>().TemporalStarts(reference);
+        public static GraphTraversal<object, object> TemporalStartedBy(object reference) => new GraphTraversal<object, object>().TemporalStartedBy(reference);
+        public static GraphTraversal<object, object> TemporalIntersects(object reference) => new GraphTraversal<object, object>().TemporalIntersects(reference);
+        public static GraphTraversal<object, object> TemporalDisjoint(object reference) => new GraphTraversal<object, object>().TemporalDisjoint(reference);
+        public static GraphTraversal<object, Vertex> ContinuousPath(params string[] edgeLabels) => new GraphTraversal<object, object>().ContinuousPath(edgeLabels);
+        public static GraphTraversal<object, Vertex> SequentialPath(params string[] edgeLabels) => new GraphTraversal<object, object>().SequentialPath(edgeLabels);
+        public static GraphTraversal<object, Vertex> SequentialPath(long minDelay, long maxDelay, params string[] edgeLabels) => new GraphTraversal<object, object>().SequentialPath(minDelay, maxDelay, edgeLabels);
+        public static GraphTraversal<object, Vertex> PairwiseContinuousPath(params string[] edgeLabels) => new GraphTraversal<object, object>().PairwiseContinuousPath(edgeLabels);
+        public static GraphTraversal<object, Vertex> PairwiseContinuousPath(bool monotone, params string[] edgeLabels) => new GraphTraversal<object, object>().PairwiseContinuousPath(monotone, edgeLabels);
+        public static GraphTraversal<object, object> TemporalPageRank() => new GraphTraversal<object, object>().TemporalPageRank();
+        public static GraphTraversal<object, IDictionary<Vertex, long>> Tbfs(TemporalPathTarget target, long initialTime) => new GraphTraversal<object, object>().Tbfs(target, initialTime);
+        public static GraphTraversal<object, IDictionary<Vertex, long>> Tbfs(TemporalPathTarget target, DateTimeOffset initialTime) => new GraphTraversal<object, object>().Tbfs(target, initialTime);
+        public static GraphTraversal<object, IDictionary<Vertex, long>> Tbfs(long initialTime, TemporalPathTarget target, Direction direction, params string[] edgeLabels) => new GraphTraversal<object, object>().Tbfs(initialTime, target, direction, edgeLabels);
+        public static GraphTraversal<object, IDictionary<Vertex, long>> Tbfs(DateTimeOffset initialTime, TemporalPathTarget target, Direction direction, params string[] edgeLabels) => new GraphTraversal<object, object>().Tbfs(initialTime, target, direction, edgeLabels);
+        public static GraphTraversal<object, Path> TemporalShortestPath() => new GraphTraversal<object, object>().TemporalShortestPath();
+        public static GraphTraversal<object, Path> TemporalShortestPath(TemporalPathTarget target, long initialTime) => new GraphTraversal<object, object>().TemporalShortestPath(target, initialTime);
+        public static GraphTraversal<object, Path> TemporalShortestPath(TemporalPathTarget target, DateTimeOffset initialTime) => new GraphTraversal<object, object>().TemporalShortestPath(target, initialTime);
+#pragma warning restore 1591
+
     }
 }

@@ -593,6 +593,80 @@ public class WindowIntegrationTest {
             3, steps.size());
     }
 
+    @Test
+    public void shouldMatchOltpAndOlapForNestedWindowTraversals() {
+        final Vertex v1 = g.addV("person").property("name", "v1").lifetime("2020-01-01", "2026-01-01").next();
+        final Vertex v2 = g.addV("person").property("name", "v2").lifetime("2020-01-01", "2026-01-01").next();
+        final Vertex vDead = g.addV("person").property("name", "vDead").lifetime("2020-01-01", "2021-01-01").next();
+        final Vertex vAlive = g.addV("person").property("name", "vAlive").lifetime("2022-01-01", "2026-01-01").next();
+
+        g.addE("knows").from(v1).to(v2).next();
+        g.addE("knows").from(v2).to(vDead).next();
+        g.addE("knows").from(v2).to(vAlive).next();
+        g.addE("alt").from(v1).to(vDead).next();
+        g.addE("alt").from(v1).to(vAlive).next();
+
+        // 1. repeat(__.out("knows")).times(2) inside window [2023, 2025)
+        final List<String> oltpRepeat = g.V(v1).window("2023-01-01", "2025-01-01")
+                .repeat(org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows")).times(2)
+                .<String>values("name").order().toList();
+        final List<String> olapRepeat = g.withComputer().V(v1).window("2023-01-01", "2025-01-01")
+                .repeat(org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows")).times(2)
+                .<String>values("name").order().toList();
+        assertEquals(oltpRepeat, olapRepeat);
+        assertThat(olapRepeat, contains("vAlive"));
+
+        // 2. union(__.out("knows"), __.out("alt")) inside window [2023, 2025)
+        final List<String> oltpUnion = g.V(v1).window("2023-01-01", "2025-01-01")
+                .union(
+                        org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows"),
+                        org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("alt"))
+                .<String>values("name").order().toList();
+        final List<String> olapUnion = g.withComputer().V(v1).window("2023-01-01", "2025-01-01")
+                .union(
+                        org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows"),
+                        org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("alt"))
+                .<String>values("name").order().toList();
+        assertEquals(oltpUnion, olapUnion);
+        assertThat(olapUnion, contains("v2", "vAlive"));
+
+        // 3. optional(__.out("knows")) inside window [2023, 2025) must drop dead neighbors in both OLTP and OLAP
+        final List<String> oltpOptional = g.V(v2).window("2023-01-01", "2025-01-01")
+                .optional(org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows"))
+                .<String>values("name").order().toList();
+        final List<String> olapOptional = g.withComputer().V(v2).window("2023-01-01", "2025-01-01")
+                .optional(org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__.out("knows"))
+                .<String>values("name").order().toList();
+        assertEquals(oltpOptional, olapOptional);
+        assertThat(olapOptional, contains("vAlive"));
+    }
+
+    @Test
+    public void shouldEnforceSinglePropertyContractOnTemporalVertex() {
+        final Vertex v = g.addV("person")
+                .lifetime("2020-01-01", "2026-01-01")
+                .lifetimeProperty("title", "Junior", "2020-01-01", "2022-01-01")
+                .lifetimeProperty("title", "Senior", "2022-01-01", "2025-01-01")
+                .next();
+
+        // 0 alive versions in [2025, 2026) -> empty VertexProperty
+        final Vertex vEmpty = g.V(v).window("2025-01-01", "2026-01-01").next();
+        org.junit.Assert.assertFalse(vEmpty.property("title").isPresent());
+
+        // 1 alive version in [2020, 2021) -> returns "Junior"
+        final Vertex vSingle = g.V(v).window("2020-01-01", "2021-01-01").next();
+        assertEquals("Junior", vSingle.property("title").value());
+
+        // 2 alive versions in [2020, 2025) -> throws IllegalStateException per Vertex.property(String) contract
+        final Vertex vMulti = g.V(v).window("2020-01-01", "2025-01-01").next();
+        try {
+            vMulti.property("title");
+            org.junit.Assert.fail("Expected IllegalStateException when multiple temporal property versions are alive in window");
+        } catch (final IllegalStateException expected) {
+            assertTrue(expected.getMessage().contains("title"));
+        }
+    }
+
     private static List<String> sortedStrings(final List<Object> values) {
         return values.stream().
                 map(Object::toString).

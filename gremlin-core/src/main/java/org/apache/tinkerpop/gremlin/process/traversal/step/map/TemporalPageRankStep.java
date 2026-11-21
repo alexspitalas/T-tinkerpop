@@ -67,33 +67,81 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     private double beta = TemporalPageRankAlgorithm.DEFAULT_BETA;
     private String propertyName = TEMPORAL_PAGE_RANK;
     private boolean normalize = TemporalPageRankAlgorithm.DEFAULT_NORMALIZE;
+    private long bucketMillis = 0L;
 
     public TemporalPageRankStep(final Traversal.Admin traversal) {
         super(traversal);
         this.barrier = (TraverserSet<S>) this.traversal.getTraverserSetSupplier().get();
     }
 
+    public double getAlpha() {
+        return alpha;
+    }
+
+    public double getBeta() {
+        return beta;
+    }
+
+    public String getPropertyName() {
+        return propertyName;
+    }
+
+    public boolean isNormalize() {
+        return normalize;
+    }
+
+    public long getBucketMillis() {
+        return bucketMillis;
+    }
+
     @Override
     public void configure(final Object... keyValues) {
-        if (keyValues[0].equals(TemporalPageRank.alpha)) {
-            if (!(keyValues[1] instanceof Number))
-                throw new IllegalArgumentException("TemporalPageRank.alpha requires a Number as its argument");
-            this.alpha = ((Number) keyValues[1]).doubleValue();
-        } else if (keyValues[0].equals(TemporalPageRank.beta)) {
-            if (!(keyValues[1] instanceof Number))
-                throw new IllegalArgumentException("TemporalPageRank.beta requires a Number as its argument");
-            this.beta = ((Number) keyValues[1]).doubleValue();
-        } else if (keyValues[0].equals(TemporalPageRank.propertyName)) {
-            if (!(keyValues[1] instanceof String))
-                throw new IllegalArgumentException("TemporalPageRank.propertyName requires a String as its argument");
-            this.propertyName = (String) keyValues[1];
-        } else if (keyValues[0].equals(TemporalPageRank.normalize)) {
-            if (!(keyValues[1] instanceof Boolean))
-                throw new IllegalArgumentException("TemporalPageRank.normalize requires a Boolean as its argument");
-            this.normalize = (Boolean) keyValues[1];
-        } else {
+        if (null == keyValues || keyValues.length % 2 != 0) {
             this.parameters.set(null, keyValues);
+            return;
         }
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            final Object key = keyValues[i];
+            final Object value = keyValues[i + 1];
+            if (TemporalPageRank.alpha.equals(key)) {
+                if (!(value instanceof Number))
+                    throw new IllegalArgumentException("TemporalPageRank.alpha requires a Number as its argument");
+                this.alpha = ((Number) value).doubleValue();
+            } else if (TemporalPageRank.beta.equals(key)) {
+                if (!(value instanceof Number))
+                    throw new IllegalArgumentException("TemporalPageRank.beta requires a Number as its argument");
+                this.beta = ((Number) value).doubleValue();
+            } else if (TemporalPageRank.propertyName.equals(key)) {
+                if (!(value instanceof String))
+                    throw new IllegalArgumentException("TemporalPageRank.propertyName requires a String as its argument");
+                this.propertyName = (String) value;
+            } else if (TemporalPageRank.normalize.equals(key)) {
+                if (!(value instanceof Boolean))
+                    throw new IllegalArgumentException("TemporalPageRank.normalize requires a Boolean as its argument");
+                this.normalize = (Boolean) value;
+            } else if (TemporalPageRank.bucketMillis.equals(key)) {
+                this.bucketMillis = parseBucketMillis(value);
+            } else {
+                this.parameters.set(null, key, value);
+            }
+        }
+    }
+
+    private static long parseBucketMillis(final Object value) {
+        if (!(value instanceof Number)) {
+            throw new IllegalArgumentException("TemporalPageRank.bucketMillis requires a non-negative integral Number as its argument");
+        }
+        if (value instanceof Double || value instanceof Float) {
+            final double d = ((Number) value).doubleValue();
+            if (!Double.isFinite(d) || d < 0.0d || d != Math.rint(d) || d > Long.MAX_VALUE) {
+                throw new IllegalArgumentException("TemporalPageRank.bucketMillis requires a non-negative integral Number as its argument");
+            }
+        }
+        final long millis = ((Number) value).longValue();
+        if (millis < 0L) {
+            throw new IllegalArgumentException("TemporalPageRank.bucketMillis requires a non-negative integral Number as its argument");
+        }
+        return millis;
     }
 
     @Override
@@ -129,19 +177,25 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
             this.barrier.add(traverser);
         }
 
+        validateConfiguration();
         if (this.barrier.isEmpty())
             return;
 
-        validateConfiguration();
         final List<TemporalEdge> edges = readTemporalEdges(scopedVertices, vertexContexts);
 
-        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(edges, alpha, beta, normalize);
+        final Map<Object, Double> ranks = TemporalPageRankAlgorithm.execute(edges, alpha, beta, normalize, bucketMillis);
         writeRanks(scopedVertices.values(), propertyName, ranks);
     }
 
     private void validateConfiguration() {
+        if (!(this.alpha > 0.0d && this.alpha < 1.0d))
+            throw new IllegalArgumentException("Temporal PageRank alpha must be greater than 0.0 and less than 1.0");
+        if (!(this.beta > 0.0d && this.beta <= 1.0d))
+            throw new IllegalArgumentException("Temporal PageRank beta must be greater than 0.0 and less than or equal to 1.0");
         if (null == propertyName || propertyName.trim().isEmpty())
             throw new IllegalArgumentException("Temporal PageRank propertyName must be a non-empty String");
+        if (this.bucketMillis < 0L)
+            throw new IllegalArgumentException("Temporal PageRank bucketMillis must be non-negative");
     }
 
     private List<TemporalEdge> readTemporalEdges(final Map<Object, Vertex> scopedVertices,
@@ -187,30 +241,23 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
                         continue;
                     }
 
-                    final Lifetime outLt = anyRestrictedVertex ? restrictedVertexLifetimes.get(outId) : null;
-                    final Lifetime inLt = anyRestrictedVertex ? restrictedVertexLifetimes.get(inId) : null;
-                    if (outLt == null && inLt == null) {
-                        temporalEdges.add(new TemporalEdge(rawEdge, effectiveLifetime));
-                    } else {
-                        final int count = effectiveLifetime.getIntervalCount();
-                        if (count == 1) {
-                            final long sMs = effectiveLifetime.getStartMillis(0);
-                            final long eMs = effectiveLifetime.getEndMillis(0);
-                            if ((outLt == null || outLt.intersects(sMs, eMs)) &&
-                                    (inLt == null || inLt.intersects(sMs, eMs))) {
-                                temporalEdges.add(new TemporalEdge(rawEdge, effectiveLifetime));
+                    if (anyRestrictedVertex) {
+                        final Lifetime outLt = restrictedVertexLifetimes.get(outId);
+                        if (outLt != null) {
+                            effectiveLifetime = effectiveLifetime.intersection(outLt);
+                            if (effectiveLifetime.isEmpty()) {
+                                continue;
                             }
-                        } else {
-                            for (int idx = 0; idx < count; idx++) {
-                                final long sMs = effectiveLifetime.getStartMillis(idx);
-                                final long eMs = effectiveLifetime.getEndMillis(idx);
-                                if ((outLt == null || outLt.intersects(sMs, eMs)) &&
-                                        (inLt == null || inLt.intersects(sMs, eMs))) {
-                                    temporalEdges.add(new TemporalEdge(rawEdge, Lifetime.from(sMs, eMs)));
-                                }
+                        }
+                        final Lifetime inLt = restrictedVertexLifetimes.get(inId);
+                        if (inLt != null) {
+                            effectiveLifetime = effectiveLifetime.intersection(inLt);
+                            if (effectiveLifetime.isEmpty()) {
+                                continue;
                             }
                         }
                     }
+                    temporalEdges.add(new TemporalEdge(rawEdge, effectiveLifetime));
                 }
             } finally {
                 CloseableIterator.closeIterator(edges);
@@ -256,11 +303,12 @@ public final class TemporalPageRankStep<S> extends AbstractStep<S, S> implements
     @Override
     public int hashCode() {
         return super.hashCode() ^ Double.hashCode(this.alpha) ^ Double.hashCode(this.beta) ^
-                this.propertyName.hashCode() ^ Boolean.hashCode(this.normalize) ^ this.parameters.hashCode();
+                this.propertyName.hashCode() ^ Boolean.hashCode(this.normalize) ^
+                Long.hashCode(this.bucketMillis) ^ this.parameters.hashCode();
     }
 
     @Override
     public String toString() {
-        return StringFactory.stepString(this, this.alpha, this.beta, this.propertyName, this.normalize);
+        return StringFactory.stepString(this, this.alpha, this.beta, this.propertyName, this.normalize, this.bucketMillis);
     }
 }

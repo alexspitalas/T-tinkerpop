@@ -18,6 +18,7 @@
  */
 package org.apache.tinkerpop.gremlin.tinkergraph.process.traversal;
 
+import org.apache.tinkerpop.gremlin.process.traversal.Temporal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
@@ -27,10 +28,13 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.junit.Assert.assertEquals;
 
 public class AllenTemporalIntegrationTest {
 
@@ -360,6 +364,168 @@ public class AllenTemporalIntegrationTest {
         staticAfter.property(Lifetime.END_TIME).remove();
         assertThat(g.V().hasLabel("item").temporalContains(refWindow).values("name").toList(),
                 org.hamcrest.Matchers.containsInAnyOrder("static-before", "start-end-before", "static-after", "start-end-after"));
+    }
+
+    @Test
+    public void shouldMatchIndexedAndUnindexedAcrossAllOperatorsIncludingPointsMultiIntervalAndUnbounded() {
+        final TinkerGraph unindexed = TinkerGraph.open();
+        final TinkerGraph indexed = TinkerGraph.open();
+        indexed.createIndex(Lifetime.TEMPORAL_INTERVALS, Vertex.class);
+
+        for (final TinkerGraph targetGraph : Arrays.asList(unindexed, indexed)) {
+            final GraphTraversalSource ts = targetGraph.traversal();
+            // Instantaneous point lifetimes (including boundary points at 100 and 200)
+            ts.addV("item").property("name", "pt-100").lifetime(100L, 100L).iterate();
+            ts.addV("item").property("name", "pt-150").lifetime(150L, 150L).iterate();
+            ts.addV("item").property("name", "pt-200").lifetime(200L, 200L).iterate();
+            // Single half-open intervals spanning every Allen relation relative to [100, 200)
+            ts.addV("item").property("name", "before").lifetime(20L, 80L).iterate();
+            ts.addV("item").property("name", "meets").lifetime(50L, 100L).iterate();
+            ts.addV("item").property("name", "overlaps").lifetime(80L, 150L).iterate();
+            ts.addV("item").property("name", "starts").lifetime(100L, 150L).iterate();
+            ts.addV("item").property("name", "during").lifetime(120L, 180L).iterate();
+            ts.addV("item").property("name", "equals").lifetime(100L, 200L).iterate();
+            ts.addV("item").property("name", "finishes").lifetime(150L, 200L).iterate();
+            ts.addV("item").property("name", "startedBy").lifetime(100L, 250L).iterate();
+            ts.addV("item").property("name", "finishedBy").lifetime(50L, 200L).iterate();
+            ts.addV("item").property("name", "contains").lifetime(50L, 250L).iterate();
+            ts.addV("item").property("name", "overlappedBy").lifetime(150L, 250L).iterate();
+            ts.addV("item").property("name", "metBy").lifetime(200L, 260L).iterate();
+            ts.addV("item").property("name", "after").lifetime(250L, 350L).iterate();
+            // Multi-interval lifetimes (including one with a gap around [140, 220))
+            ts.addV("item").property("name", "multi-gap").lifetime(50L, 90L).addInterval(120L, 140L).addInterval(220L, 260L).iterate();
+            ts.addV("item").property("name", "multi-inside").lifetime(100L, 130L).addInterval(170L, 200L).iterate();
+            // Static (unbounded) vertex
+            ts.addV("item").property("name", "static").iterate();
+        }
+
+        final GraphTraversalSource gUnindexed = unindexed.traversal();
+        final GraphTraversalSource gIndexed = indexed.traversal();
+
+        final List<Lifetime> queries = Arrays.asList(
+                Lifetime.from(100L, 200L),
+                Lifetime.from(100L, 100L),
+                Lifetime.from(100L, 150L).addInterval(200L, 250L)
+        );
+        final Temporal[] ops = new Temporal[]{
+                Temporal.precedes, Temporal.succeeds, Temporal.meets, Temporal.metBy,
+                Temporal.overlaps, Temporal.overlappedBy, Temporal.during, Temporal.contains,
+                Temporal.starts, Temporal.startedBy, Temporal.finishes, Temporal.finishedBy,
+                Temporal.eq, Temporal.intersects, Temporal.disjoint
+        };
+
+        for (final Lifetime query : queries) {
+            for (final Temporal op : ops) {
+                for (final Temporal.Quantifier q : Temporal.Quantifier.values()) {
+                    final org.apache.tinkerpop.gremlin.process.traversal.TemporalP pred =
+                            q == Temporal.Quantifier.ANY
+                                    ? org.apache.tinkerpop.gremlin.process.traversal.TemporalP.any(op, query)
+                                    : org.apache.tinkerpop.gremlin.process.traversal.TemporalP.all(op, query);
+
+                    final List<String> expectedHas = gUnindexed.V().hasLabel("item")
+                            .has(Lifetime.TEMPORAL_INTERVALS, pred).<String>values("name").order().toList();
+                    final List<String> actualHas = gIndexed.V().hasLabel("item")
+                            .has(Lifetime.TEMPORAL_INTERVALS, pred).<String>values("name").order().toList();
+
+                    assertEquals("Indexed vs unindexed mismatch for has(" + op + ", " + q + ", " + query + ")",
+                            expectedHas, actualHas);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void shouldSupportLiteralTemporalTargetsInWherePredicateStep() {
+        final Vertex milestone = g.addV("milestone").property("name", "M").lifetime(200L, 300L).next();
+        g.addV("task").property("name", "tBefore").lifetime(50L, 100L).iterate();
+        g.addV("task").property("name", "tMeets").lifetime(100L, 200L).iterate();
+        g.addV("task").property("name", "tDuring").lifetime(220L, 280L).iterate();
+        g.addV("task").property("name", "tMultiAny").lifetime(50L, 100L).addInterval(250L, 350L).iterate();
+
+        // 1. where(TemporalP.between(precedes, meets, Element))
+        assertThat(g.V().hasLabel("task")
+                .where(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(Temporal.precedes, Temporal.meets, milestone))
+                .<String>values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("tBefore", "tMeets"));
+
+        // 2. where(TemporalP.precedes(Element).any())
+        assertThat(g.V().hasLabel("task")
+                .where(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.precedes(milestone).any())
+                .<String>values("name").toList(),
+                org.hamcrest.Matchers.containsInAnyOrder("tBefore", "tMultiAny"));
+
+        // 3. where(TemporalP.generalized(Interval, GeneralizedRelation))
+        final Lifetime.Interval refIv = new Lifetime.Interval(200L, 300L);
+        assertThat(g.V().hasLabel("task")
+                .where(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(
+                        refIv, org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation.ALLEN_MEETS))
+                .<String>values("name").toList(),
+                contains("tMeets"));
+
+        // 4. where("t", TemporalP.during(Lifetime)) with startKey label + literal target
+        assertThat(g.V().hasLabel("task").as("t")
+                .where("t", org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(Lifetime.from(200L, 300L)))
+                .<String>values("name").toList(),
+                contains("tDuring"));
+    }
+
+    @Test
+    public void shouldSupportCompositeAndNegatedTemporalPredicatesWithOpenWorldAndIndexSemantics() {
+        final Vertex vStatic = g.addV("item").property("name", "static").next();
+        final Vertex vStartEnd = g.addV("item").property("name", "startEnd")
+                .property(Lifetime.START_TIME, 100L)
+                .property(Lifetime.END_TIME, 300L)
+                .next();
+        final Vertex vBefore = g.addV("item").property("name", "before").lifetime(10L, 50L).next();
+        final Vertex vDuring = g.addV("item").property("name", "during").lifetime(150L, 200L).next();
+        final Vertex vMulti = g.addV("item").property("name", "multi").lifetime(10L, 50L).addInterval(250L, 350L).next();
+
+        final Lifetime ref = Lifetime.from(120L, 220L);
+        final org.apache.tinkerpop.gremlin.process.traversal.P<Object> orPred =
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.contains(ref)
+                        .or(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.precedes(ref));
+        final org.apache.tinkerpop.gremlin.process.traversal.TemporalP negOverlaps =
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(ref).negate();
+        final org.apache.tinkerpop.gremlin.process.traversal.TemporalP negBetween =
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(Temporal.precedes, Temporal.meets, ref).negate();
+        final org.apache.tinkerpop.gremlin.process.traversal.TemporalP negAnyPrecedes =
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.precedes(ref).any().negate();
+
+        // Check algebraic simplification & involution on TemporalP.negate()
+        assertEquals(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.disjoint(ref),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(ref).negate());
+        assertEquals(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(ref),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.disjoint(ref).negate());
+        assertEquals(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(ref),
+                negOverlaps.negate());
+
+        // Test both BEFORE and AFTER enabling TemporalTinkerIndex
+        for (int pass = 0; pass < 2; pass++) {
+            if (pass == 1) {
+                graph.createIndex(Lifetime.TEMPORAL_INTERVALS, Vertex.class);
+            }
+            // OrP of TemporalP must include static (UNBOUNDED), startEnd ([100,300) contains [120,220)), and before ([10,50) precedes [120,220))
+            assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS, orPred).<String>values("name").toList(),
+                    org.hamcrest.Matchers.containsInAnyOrder("static", "startEnd", "before"));
+
+            // Negated overlaps must match all 5 (none strictly overlaps [120,220))
+            assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS, negOverlaps).<String>values("name").toList(),
+                    org.hamcrest.Matchers.containsInAnyOrder("static", "startEnd", "before", "during", "multi"));
+
+            // Negated convex between(precedes, meets) excludes "before" only
+            assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS, negBetween).<String>values("name").toList(),
+                    org.hamcrest.Matchers.containsInAnyOrder("static", "startEnd", "during", "multi"));
+
+            // Negated ANY precedes excludes "before" and "multi" (whose [10,50) precedes [120,220))
+            assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS, negAnyPrecedes).<String>values("name").toList(),
+                    org.hamcrest.Matchers.containsInAnyOrder("static", "startEnd", "during"));
+
+            // Negated disjoint simplifies to intersects and uses the index cleanly
+            assertThat(g.V().hasLabel("item").has(Lifetime.TEMPORAL_INTERVALS,
+                            org.apache.tinkerpop.gremlin.process.traversal.TemporalP.disjoint(ref).negate())
+                    .<String>values("name").toList(),
+                    org.hamcrest.Matchers.containsInAnyOrder("static", "startEnd", "during"));
+        }
     }
 
     private static Date date(final String instant) {

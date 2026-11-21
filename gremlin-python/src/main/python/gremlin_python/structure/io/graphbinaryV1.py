@@ -35,7 +35,9 @@ from gremlin_python.statics import FloatType, BigDecimal, FunctionType, ShortTyp
                                    SingleChar
 from gremlin_python.process.traversal import Barrier, Binding, Bytecode, Cardinality, Column, Direction, DT, Merge, \
                                              Operator, Order, Pick, Pop, P, Scope, TextP, Traversal, Traverser, \
-                                             TraversalStrategy, T
+                                             TraversalStrategy, T, Temporal, TemporalQuantifier, LifetimeMode, \
+                                             DropMode, TemporalPathTarget, TemporalP, Lifetime, Interval, \
+                                             GeneralizedRelation, GeneralizedIntervalRelation
 from gremlin_python.process.graph_traversal import GraphTraversal
 from gremlin_python.structure.graph import Graph, Edge, Property, Vertex, VertexProperty, Path
 from gremlin_python.structure.io.util import HashableDict, SymbolUtil
@@ -98,6 +100,16 @@ class DataType(Enum):
     traversalmetrics = 0x2d
     merge = 0x2e
     dt = 0x2f
+    temporalp = 0x30
+    lifetime = 0x31
+    lifetimemode = 0x32
+    dropmode = 0x33
+    temporalpathtarget = 0x34
+    temporal = 0x35
+    temporalquantifier = 0x36
+    interval = 0x37
+    generalizedrelation = 0x38
+    generalizedintervalrelation = 0x39
     char = 0x80
     duration = 0x81
     inetaddress = 0x82            # todo
@@ -265,6 +277,12 @@ class IntIO(LongIO):
     graphbinary_type = DataType.int
     byte_format_pack = int32_pack
     byte_format_unpack = int32_unpack
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        if not as_value and (obj < -2147483648 or obj > 2147483647):
+            return LongIO.dictify(obj, writer, to_extend, as_value, nullable)
+        return super(IntIO, cls).dictify(obj, writer, to_extend, as_value, nullable)
 
     @classmethod
     def objectify(cls, buff, reader, nullable=True):
@@ -1167,3 +1185,193 @@ class DurationIO(_GraphBinaryTypeIO):
         seconds = r.to_object(b, DataType.long, False)
         nanos = r.to_object(b, DataType.int, False)
         return timedelta(seconds=seconds, microseconds=nanos / 1000)
+
+
+class _VerbatimEnumIO(_GraphBinaryTypeIO):
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        StringIO.dictify(str(obj.name), writer, to_extend)
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_enumval, nullable)
+
+    @classmethod
+    def _read_enumval(cls, b, r):
+        enum_name = r.to_object(b)
+        return cls.python_type[enum_name]
+
+
+class LifetimeModeIO(_VerbatimEnumIO):
+    graphbinary_type = DataType.lifetimemode
+    python_type = LifetimeMode
+
+
+class DropModeIO(_VerbatimEnumIO):
+    graphbinary_type = DataType.dropmode
+    python_type = DropMode
+
+
+class TemporalPathTargetIO(_VerbatimEnumIO):
+    graphbinary_type = DataType.temporalpathtarget
+    python_type = TemporalPathTarget
+
+
+class TemporalIO(_VerbatimEnumIO):
+    graphbinary_type = DataType.temporal
+    python_type = Temporal
+
+
+class TemporalQuantifierIO(_VerbatimEnumIO):
+    graphbinary_type = DataType.temporalquantifier
+    python_type = TemporalQuantifier
+
+
+class TemporalPSerializer(_GraphBinaryTypeIO):
+    graphbinary_type = DataType.temporalp
+    python_type = TemporalP
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        pred_name, args = obj.to_wire_parts()
+        StringIO.dictify(pred_name, writer, to_extend, True, False)
+        to_extend.extend(int32_pack(len(args)))
+        for a in args:
+            writer.to_dict(a, to_extend)
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_temporalp, nullable)
+
+    @classmethod
+    def _read_temporalp(cls, b, r):
+        pred_name = r.to_object(b, DataType.string, False)
+        length = cls.read_int(b)
+        if length < 0:
+            raise ValueError("Invalid negative TemporalP argument count: %d" % length)
+        args = [r.read_object(b) for _ in range(length)]
+        return TemporalP.from_wire_parts(pred_name, args)
+
+
+class LifetimeIO(_GraphBinaryTypeIO):
+    graphbinary_type = DataType.lifetime
+    python_type = Lifetime
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        to_extend.extend(int32_pack(len(obj.intervals)))
+        for iv in obj.intervals:
+            to_extend.extend(int64_pack(iv.start_millis))
+            to_extend.extend(int64_pack(iv.end_millis))
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_lifetime, nullable)
+
+    @classmethod
+    def _read_lifetime(cls, b, r):
+        count = cls.read_int(b)
+        if count < 0:
+            raise ValueError("Invalid negative Lifetime interval count: %d" % count)
+        if count == 0:
+            return Lifetime.empty()
+        ivs = []
+        for _ in range(count):
+            start_ms = int64_unpack(b.read(8))
+            end_ms = int64_unpack(b.read(8))
+            ivs.append(Interval(start_ms, end_ms))
+        return Lifetime(ivs)
+
+
+class IntervalIO(_GraphBinaryTypeIO):
+    graphbinary_type = DataType.interval
+    python_type = Interval
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        to_extend.extend(int64_pack(obj.start_millis))
+        to_extend.extend(int64_pack(obj.end_millis))
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_interval, nullable)
+
+    @classmethod
+    def _read_interval(cls, b, r):
+        start_ms = int64_unpack(b.read(8))
+        end_ms = int64_unpack(b.read(8))
+        return Interval(start_ms, end_ms)
+
+
+class GeneralizedRelationIO(_GraphBinaryTypeIO):
+    graphbinary_type = DataType.generalizedrelation
+    python_type = GeneralizedRelation
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        to_extend.extend(int32_pack(obj.p))
+        to_extend.extend(int32_pack(obj.q))
+        for z in obj.zones:
+            to_extend.extend(int32_pack(z))
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_rel, nullable)
+
+    @classmethod
+    def _read_rel(cls, b, r):
+        p = cls.read_int(b)
+        q = cls.read_int(b)
+        if p < 1 or q < 1:
+            raise ValueError("Invalid GeneralizedRelation arities: (%d, %d)" % (p, q))
+        zones = [cls.read_int(b) for _ in range(p)]
+        return GeneralizedRelation(p, q, zones)
+
+
+class GeneralizedIntervalRelationIO(_GraphBinaryTypeIO):
+    graphbinary_type = DataType.generalizedintervalrelation
+    python_type = GeneralizedIntervalRelation
+
+    @classmethod
+    def dictify(cls, obj, writer, to_extend, as_value=False, nullable=True):
+        cls.prefix_bytes(cls.graphbinary_type, as_value, nullable, to_extend)
+        to_extend.extend(int32_pack(obj.p))
+        to_extend.extend(int32_pack(obj.q))
+        to_extend.extend(int8_pack(0x01 if obj.is_empty() else 0x00))
+        if not obj.is_empty():
+            for z in obj.lower.zones:
+                to_extend.extend(int32_pack(z))
+            for z in obj.upper.zones:
+                to_extend.extend(int32_pack(z))
+        return to_extend
+
+    @classmethod
+    def objectify(cls, buff, reader, nullable=True):
+        return cls.is_null(buff, reader, cls._read_irel, nullable)
+
+    @classmethod
+    def _read_irel(cls, b, r):
+        p = cls.read_int(b)
+        q = cls.read_int(b)
+        if p < 1 or q < 1:
+            raise ValueError("Invalid GeneralizedIntervalRelation arities: (%d, %d)" % (p, q))
+        empty = int8_unpack(b.read(1)) != 0
+        if empty:
+            return GeneralizedIntervalRelation.empty(p, q)
+        lower_zones = [cls.read_int(b) for _ in range(p)]
+        upper_zones = [cls.read_int(b) for _ in range(p)]
+        return GeneralizedIntervalRelation(
+            GeneralizedRelation(p, q, lower_zones),
+            GeneralizedRelation(p, q, upper_zones),
+        )

@@ -38,6 +38,9 @@ import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedIntervalRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.GeneralizedRelation;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.structure.util.reference.ReferenceVertex;
 import org.apache.tinkerpop.gremlin.util.DatetimeHelper;
@@ -126,6 +129,50 @@ public final class GroovyTranslator implements Translator.ScriptTranslator {
 
         public DefaultTypeTranslator(final boolean withParameters) {
             super(withParameters);
+        }
+
+        @Override
+        protected Script convertToScript(final Object object) {
+            if (!withParameters) {
+                if (object instanceof Lifetime) {
+                    final Lifetime lt = (Lifetime) object;
+                    if (lt.isEmpty()) {
+                        return script.append("Lifetime.empty()");
+                    }
+                    if (lt.isUnbounded()) {
+                        return script.append("Lifetime.UNBOUNDED");
+                    }
+                    return script.append("Lifetime.fromTemporalIntervals(\"")
+                            .append(lt.toTemporalIntervalsString())
+                            .append("\")");
+                } else if (object instanceof Lifetime.Interval) {
+                    final Lifetime.Interval iv = (Lifetime.Interval) object;
+                    return script.append("new Lifetime.Interval(" + iv.getStartMillis() + "L," + iv.getEndMillis() + "L)");
+                } else if (object instanceof GeneralizedRelation) {
+                    return appendGeneralizedRelation((GeneralizedRelation) object);
+                } else if (object instanceof GeneralizedIntervalRelation) {
+                    final GeneralizedIntervalRelation gir = (GeneralizedIntervalRelation) object;
+                    if (gir.isEmpty()) {
+                        return script.append("GeneralizedIntervalRelation.empty(" + gir.getP() + "," + gir.getQ() + ")");
+                    }
+                    script.append("new GeneralizedIntervalRelation(");
+                    appendGeneralizedRelation(gir.getLower());
+                    script.append(",");
+                    appendGeneralizedRelation(gir.getUpper());
+                    return script.append(")");
+                }
+            }
+            return super.convertToScript(object);
+        }
+
+        private Script appendGeneralizedRelation(final GeneralizedRelation rel) {
+            final StringBuilder sb = new StringBuilder("new GeneralizedRelation(")
+                    .append(rel.getP()).append(",").append(rel.getQ());
+            for (int i = 1; i <= rel.getP(); i++) {
+                sb.append(",").append(rel.getZone(i));
+            }
+            sb.append(")");
+            return script.append(sb.toString());
         }
 
         @Override
@@ -388,6 +435,9 @@ public final class GroovyTranslator implements Translator.ScriptTranslator {
                 script.append(")");
                 if (tp.getQuantifier() == Temporal.Quantifier.ANY) {
                     script.append(".any()");
+                }
+                if (tp.isNegated()) {
+                    script.append(".negate()");
                 }
                 return script;
             } else if (p instanceof ConnectiveP) {

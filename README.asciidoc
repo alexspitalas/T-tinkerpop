@@ -75,9 +75,9 @@ List<Vertex> activeInWindow = g.V().window("2022-01-01", "2023-01-01").out("mana
 ----
 
 ==== 3. Allen's Interval Algebra, `TemporalP`, & Ligozat's Generalized Interval Calculus
-Provides all 13 of Allen's interval relations, `intersects`, gap-aware `disjoint`, convex lattice intervals (`TemporalP.between`), Vilain's point-interval relations, and Ligozat's $(p, q)$-relations (`TemporalP.generalized`) across single intervals, multi-interval lifetimes, and graph elements, with holistic (`ALL`, default) and existential (`ANY`) quantification.
+Provides all 13 of Allen's interval relations, `intersects`, gap-aware `disjoint`, convex lattice intervals (`TemporalP.between`), Vilain's point-interval relations, and Ligozat's `(p, q)`-relations (`TemporalP.generalized`) across single intervals, multi-interval lifetimes, and graph elements, with holistic (`ALL`, default) and existential (`ANY`) quantification.
 
-* **Steps & Predicates**: `temporalBefore` (`temporalPrecedes`), `temporalAfter` (`temporalSucceeds`), `temporalMeets`, `temporalMetBy`, `temporalOverlaps`, `temporalOverlappedBy`, `temporalDuring`, `temporalContains`, `temporalStarts`, `temporalStartedBy`, `temporalFinishes`, `temporalFinishedBy`, `temporalEquals`, `temporalIntersects`, `temporalDisjoint`, and `TemporalP.*`
+* **Steps & Predicates**: `temporalBefore` (predicate: `TemporalP.precedes`), `temporalAfter` (predicate: `TemporalP.succeeds`), `temporalMeets`, `temporalMetBy`, `temporalOverlaps`, `temporalOverlappedBy`, `temporalDuring`, `temporalContains`, `temporalStarts`, `temporalStartedBy`, `temporalFinishes`, `temporalFinishedBy`, `temporalEquals`, `temporalIntersects`, `temporalDisjoint`, and `TemporalP.*`
 * **Documentation**: xref:docs/src/reference/temporal-functionality.asciidoc#_allens_interval_algebra_ligozats_generalized_interval_calculus[docs/src/reference/temporal-functionality.asciidoc — Allen's Interval Algebra & Ligozat's Generalized Interval Calculus]
 
 [source,java]
@@ -123,10 +123,10 @@ List<Path> paths = g.withComputer().V(sourceVertex)
     .toList();
 ----
 
-==== 6. Temporal PageRank (`temporalPageRank`)
-Rank vertices over a chronological stream of multi-interval edges where walk mass propagates forward in time as edges occur.
+==== 6. Temporal PageRank (`temporalPageRank` for OLTP & OLAP)
+Rank vertices over a chronological stream of multi-interval edges where walk mass propagates forward in time as edges occur, locally in OLTP or distributed on `GraphComputer` (`g.withComputer()`) via `TemporalPageRankVertexProgram`.
 
-* **Step**: `temporalPageRank()` configured via `.with(TemporalPageRank.alpha, ...)`, `.with(TemporalPageRank.beta, ...)`, `.with(TemporalPageRank.propertyName, ...)`, `.with(TemporalPageRank.normalize, ...)`
+* **Step**: `temporalPageRank()` configured via `.with(TemporalPageRank.alpha, ...)`, `.with(TemporalPageRank.beta, ...)`, `.with(TemporalPageRank.propertyName, ...)`, `.with(TemporalPageRank.normalize, ...)`, `.with(TemporalPageRank.bucketMillis, ...)`
 * **Documentation**: xref:docs/src/reference/temporal-functionality.asciidoc#_temporal_pagerank[docs/src/reference/temporal-functionality.asciidoc — Temporal PageRank]
 
 [source,java]
@@ -136,11 +136,12 @@ List<Vertex> ranked = g.V().hasLabel("person")
     .with(TemporalPageRank.propertyName, "temporalRank")
     .with(TemporalPageRank.alpha, 0.85d)
     .with(TemporalPageRank.beta, 0.5d)
+    .with(TemporalPageRank.bucketMillis, 0L)
     .toList();
 ----
 
 ==== 7. Temporal Indexing & Optimization Strategies
-TinkerGraph provides `TemporalTinkerIndex` backed by an augmented AVL `IntervalTree` for $O(\log N + K)$ interval lookups, alongside automatic traversal optimization strategies (`TemporalGraphStepStrategy`, `TemporalIndexOptimizationStrategy`, `TemporalGraphViewStrategy`).
+TinkerGraph provides `TemporalTinkerIndex` (and transactional `TinkerTransactionalIndex`) backed by an augmented AVL `IntervalTree` for `O(log N + K)` interval lookups, alongside automatic traversal optimization strategies (`TemporalGraphStepStrategy`, `TemporalIndexOptimizationStrategy`, `TemporalGraphViewStrategy`).
 
 * **Usage**: `graph.createIndex("temporalIntervals", Vertex.class)` / `graph.createIndex("temporalIntervals", Edge.class)`
 * **Documentation**: xref:docs/src/reference/implementations-tinkergraph.asciidoc#temporal-tinkerindex[docs/src/reference/implementations-tinkergraph.asciidoc — Temporal Indexing and In-Memory Caching] and xref:docs/src/reference/temporal-functionality.asciidoc#_implementation_notes[docs/src/reference/temporal-functionality.asciidoc — Implementation Notes]
@@ -189,7 +190,3 @@ gremlin> g = traversal().withEmbedded(graph)
 gremlin> g.V().has('name','vadas').valueMap()
 ==>[name:[vadas], age:[27]]
 ----
-
-== Temporal Engine TODOs
-
-* **Distributed Temporal PageRank (OLAP):** The current `TemporalPageRankStep` implements the Rozenshtein-Gionis algorithm for in-memory (OLTP) execution via chronological edge-streaming. A future enhancement should introduce `TemporalPageRankVertexProgram` to support this logic in distributed `GraphComputer` environments. This will require passing `(mass, timestamp)` pairs during BSP message passing to properly simulate chronological mass propagation across the cluster.

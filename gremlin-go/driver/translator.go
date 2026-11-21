@@ -215,10 +215,88 @@ func (t *translator) translateTextPredicate(v *textP) (string, error) {
 	return instructionString, nil
 }
 
+func (t *translator) translateTemporalPredicate(tp *TemporalPredicate) (string, error) {
+	if tp == nil {
+		return "null", nil
+	}
+	valStr, err := t.toString(tp.Value)
+	if err != nil {
+		return "", err
+	}
+	res := fmt.Sprintf("TemporalP.%s(%s", tp.BiPredicate, valStr)
+	if tp.GeneralizedRelation != nil {
+		relStr, err := t.toString(tp.GeneralizedRelation)
+		if err != nil {
+			return "", err
+		}
+		res += "," + relStr
+	} else if tp.GeneralizedIntervalRelation != nil {
+		irelStr, err := t.toString(tp.GeneralizedIntervalRelation)
+		if err != nil {
+			return "", err
+		}
+		res += "," + irelStr
+	}
+	res += ")"
+	if tp.Quantifier == TemporalQuantifier.Any {
+		res += ".any()"
+	}
+	if tp.Negated {
+		res += ".negate()"
+	}
+	return res, nil
+}
+
+func (t *translator) translateLifetime(lt *Lifetime) string {
+	if lt == nil || lt.IsEmpty() {
+		return "Lifetime.empty()"
+	}
+	if lt.IsUnbounded() {
+		return "Lifetime.UNBOUNDED"
+	}
+	return fmt.Sprintf("Lifetime.fromTemporalIntervals('%s')", lt.ToTemporalIntervalsString())
+}
+
+func (t *translator) translateGeneralizedRelation(gr *GeneralizedRelation) string {
+	if gr == nil {
+		return "null"
+	}
+	parts := make([]string, 0, len(gr.Zones)+2)
+	parts = append(parts, fmt.Sprintf("%d", gr.P), fmt.Sprintf("%d", gr.Q))
+	for _, z := range gr.Zones {
+		parts = append(parts, fmt.Sprintf("%d", z))
+	}
+	return fmt.Sprintf("new GeneralizedRelation(%s)", strings.Join(parts, ","))
+}
+
+func (t *translator) translateGeneralizedIntervalRelation(gir *GeneralizedIntervalRelation) string {
+	if gir == nil {
+		return "null"
+	}
+	if gir.Empty {
+		return fmt.Sprintf("GeneralizedIntervalRelation.empty(%d,%d)", gir.P, gir.Q)
+	}
+	return fmt.Sprintf("new GeneralizedIntervalRelation(%s,%s)",
+		t.translateGeneralizedRelation(gir.Lower),
+		t.translateGeneralizedRelation(gir.Upper))
+}
+
 func (t *translator) translatePredicate(v *p) (string, error) {
 
 	if v.operator == "" || len(v.values) == 0 {
 		return "", nil
+	}
+
+	if (v.operator == "and" || v.operator == "or") && len(v.values) == 2 {
+		left, err := t.toString(v.values[0])
+		if err != nil {
+			return "", err
+		}
+		right, err := t.toString(v.values[1])
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s.%s(%s)", left, v.operator, right), nil
 	}
 
 	instructionString := ""
@@ -307,6 +385,39 @@ func (t *translator) toString(arg interface{}) (string, error) {
 		case p:
 		case *p:
 			return t.translatePredicate(v)
+		case TemporalPredicate:
+			return t.translateTemporalPredicate(&v)
+		case *TemporalPredicate:
+			return t.translateTemporalPredicate(v)
+		case Lifetime:
+			return t.translateLifetime(&v), nil
+		case *Lifetime:
+			return t.translateLifetime(v), nil
+		case Interval:
+			return fmt.Sprintf("new Lifetime.Interval(%dL,%dL)", v.StartMillis, v.EndMillis), nil
+		case *Interval:
+			if v == nil {
+				return "null", nil
+			}
+			return fmt.Sprintf("new Lifetime.Interval(%dL,%dL)", v.StartMillis, v.EndMillis), nil
+		case GeneralizedRelation:
+			return t.translateGeneralizedRelation(&v), nil
+		case *GeneralizedRelation:
+			return t.translateGeneralizedRelation(v), nil
+		case GeneralizedIntervalRelation:
+			return t.translateGeneralizedIntervalRelation(&v), nil
+		case *GeneralizedIntervalRelation:
+			return t.translateGeneralizedIntervalRelation(v), nil
+		case lifetimeMode:
+			return fmt.Sprintf("LifetimeMode.%s", string(v)), nil
+		case dropMode:
+			return fmt.Sprintf("DropMode.%s", string(v)), nil
+		case temporalPathTarget:
+			return fmt.Sprintf("TemporalPathTarget.%s", string(v)), nil
+		case temporal:
+			return fmt.Sprintf("Temporal.%s", string(v)), nil
+		case temporalQuantifier:
+			return fmt.Sprintf("Temporal.Quantifier.%s", string(v)), nil
 		default:
 			{
 				switch v := arg.(type) {

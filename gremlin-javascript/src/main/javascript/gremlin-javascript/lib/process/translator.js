@@ -18,7 +18,9 @@
  */
 'use strict';
 
-const Traversal = require('./traversal').Traversal;
+const traversalModule = require('./traversal');
+const { Traversal, P, Lifetime, Interval, GeneralizedRelation, GeneralizedIntervalRelation, TemporalP, EnumValue } =
+  traversalModule;
 const Bytecode = require('./bytecode');
 
 /**
@@ -84,6 +86,55 @@ class Translator {
     if (Object(anyObject) === anyObject) {
       if (anyObject instanceof Traversal) {
         script += this.translate(anyObject.getBytecode(), true);
+      } else if (anyObject instanceof TemporalP) {
+        let tpScript = `TemporalP.${anyObject.biPredicate.elementName}(${this.convert(anyObject.value)}`;
+        if (anyObject.generalizedRelation) {
+          tpScript += `, ${this.convert(anyObject.generalizedRelation)}`;
+        } else if (anyObject.generalizedIntervalRelation) {
+          tpScript += `, ${this.convert(anyObject.generalizedIntervalRelation)}`;
+        }
+        tpScript += ')';
+        if (anyObject.quantifier && anyObject.quantifier.elementName === 'ANY') {
+          tpScript += '.any()';
+        }
+        if (anyObject.negated) {
+          tpScript += '.negate()';
+        }
+        script += tpScript;
+      } else if (anyObject instanceof P) {
+        if (anyObject.operator === 'and' || anyObject.operator === 'or') {
+          script += `${this.convert(anyObject.value)}.${anyObject.operator}(${this.convert(anyObject.other)})`;
+        } else if (anyObject.other !== undefined && anyObject.other !== null) {
+          script += `${anyObject.operator}(${this.convert(anyObject.value)}, ${this.convert(anyObject.other)})`;
+        } else {
+          script += `${anyObject.operator}(${this.convert(anyObject.value)})`;
+        }
+      } else if (anyObject instanceof Lifetime) {
+        if (anyObject.isEmpty()) {
+          script += 'Lifetime.empty()';
+        } else if (anyObject.isUnbounded()) {
+          script += 'Lifetime.UNBOUNDED';
+        } else {
+          script += `Lifetime.fromTemporalIntervals('${anyObject.toTemporalIntervalsString()}')`;
+        }
+      } else if (anyObject instanceof Interval) {
+        script += `new Lifetime.Interval(${anyObject.startMillis}L, ${anyObject.endMillis}L)`;
+      } else if (anyObject instanceof GeneralizedRelation) {
+        script += `new GeneralizedRelation(${anyObject.p}, ${anyObject.q}, ${anyObject.zones.join(', ')})`;
+      } else if (anyObject instanceof GeneralizedIntervalRelation) {
+        script += anyObject.isEmpty()
+          ? `GeneralizedIntervalRelation.empty(${anyObject.p}, ${anyObject.q})`
+          : `new GeneralizedIntervalRelation(${this.convert(anyObject.lower)}, ${this.convert(anyObject.upper)})`;
+      } else if (
+        anyObject instanceof EnumValue &&
+        (anyObject.typeName === 'LifetimeMode' ||
+          anyObject.typeName === 'DropMode' ||
+          anyObject.typeName === 'TemporalPathTarget' ||
+          anyObject.typeName === 'Temporal' ||
+          anyObject.typeName === 'Quantifier')
+      ) {
+        const prefix = anyObject.typeName === 'Quantifier' ? 'Temporal.Quantifier' : anyObject.typeName;
+        script += `${prefix}.${anyObject.elementName}`;
       } else if (anyObject.toString() === '[object Object]') {
         Object.keys(anyObject).forEach(function (key, index) {
           if (index > 0) {
@@ -108,6 +159,8 @@ class Translator {
       }
     } else if (anyObject === undefined || anyObject === null) {
       script += 'null';
+    } else if (typeof anyObject === 'bigint') {
+      script += `${anyObject}L`;
     } else if (typeof anyObject === 'number' || typeof anyObject === 'boolean') {
       script += anyObject;
     } else {

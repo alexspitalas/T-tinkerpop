@@ -263,6 +263,18 @@ class EarlyLimitStrategy extends TraversalStrategy {
   }
 }
 
+class TemporalGraphViewStrategy extends TraversalStrategy {
+  constructor() {
+    super('org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphViewStrategy');
+  }
+}
+
+class TemporalGraphStepStrategy extends TraversalStrategy {
+  constructor() {
+    super('org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphStepStrategy');
+  }
+}
+
 class LambdaRestrictionStrategy extends TraversalStrategy {
   constructor() {
     super('org.apache.tinkerpop.gremlin.process.traversal.strategy.verification.LambdaRestrictionStrategy');
@@ -345,6 +357,8 @@ module.exports = {
   RepeatUnrollStrategy: RepeatUnrollStrategy,
   GraphFilterStrategy: GraphFilterStrategy,
   EarlyLimitStrategy: EarlyLimitStrategy,
+  TemporalGraphViewStrategy: TemporalGraphViewStrategy,
+  TemporalGraphStepStrategy: TemporalGraphStepStrategy,
   // verification
   EdgeLabelVerificationStrategy: EdgeLabelVerificationStrategy,
   LambdaRestrictionStrategy: LambdaRestrictionStrategy,

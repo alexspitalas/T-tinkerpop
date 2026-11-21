@@ -161,6 +161,7 @@ public final class TinkerTransactionGraph extends AbstractTinkerGraph {
         final TinkerVertex vertex = new TinkerVertex(idValue, label, this, txNumber);
         ElementHelper.attachProperties(vertex, VertexProperty.Cardinality.list, keyValues);
         container.setDraft(vertex, (TinkerTransaction) tx());
+        TinkerIndexHelper.autoUpdateLifetimeIndex(vertex);
 
         return vertex;
     }
@@ -228,6 +229,7 @@ public final class TinkerTransactionGraph extends AbstractTinkerGraph {
         final TinkerEdge edge = new TinkerEdge(idValue, outVertex, label, inVertex, txNumber);
         ElementHelper.attachProperties(edge, keyValues);
         container.setDraft(edge, (TinkerTransaction) tx());
+        TinkerIndexHelper.autoUpdateLifetimeIndex(edge);
 
         addOutEdge(outVertex, label, edge);
         addInEdge(inVertex, label, edge);

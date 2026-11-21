@@ -152,7 +152,17 @@ namespace Gremlin.Net.Process.Traversal.Translator
                 DateTimeOffset dto => TranslateDateTimeOffset(dto),
                 DateTime dt => TranslateDateTimeOffset(dt),
                 Guid guid => $"UUID.fromString('{guid}')",
+                TemporalP tp => TranslateTemporalP(tp),
                 P p => TranslateP(p),
+                Lifetime lt => TranslateLifetime(lt),
+                Interval iv => TranslateInterval(iv),
+                GeneralizedRelation gr => TranslateGeneralizedRelation(gr),
+                GeneralizedIntervalRelation gir => TranslateGeneralizedIntervalRelation(gir),
+                LifetimeMode lm => $"LifetimeMode.{lm.EnumValue}",
+                DropMode dm => $"DropMode.{dm.EnumValue}",
+                TemporalPathTarget tpt => $"TemporalPathTarget.{tpt.EnumValue}",
+                Temporal t => $"Temporal.{t.EnumValue}",
+                TemporalQuantifier tq => $"Temporal.Quantifier.{tq.EnumValue}",
                 IDictionary dict => TranslateDictionary(dict),
                 IEnumerable e => TranslateCollection(e),
                 ITraversal t => TranslateTraversal(t),
@@ -170,6 +180,67 @@ namespace Gremlin.Net.Process.Traversal.Translator
             var minute = dto.Minute;
             var second = dto.Second;
             return $"new Date({year}, {month}, {dayOfMonth}, {hour}, {minute}, {second})";
+        }
+
+        private string TranslateTemporalP(TemporalP tp)
+        {
+            var sb = new StringBuilder();
+            sb.Append("TemporalP.").Append(tp.BiPredicate.EnumValue).Append('(');
+            object? value = tp.Value;
+            sb.Append(TranslateArgument(value));
+            if (tp.GeneralizedRelation != null)
+            {
+                sb.Append(',').Append(TranslateGeneralizedRelation(tp.GeneralizedRelation));
+            }
+            else if (tp.GeneralizedIntervalRelation != null)
+            {
+                sb.Append(',').Append(TranslateGeneralizedIntervalRelation(tp.GeneralizedIntervalRelation));
+            }
+            sb.Append(')');
+            if (tp.Quantifier.Equals(TemporalQuantifier.Any))
+            {
+                sb.Append(".any()");
+            }
+            if (tp.IsNegated)
+            {
+                sb.Append(".negate()");
+            }
+            return sb.ToString();
+        }
+
+        private static string TranslateLifetime(Lifetime lt)
+        {
+            if (lt.IsEmpty)
+                return "Lifetime.empty()";
+            if (lt.IsUnbounded)
+                return "Lifetime.UNBOUNDED";
+            return $"Lifetime.fromTemporalIntervals('{lt.ToTemporalIntervalsString()}')";
+        }
+
+        private static string TranslateInterval(Interval iv) =>
+            $"new Lifetime.Interval({iv.StartMillis.ToString(CultureInfo.InvariantCulture)}L,{iv.EndMillis.ToString(CultureInfo.InvariantCulture)}L)";
+
+        private static string TranslateGeneralizedRelation(GeneralizedRelation gr)
+        {
+            var sb = new StringBuilder("new GeneralizedRelation(")
+                .Append(gr.P.ToString(CultureInfo.InvariantCulture))
+                .Append(',')
+                .Append(gr.Q.ToString(CultureInfo.InvariantCulture));
+            for (var i = 0; i < gr.Zones.Count; i++)
+            {
+                sb.Append(',').Append(gr.Zones[i].ToString(CultureInfo.InvariantCulture));
+            }
+            sb.Append(')');
+            return sb.ToString();
+        }
+
+        private static string TranslateGeneralizedIntervalRelation(GeneralizedIntervalRelation gir)
+        {
+            if (gir.IsEmpty || gir.Lower == null || gir.Upper == null)
+            {
+                return $"GeneralizedIntervalRelation.empty({gir.P.ToString(CultureInfo.InvariantCulture)},{gir.Q.ToString(CultureInfo.InvariantCulture)})";
+            }
+            return $"new GeneralizedIntervalRelation({TranslateGeneralizedRelation(gir.Lower)},{TranslateGeneralizedRelation(gir.Upper)})";
         }
         
         private string TranslateP(P p)

@@ -19,12 +19,16 @@
 package org.apache.tinkerpop.gremlin.tinkergraph.process.traversal;
 
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalShortestPathVertexProgram;
+import org.apache.tinkerpop.gremlin.process.traversal.Path;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
@@ -194,5 +198,201 @@ public class TemporalBfsIntegrationTest {
         assertEquals("Junior", g.V(alice).atTime("2021-01-01").values("title").next());
         assertEquals("Senior", g.V(alice).atTime("2023-01-01").values("title").next());
         assertEquals(2, g.V(alice).window("2020-01-01", "2024-01-01").values("title").toList().size());
+
+        // Non-String property values via Object overload
+        g.V(alice).lifetimeProperty("level", 1, "2020-01-01", "2022-01-01")
+                .lifetimeProperty("level", 2, "2022-01-01", "2024-01-01").iterate();
+        assertEquals(Integer.valueOf(1), g.V(alice).atTime("2021-01-01").values("level").next());
+        assertEquals(Integer.valueOf(2), g.V(alice).atTime("2023-01-01").values("level").next());
+    }
+
+    @Test
+    public void shouldConfigureTemporalShortestPathViaWithModulator() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        g.addE("flight").from(a).to(b).lifetime(1000L, 2000L).next();
+        g.addE("flight").from(b).to(c).lifetime(2500L, 3000L).next();
+
+        // Configure TARGET_VERTEX_FILTER, TARGET, INITIAL_TIME, edges, and includeEdges via .with(...)
+        List<Path> paths = g.withComputer().V(a)
+                .temporalShortestPath()
+                .with(TemporalShortestPathVertexProgram.TARGET, "EARLIEST_ARRIVAL")
+                .with(TemporalShortestPathVertexProgram.INITIAL_TIME, 1000L)
+                .with(TemporalShortestPathVertexProgram.TARGET_VERTEX_FILTER, __.has("name", "C"))
+                .with("edges", Direction.OUT)
+                .with("includeEdges", true)
+                .toList();
+
+        assertEquals(1, paths.size());
+        // With includeEdges=true, path A -> e1 -> B -> e2 -> C has 5 elements
+        assertEquals(5, paths.get(0).size());
+
+        // Initial time after A->B starts (1500 > 1000) should find no path to C
+        List<Path> emptyPaths = g.withComputer().V(a)
+                .temporalShortestPath()
+                .with(TemporalShortestPathVertexProgram.TARGET, TemporalPathTarget.EARLIEST_ARRIVAL)
+                .with(TemporalShortestPathVertexProgram.INITIAL_TIME, 1500L)
+                .with("target", __.has("name", "C"))
+                .toList();
+        assertEquals(0, emptyPaths.size());
+    }
+
+    @Test
+    public void shouldDefaultTwoArgTbfsToInDirectionForBackwardTargets() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        g.addE("flight").from(a).to(b).lifetime(1000L, 2000L).next();
+        g.addE("flight").from(b).to(c).lifetime(2500L, 3000L).next();
+
+        Map<Vertex, Long> result = g.V(c).tbfs(TemporalPathTarget.LATEST_DEPARTURE, 3200L).next();
+        assertEquals(Long.valueOf(2500L), result.get(b));
+        assertEquals(Long.valueOf(1000L), result.get(a));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldRejectNullTargetInTbfs() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+        Vertex a = g.addV("airport").next();
+        g.V(a).tbfs(null, 1000L).toList();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldRejectNullDirectionInTbfs() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+        Vertex a = g.addV("airport").next();
+        g.V(a).tbfs(1000L, TemporalPathTarget.EARLIEST_ARRIVAL, null).toList();
+    }
+
+    @Test
+    public void shouldDeduplicateParallelEqualTimePathsInOlapTemporalShortestPath() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        // Two parallel identical-interval edges A->B
+        g.addE("flight").from(a).to(b).lifetime(1000L, 2000L).next();
+        g.addE("flight").from(a).to(b).lifetime(1000L, 2000L).next();
+        g.addE("flight").from(b).to(c).lifetime(2500L, 3000L).next();
+
+        List<Path> paths = g.withComputer().V(a)
+                .temporalShortestPath(TemporalPathTarget.EARLIEST_ARRIVAL, 1000L)
+                .with("target", __.has("name", "C"))
+                .with("edges", Direction.OUT)
+                .toList();
+        assertEquals(1, paths.size());
+        assertEquals(3, paths.get(0).size());
+    }
+
+    @Test
+    public void shouldSupportShortestPathOptionConstantsDateOverloadsAndAnonymousFactories() {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        g.addE("flight").from(a).to(b).lifetime(1000L, 2000L).next();
+        g.addE("flight").from(b).to(c).lifetime(2500L, 3000L).next();
+
+        // ShortestPath.* keys (maxDistance=1 filters out 2-hop path to C)
+        List<Path> maxDistOne = g.withComputer().V(a)
+                .temporalShortestPath(TemporalPathTarget.EARLIEST_ARRIVAL, new java.util.Date(1000L))
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.target, __.has("name", "C"))
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.edges, Direction.OUT)
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.maxDistance, 1)
+                .toList();
+        assertEquals(0, maxDistOne.size());
+
+        // ShortestPath.maxDistance=2 allows 2-hop path A -> B -> C with Date INITIAL_TIME
+        List<Path> maxDistTwo = g.withComputer().V(a)
+                .temporalShortestPath()
+                .with(TemporalShortestPathVertexProgram.INITIAL_TIME, new java.util.Date(1000L))
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.target, __.has("name", "C"))
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.edges, Direction.OUT)
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.maxDistance, 2)
+                .with(org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ShortestPath.includeEdges, true)
+                .toList();
+        assertEquals(1, maxDistTwo.size());
+        assertEquals(5, maxDistTwo.get(0).size());
+
+        // 2-arg Date overload and anonymous __.tbfs(...)
+        Map<Vertex, Long> dateResult = g.V(c).tbfs(TemporalPathTarget.LATEST_ARRIVAL, new java.util.Date(3200L)).next();
+        assertEquals(Long.valueOf(3000L), dateResult.get(b));
+        assertEquals(Long.valueOf(2000L), dateResult.get(a));
+
+        Map<Vertex, Long> anonResult = g.V(a).local(__.tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, 1000L)).next();
+        assertEquals(Long.valueOf(3000L), anonResult.get(c));
+
+        // Null Date rejection on tbfs and temporalShortestPath
+        try {
+            g.V(a).tbfs(TemporalPathTarget.EARLIEST_ARRIVAL, (java.util.Date) null).toList();
+            org.junit.Assert.fail("Expected IllegalArgumentException for null Date in tbfs");
+        } catch (final IllegalArgumentException expected) {
+            // expected
+        }
+        try {
+            g.V(a).temporalShortestPath(TemporalPathTarget.EARLIEST_ARRIVAL, (java.util.Date) null).toList();
+            org.junit.Assert.fail("Expected IllegalArgumentException for null Date in temporalShortestPath");
+        } catch (final IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    @Test
+    public void shouldSupportWindowedOlapTemporalShortestPathWithDetachedMessages() throws Exception {
+        TinkerGraph graph = TinkerGraph.open();
+        GraphTraversalSource g = graph.traversal();
+
+        Vertex a = g.addV("airport").property("name", "A").next();
+        Vertex b = g.addV("airport").property("name", "B").next();
+        Vertex c = g.addV("airport").property("name", "C").next();
+
+        // Edge A->B active in [1000, 2000) and [5000, 6000); edge B->C active in [2500, 3000)
+        g.addE("flight").from(a).to(b).lifetime(1000L, 2000L).addInterval(5000L, 6000L).next();
+        g.addE("flight").from(b).to(c).lifetime(2500L, 3000L).next();
+
+        // Windowed EARLIEST_DEPARTURE with includeEdges=true must succeed and emit ReferenceEdge/ReferenceVertex in Path
+        List<Path> paths = g.withComputer().V(a)
+                .window(500L, 4000L)
+                .temporalShortestPath(TemporalPathTarget.EARLIEST_DEPARTURE, 1000L)
+                .with("target", __.has("name", "C"))
+                .with("edges", Direction.OUT)
+                .with("includeEdges", true)
+                .toList();
+        assertEquals(1, paths.size());
+        assertEquals(5, paths.get(0).size());
+
+        // Verify the message payload structure Triplet<Path, Edge, Pair<Long, Long>> round-trips through Gryo V3
+        final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper mapper =
+                org.apache.tinkerpop.gremlin.structure.io.gryo.GryoMapper.build()
+                        .version(org.apache.tinkerpop.gremlin.structure.io.gryo.GryoVersion.V3_0).create();
+        final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter writer =
+                org.apache.tinkerpop.gremlin.structure.io.gryo.GryoWriter.build().mapper(mapper).create();
+        final org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader reader =
+                org.apache.tinkerpop.gremlin.structure.io.gryo.GryoReader.build().mapper(mapper).create();
+        final org.javatuples.Triplet<Path, org.apache.tinkerpop.gremlin.structure.Edge, org.javatuples.Pair<Long, Long>> msg =
+                org.javatuples.Triplet.with(paths.get(0),
+                        (org.apache.tinkerpop.gremlin.structure.Edge) paths.get(0).get(1),
+                        org.javatuples.Pair.with(1000L, 2000L));
+        final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        writer.writeObject(out, msg);
+        final Object deserialized = reader.readObject(new java.io.ByteArrayInputStream(out.toByteArray()), Object.class);
+        assertEquals(msg, deserialized);
     }
 }

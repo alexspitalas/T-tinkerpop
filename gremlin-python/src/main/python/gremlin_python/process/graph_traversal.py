@@ -1022,6 +1022,181 @@ class GraphTraversal(Traversal):
         self.bytecode.add_step("write", *args)
         return self
 
+    # Temporal steps (T-TinkerPop)
+    def lifetime(self, *args):
+        self.bytecode.add_step("lifetime", *args)
+        return self
+
+    def add_interval(self, *args):
+        self.bytecode.add_step("addInterval", *args)
+        return self
+
+    addInterval = add_interval
+
+    def drop_interval(self, *args):
+        self.bytecode.add_step("dropInterval", *args)
+        return self
+
+    dropInterval = drop_interval
+
+    def lifetime_property(self, *args):
+        self.bytecode.add_step("lifetimeProperty", *args)
+        return self
+
+    lifetimeProperty = lifetime_property
+
+    def get_start_time(self, *args):
+        self.bytecode.add_step("getStartTime", *args)
+        return self
+
+    getStartTime = get_start_time
+
+    def get_end_time(self, *args):
+        self.bytecode.add_step("getEndTime", *args)
+        return self
+
+    getEndTime = get_end_time
+
+    def get_lifetime(self, *args):
+        self.bytecode.add_step("getLifetime", *args)
+        return self
+
+    getLifetime = get_lifetime
+
+    def at_time(self, *args):
+        self.bytecode.add_step("atTime", *args)
+        return self
+
+    atTime = at_time
+
+    def window(self, *args):
+        self.bytecode.add_step("window", *args)
+        return self
+
+    def temporal_after(self, *args):
+        self.bytecode.add_step("temporalAfter", *args)
+        return self
+
+    temporalAfter = temporal_after
+
+    def temporal_before(self, *args):
+        self.bytecode.add_step("temporalBefore", *args)
+        return self
+
+    temporalBefore = temporal_before
+
+    def temporal_contains(self, *args):
+        self.bytecode.add_step("temporalContains", *args)
+        return self
+
+    temporalContains = temporal_contains
+
+    def temporal_during(self, *args):
+        self.bytecode.add_step("temporalDuring", *args)
+        return self
+
+    temporalDuring = temporal_during
+
+    def temporal_equals(self, *args):
+        self.bytecode.add_step("temporalEquals", *args)
+        return self
+
+    temporalEquals = temporal_equals
+
+    def temporal_finishes(self, *args):
+        self.bytecode.add_step("temporalFinishes", *args)
+        return self
+
+    temporalFinishes = temporal_finishes
+
+    def temporal_finished_by(self, *args):
+        self.bytecode.add_step("temporalFinishedBy", *args)
+        return self
+
+    temporalFinishedBy = temporal_finished_by
+
+    def temporal_meets(self, *args):
+        self.bytecode.add_step("temporalMeets", *args)
+        return self
+
+    temporalMeets = temporal_meets
+
+    def temporal_met_by(self, *args):
+        self.bytecode.add_step("temporalMetBy", *args)
+        return self
+
+    temporalMetBy = temporal_met_by
+
+    def temporal_overlaps(self, *args):
+        self.bytecode.add_step("temporalOverlaps", *args)
+        return self
+
+    temporalOverlaps = temporal_overlaps
+
+    def temporal_overlapped_by(self, *args):
+        self.bytecode.add_step("temporalOverlappedBy", *args)
+        return self
+
+    temporalOverlappedBy = temporal_overlapped_by
+
+    def temporal_starts(self, *args):
+        self.bytecode.add_step("temporalStarts", *args)
+        return self
+
+    temporalStarts = temporal_starts
+
+    def temporal_started_by(self, *args):
+        self.bytecode.add_step("temporalStartedBy", *args)
+        return self
+
+    temporalStartedBy = temporal_started_by
+
+    def temporal_intersects(self, *args):
+        self.bytecode.add_step("temporalIntersects", *args)
+        return self
+
+    temporalIntersects = temporal_intersects
+
+    def temporal_disjoint(self, *args):
+        self.bytecode.add_step("temporalDisjoint", *args)
+        return self
+
+    temporalDisjoint = temporal_disjoint
+
+    def continuous_path(self, *args):
+        self.bytecode.add_step("continuousPath", *args)
+        return self
+
+    continuousPath = continuous_path
+
+    def sequential_path(self, *args):
+        self.bytecode.add_step("sequentialPath", *args)
+        return self
+
+    sequentialPath = sequential_path
+
+    def pairwise_continuous_path(self, *args):
+        self.bytecode.add_step("pairwiseContinuousPath", *args)
+        return self
+
+    pairwiseContinuousPath = pairwise_continuous_path
+
+    def temporal_page_rank(self, *args):
+        self.bytecode.add_step("temporalPageRank", *args)
+        return self
+
+    temporalPageRank = temporal_page_rank
+
+    def tbfs(self, *args):
+        self.bytecode.add_step("tbfs", *args)
+        return self
+
+    def temporal_shortest_path(self, *args):
+        self.bytecode.add_step("temporalShortestPath", *args)
+        return self
+
+    temporalShortestPath = temporal_shortest_path
+
 
 class MagicType(type):
 
@@ -1742,6 +1917,181 @@ class __(object, metaclass=MagicType):
     @classmethod
     def where(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).where(*args)
+
+    # Temporal anonymous steps (T-TinkerPop)
+    @classmethod
+    def lifetime(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).lifetime(*args)
+
+    @classmethod
+    def add_interval(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).add_interval(*args)
+
+    addInterval = add_interval
+
+    @classmethod
+    def drop_interval(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).drop_interval(*args)
+
+    dropInterval = drop_interval
+
+    @classmethod
+    def lifetime_property(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).lifetime_property(*args)
+
+    lifetimeProperty = lifetime_property
+
+    @classmethod
+    def get_start_time(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).get_start_time(*args)
+
+    getStartTime = get_start_time
+
+    @classmethod
+    def get_end_time(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).get_end_time(*args)
+
+    getEndTime = get_end_time
+
+    @classmethod
+    def get_lifetime(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).get_lifetime(*args)
+
+    getLifetime = get_lifetime
+
+    @classmethod
+    def at_time(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).at_time(*args)
+
+    atTime = at_time
+
+    @classmethod
+    def window(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).window(*args)
+
+    @classmethod
+    def temporal_after(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_after(*args)
+
+    temporalAfter = temporal_after
+
+    @classmethod
+    def temporal_before(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_before(*args)
+
+    temporalBefore = temporal_before
+
+    @classmethod
+    def temporal_contains(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_contains(*args)
+
+    temporalContains = temporal_contains
+
+    @classmethod
+    def temporal_during(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_during(*args)
+
+    temporalDuring = temporal_during
+
+    @classmethod
+    def temporal_equals(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_equals(*args)
+
+    temporalEquals = temporal_equals
+
+    @classmethod
+    def temporal_finishes(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_finishes(*args)
+
+    temporalFinishes = temporal_finishes
+
+    @classmethod
+    def temporal_finished_by(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_finished_by(*args)
+
+    temporalFinishedBy = temporal_finished_by
+
+    @classmethod
+    def temporal_meets(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_meets(*args)
+
+    temporalMeets = temporal_meets
+
+    @classmethod
+    def temporal_met_by(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_met_by(*args)
+
+    temporalMetBy = temporal_met_by
+
+    @classmethod
+    def temporal_overlaps(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_overlaps(*args)
+
+    temporalOverlaps = temporal_overlaps
+
+    @classmethod
+    def temporal_overlapped_by(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_overlapped_by(*args)
+
+    temporalOverlappedBy = temporal_overlapped_by
+
+    @classmethod
+    def temporal_starts(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_starts(*args)
+
+    temporalStarts = temporal_starts
+
+    @classmethod
+    def temporal_started_by(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_started_by(*args)
+
+    temporalStartedBy = temporal_started_by
+
+    @classmethod
+    def temporal_intersects(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_intersects(*args)
+
+    temporalIntersects = temporal_intersects
+
+    @classmethod
+    def temporal_disjoint(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_disjoint(*args)
+
+    temporalDisjoint = temporal_disjoint
+
+    @classmethod
+    def continuous_path(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).continuous_path(*args)
+
+    continuousPath = continuous_path
+
+    @classmethod
+    def sequential_path(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).sequential_path(*args)
+
+    sequentialPath = sequential_path
+
+    @classmethod
+    def pairwise_continuous_path(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).pairwise_continuous_path(*args)
+
+    pairwiseContinuousPath = pairwise_continuous_path
+
+    @classmethod
+    def temporal_page_rank(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_page_rank(*args)
+
+    temporalPageRank = temporal_page_rank
+
+    @classmethod
+    def tbfs(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).tbfs(*args)
+
+    @classmethod
+    def temporal_shortest_path(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).temporal_shortest_path(*args)
+
+    temporalShortestPath = temporal_shortest_path
 
 
 # Class to handle transactions.
@@ -2648,3 +2998,240 @@ statics.add_static('value_map', value_map)
 statics.add_static('values', values)
 
 statics.add_static('where', where)
+
+
+# Temporal static helpers (T-TinkerPop)
+def lifetime(*args):
+    return __.lifetime(*args)
+
+
+def add_interval(*args):
+    return __.add_interval(*args)
+
+
+addInterval = add_interval
+
+
+def drop_interval(*args):
+    return __.drop_interval(*args)
+
+
+dropInterval = drop_interval
+
+
+def lifetime_property(*args):
+    return __.lifetime_property(*args)
+
+
+lifetimeProperty = lifetime_property
+
+
+def get_start_time(*args):
+    return __.get_start_time(*args)
+
+
+getStartTime = get_start_time
+
+
+def get_end_time(*args):
+    return __.get_end_time(*args)
+
+
+getEndTime = get_end_time
+
+
+def get_lifetime(*args):
+    return __.get_lifetime(*args)
+
+
+getLifetime = get_lifetime
+
+
+def at_time(*args):
+    return __.at_time(*args)
+
+
+atTime = at_time
+
+
+def window(*args):
+    return __.window(*args)
+
+
+def temporal_after(*args):
+    return __.temporal_after(*args)
+
+
+temporalAfter = temporal_after
+
+
+def temporal_before(*args):
+    return __.temporal_before(*args)
+
+
+temporalBefore = temporal_before
+
+
+def temporal_contains(*args):
+    return __.temporal_contains(*args)
+
+
+temporalContains = temporal_contains
+
+
+def temporal_during(*args):
+    return __.temporal_during(*args)
+
+
+temporalDuring = temporal_during
+
+
+def temporal_equals(*args):
+    return __.temporal_equals(*args)
+
+
+temporalEquals = temporal_equals
+
+
+def temporal_finishes(*args):
+    return __.temporal_finishes(*args)
+
+
+temporalFinishes = temporal_finishes
+
+
+def temporal_finished_by(*args):
+    return __.temporal_finished_by(*args)
+
+
+temporalFinishedBy = temporal_finished_by
+
+
+def temporal_meets(*args):
+    return __.temporal_meets(*args)
+
+
+temporalMeets = temporal_meets
+
+
+def temporal_met_by(*args):
+    return __.temporal_met_by(*args)
+
+
+temporalMetBy = temporal_met_by
+
+
+def temporal_overlaps(*args):
+    return __.temporal_overlaps(*args)
+
+
+temporalOverlaps = temporal_overlaps
+
+
+def temporal_overlapped_by(*args):
+    return __.temporal_overlapped_by(*args)
+
+
+temporalOverlappedBy = temporal_overlapped_by
+
+
+def temporal_starts(*args):
+    return __.temporal_starts(*args)
+
+
+temporalStarts = temporal_starts
+
+
+def temporal_started_by(*args):
+    return __.temporal_started_by(*args)
+
+
+temporalStartedBy = temporal_started_by
+
+
+def temporal_intersects(*args):
+    return __.temporal_intersects(*args)
+
+
+temporalIntersects = temporal_intersects
+
+
+def temporal_disjoint(*args):
+    return __.temporal_disjoint(*args)
+
+
+temporalDisjoint = temporal_disjoint
+
+
+def continuous_path(*args):
+    return __.continuous_path(*args)
+
+
+continuousPath = continuous_path
+
+
+def sequential_path(*args):
+    return __.sequential_path(*args)
+
+
+sequentialPath = sequential_path
+
+
+def pairwise_continuous_path(*args):
+    return __.pairwise_continuous_path(*args)
+
+
+pairwiseContinuousPath = pairwise_continuous_path
+
+
+def temporal_page_rank(*args):
+    return __.temporal_page_rank(*args)
+
+
+temporalPageRank = temporal_page_rank
+
+
+def tbfs(*args):
+    return __.tbfs(*args)
+
+
+def temporal_shortest_path(*args):
+    return __.temporal_shortest_path(*args)
+
+
+temporalShortestPath = temporal_shortest_path
+
+
+for _tname, _tfunc in [
+    ('lifetime', lifetime),
+    ('add_interval', add_interval), ('addInterval', addInterval),
+    ('drop_interval', drop_interval), ('dropInterval', dropInterval),
+    ('lifetime_property', lifetime_property), ('lifetimeProperty', lifetimeProperty),
+    ('get_start_time', get_start_time), ('getStartTime', getStartTime),
+    ('get_end_time', get_end_time), ('getEndTime', getEndTime),
+    ('get_lifetime', get_lifetime), ('getLifetime', getLifetime),
+    ('at_time', at_time), ('atTime', atTime),
+    ('window', window),
+    ('temporal_after', temporal_after), ('temporalAfter', temporalAfter),
+    ('temporal_before', temporal_before), ('temporalBefore', temporalBefore),
+    ('temporal_contains', temporal_contains), ('temporalContains', temporalContains),
+    ('temporal_during', temporal_during), ('temporalDuring', temporalDuring),
+    ('temporal_equals', temporal_equals), ('temporalEquals', temporalEquals),
+    ('temporal_finishes', temporal_finishes), ('temporalFinishes', temporalFinishes),
+    ('temporal_finished_by', temporal_finished_by), ('temporalFinishedBy', temporalFinishedBy),
+    ('temporal_meets', temporal_meets), ('temporalMeets', temporalMeets),
+    ('temporal_met_by', temporal_met_by), ('temporalMetBy', temporalMetBy),
+    ('temporal_overlaps', temporal_overlaps), ('temporalOverlaps', temporalOverlaps),
+    ('temporal_overlapped_by', temporal_overlapped_by), ('temporalOverlappedBy', temporalOverlappedBy),
+    ('temporal_starts', temporal_starts), ('temporalStarts', temporalStarts),
+    ('temporal_started_by', temporal_started_by), ('temporalStartedBy', temporalStartedBy),
+    ('temporal_intersects', temporal_intersects), ('temporalIntersects', temporalIntersects),
+    ('temporal_disjoint', temporal_disjoint), ('temporalDisjoint', temporalDisjoint),
+    ('continuous_path', continuous_path), ('continuousPath', continuousPath),
+    ('sequential_path', sequential_path), ('sequentialPath', sequentialPath),
+    ('pairwise_continuous_path', pairwise_continuous_path), ('pairwiseContinuousPath', pairwiseContinuousPath),
+    ('temporal_page_rank', temporal_page_rank), ('temporalPageRank', temporalPageRank),
+    ('tbfs', tbfs),
+    ('temporal_shortest_path', temporal_shortest_path), ('temporalShortestPath', temporalShortestPath),
+]:
+    statics.add_static(_tname, _tfunc)

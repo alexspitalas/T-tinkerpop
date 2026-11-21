@@ -80,9 +80,19 @@ const (
 	textPType             dataType = 0x28
 	traversalStrategyType dataType = 0x29
 	bulkSetType           dataType = 0x2a
-	mergeType             dataType = 0x2e
-	dtType                dataType = 0x2f
-	metricsType           dataType = 0x2c
+	mergeType                       dataType = 0x2e
+	dtType                          dataType = 0x2f
+	temporalPType                   dataType = 0x30
+	lifetimeType                    dataType = 0x31
+	lifetimeModeType                dataType = 0x32
+	dropModeType                    dataType = 0x33
+	temporalPathTargetType          dataType = 0x34
+	temporalType                    dataType = 0x35
+	temporalQuantifierType          dataType = 0x36
+	intervalType                    dataType = 0x37
+	generalizedRelationType         dataType = 0x38
+	generalizedIntervalRelationType dataType = 0x39
+	metricsType                     dataType = 0x2c
 	traversalMetricsType  dataType = 0x2d
 	durationType          dataType = 0x81
 	nullType              dataType = 0xFE
@@ -714,6 +724,26 @@ func (serializer *graphBinaryTypeSerializer) getType(val interface{}) (dataType,
 		return mergeType, nil
 	case dt:
 		return dtType, nil
+	case lifetimeMode:
+		return lifetimeModeType, nil
+	case dropMode:
+		return dropModeType, nil
+	case temporalPathTarget:
+		return temporalPathTargetType, nil
+	case temporal:
+		return temporalType, nil
+	case temporalQuantifier:
+		return temporalQuantifierType, nil
+	case *TemporalPredicate, TemporalPredicate:
+		return temporalPType, nil
+	case *Lifetime, Lifetime:
+		return lifetimeType, nil
+	case *Interval, Interval:
+		return intervalType, nil
+	case *GeneralizedRelation, GeneralizedRelation:
+		return generalizedRelationType, nil
+	case *GeneralizedIntervalRelation, GeneralizedIntervalRelation:
+		return generalizedIntervalRelationType, nil
 	case p, Predicate:
 		return pType, nil
 	case textP, TextPredicate:

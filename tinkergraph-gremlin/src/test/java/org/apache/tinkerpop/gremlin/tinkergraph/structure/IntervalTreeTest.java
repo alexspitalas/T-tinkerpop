@@ -141,4 +141,25 @@ public class IntervalTreeTest {
         assertTrue(startAt300.contains("P1"));
         assertTrue(startAt300.contains("E5"));
     }
+
+    @Test
+    public void shouldFindPointNodeAtWindowStartBoundary() {
+        IntervalTree<String> tree = new IntervalTree<>();
+        tree.put(100, 100, "P100");
+        tree.put(50, 90, "E_BEFORE");
+
+        // Point [100, 100] overlaps half-open window [100, 200) even when node.maxEnd == 100 == queryStart
+        Set<String> res = tree.searchOverlaps(100, 200);
+        assertEquals(1, res.size());
+        assertTrue(res.contains("P100"));
+
+        // Point [100, 100] does NOT overlap [101, 200)
+        assertTrue(tree.searchOverlaps(101, 200).isEmpty());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldRejectInvertedIntervalBoundsOnPut() {
+        final IntervalTree<String> tree = new IntervalTree<>();
+        tree.put(200L, 100L, "bad");
+    }
 }
