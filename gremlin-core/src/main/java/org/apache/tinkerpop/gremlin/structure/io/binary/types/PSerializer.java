@@ -70,7 +70,7 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
             return (T) ((P) args[0]).and((P) args[1]);
         else if ("or".equals(predicateName))
             return (T) ((P) args[0]).or((P) args[1]);
-        else if ("not".equals(predicateName))
+        else if ("not".equals(predicateName) && length == 1 && args[0] instanceof P)
             return (T) P.not((P) args[0]);
 
         final CheckedFunction<Object[], T> f = getMethod(predicateName, argumentClasses);
@@ -100,7 +100,13 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
                     collectionType = true;
                 } catch (NoSuchMethodException ex1) {
                     // finally go for the generics
-                    if (argumentClasses.length == 2) {
+                    if (argumentClasses.length == 3) {
+                        try {
+                            m = classOfP.getMethod(predicateName, argumentClasses[0], argumentClasses[1], Object.class);
+                        } catch (NoSuchMethodException ex2) {
+                            throw new IOException(String.format("Can't find predicate method: '%s'", predicateName), ex2);
+                        }
+                    } else if (argumentClasses.length == 2) {
                         try {
                             m = classOfP.getMethod(predicateName, Object.class, Object.class);
                         } catch (NoSuchMethodException ex2) {
@@ -174,10 +180,16 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
     protected void writeValue(final T value, final Buffer buffer, final GraphBinaryWriter context) throws IOException {
         if (value instanceof TemporalP) {
             final TemporalP tp = (TemporalP) value;
+            final boolean isAny = tp.getQuantifier() == Temporal.Quantifier.ANY;
+            final boolean isNegated = tp.isNegated();
             final String predicateName;
             final List<Object> argsAsList;
             if (tp.getBiPredicate() == Temporal.generalized) {
-                predicateName = tp.getQuantifier() == Temporal.Quantifier.ANY ? "anyGeneralized" : "generalized";
+                if (isNegated) {
+                    predicateName = isAny ? "notAnyGeneralized" : "notGeneralized";
+                } else {
+                    predicateName = isAny ? "anyGeneralized" : "generalized";
+                }
                 if (tp.getGeneralizedRelation() != null) {
                     argsAsList = Arrays.asList(tp.getValue(), tp.getGeneralizedRelation());
                 } else if (tp.getGeneralizedIntervalRelation() != null) {
@@ -185,8 +197,8 @@ public class PSerializer<T extends P> extends SimpleTypeSerializer<T> {
                 } else {
                     argsAsList = Collections.singletonList(tp.getValue());
                 }
-            } else if (tp.getQuantifier() == Temporal.Quantifier.ANY) {
-                predicateName = "any";
+            } else if (isAny || isNegated) {
+                predicateName = isNegated ? (isAny ? "notAny" : "not") : "any";
                 argsAsList = Arrays.asList(tp.getBiPredicate(), tp.getValue());
             } else {
                 predicateName = tp.getPredicateName();

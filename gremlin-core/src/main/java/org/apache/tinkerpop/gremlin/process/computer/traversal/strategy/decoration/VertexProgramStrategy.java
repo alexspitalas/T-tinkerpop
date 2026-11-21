@@ -26,6 +26,7 @@ import org.apache.tinkerpop.gremlin.process.computer.GraphComputer;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.VertexComputing;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ComputerResultStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.ProgramVertexProgramStep;
+import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TemporalPageRankVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.computer.traversal.step.map.TraversalVertexProgramStep;
 import org.apache.tinkerpop.gremlin.process.remote.traversal.strategy.decoration.RemoteStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.Step;
@@ -36,6 +37,8 @@ import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.lambda.AbstractLambdaTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.step.map.GraphStep;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRank;
+import org.apache.tinkerpop.gremlin.process.traversal.step.map.TemporalPageRankStep;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.EmptyStep;
 import org.apache.tinkerpop.gremlin.process.traversal.strategy.AbstractTraversalStrategy;
 import org.apache.tinkerpop.gremlin.process.traversal.util.DefaultTraversal;
@@ -76,6 +79,23 @@ public final class VertexProgramStrategy extends AbstractTraversalStrategy<Trave
                 || traversal.getStrategies().getStrategy(RemoteStrategy.class).isPresent())
             return;
 
+        // Upgrade OLTP TemporalPageRankStep to distributed TemporalPageRankVertexProgramStep on GraphComputer
+        for (final TemporalPageRankStep<?> tprStep : TraversalHelper.getStepsOfClass(TemporalPageRankStep.class, traversal)) {
+            final TemporalPageRankVertexProgramStep vpStep = new TemporalPageRankVertexProgramStep(traversal);
+            vpStep.configure(TemporalPageRank.alpha, tprStep.getAlpha());
+            vpStep.configure(TemporalPageRank.beta, tprStep.getBeta());
+            vpStep.configure(TemporalPageRank.propertyName, tprStep.getPropertyName());
+            vpStep.configure(TemporalPageRank.normalize, tprStep.isNormalize());
+            vpStep.configure(TemporalPageRank.bucketMillis, tprStep.getBucketMillis());
+            for (final Map.Entry<Object, List<Object>> entry : tprStep.getParameters().getRaw().entrySet()) {
+                for (final Object value : entry.getValue()) {
+                    vpStep.configure(entry.getKey(), value);
+                }
+            }
+            TraversalHelper.copyLabels(tprStep, vpStep, false);
+            TraversalHelper.replaceStep((Step) tprStep, (Step) vpStep, traversal);
+        }
+
         // back propagate as()-labels off of vertex computing steps
         Step<?, ?> currentStep = traversal.getEndStep();
         final Set<String> currentLabels = new HashSet<>();
@@ -94,6 +114,12 @@ public final class VertexProgramStrategy extends AbstractTraversalStrategy<Trave
         currentStep = traversal.getStartStep();
         while (!(currentStep instanceof EmptyStep)) {
             if (currentStep instanceof GraphStep && currentStep.getNextStep() instanceof VertexComputing) {
+                final GraphStep<?, ?> graphStep = (GraphStep<?, ?>) currentStep;
+                if (currentStep.getNextStep() instanceof TemporalPageRankVertexProgramStep
+                        && (graphStep.getIds().length > 0 || !graphStep.returnsVertex())) {
+                    currentStep = currentStep.getNextStep();
+                    continue;
+                }
                 int index = TraversalHelper.stepIndex(currentStep.getNextStep(), traversal);
                 traversal.removeStep(currentStep);
                 traversal.addStep(index, currentStep);

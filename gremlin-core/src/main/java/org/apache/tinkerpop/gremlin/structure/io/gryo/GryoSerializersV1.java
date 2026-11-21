@@ -327,6 +327,7 @@ public final class GryoSerializersV1 {
             kryo.writeClassAndObject(output, p.getGeneralizedRelation() != null
                     ? p.getGeneralizedRelation()
                     : p.getGeneralizedIntervalRelation());
+            output.writeBoolean(p.isNegated());
         }
         @Override
         public <I extends InputShim> TemporalP read(final KryoShim<I, ?> kryo, final I input, final Class<TemporalP> clazz) {
@@ -334,6 +335,7 @@ public final class GryoSerializersV1 {
             final Object value = kryo.readClassAndObject(input);
             final Temporal.Quantifier quantifier = Temporal.Quantifier.valueOf(input.readString());
             final Object spec = kryo.readClassAndObject(input);
+            final boolean negated = input.readBoolean();
             try {
                 final TemporalP tp;
                 if (spec instanceof GeneralizedRelation) {
@@ -343,7 +345,8 @@ public final class GryoSerializersV1 {
                 } else {
                     tp = (TemporalP) TemporalP.class.getMethod(predicate, Object.class).invoke(null, value);
                 }
-                return quantifier == Temporal.Quantifier.ANY ? tp.any() : tp.all();
+                final TemporalP quantified = quantifier == Temporal.Quantifier.ANY ? tp.any() : tp.all();
+                return negated ? quantified.negate() : quantified;
             } catch (final Exception e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }

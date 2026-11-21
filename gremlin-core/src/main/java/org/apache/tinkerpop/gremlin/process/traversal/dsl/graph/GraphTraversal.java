@@ -3260,7 +3260,7 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
     }
 
 
-    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final String propertyValue, final Object startTime, final Object endTime)
+    public default GraphTraversal<S, E> lifetimeProperty(final String propertyKey, final Object propertyValue, final Object startTime, final Object endTime)
     {
         this.asAdmin().getBytecode().addStep(Symbols.lifetimeProperty, propertyKey, propertyValue, startTime, endTime);
         return this.asAdmin().addStep(new LifetimeStep<>(this.asAdmin(), startTime, endTime, propertyKey, propertyValue));
@@ -4121,24 +4121,32 @@ public interface GraphTraversal<S, E> extends Traversal<S, E> {
      * @return the traversal with the appended {@link ShortestPathVertexProgramStep}
      * @see <a href="http://tinkerpop.apache.org/docs/${project.version}/reference/#shortestpath-step" target="_blank">Reference Documentation - ShortestPath Step</a>
      */
-            public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final Date initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
+    public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final Date initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
+        if (null == initialTime) throw new IllegalArgumentException("Initial time cannot be null");
         return this.tbfs(initialTime.getTime(), target, direction, edgeLabels);
     }
 
-    
-
     public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final TemporalPathTarget target, final long initialTime) {
-        return this.tbfs(initialTime, target, Direction.OUT);
+        final Direction defaultDirection = (target == TemporalPathTarget.LATEST_DEPARTURE || target == TemporalPathTarget.LATEST_ARRIVAL)
+                ? Direction.IN
+                : Direction.OUT;
+        return this.tbfs(initialTime, target, defaultDirection);
     }
 
     public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final TemporalPathTarget target, final Date initialTime) {
-        return this.tbfs(initialTime.getTime(), target, Direction.OUT);
+        if (null == initialTime) throw new IllegalArgumentException("Initial time cannot be null");
+        return this.tbfs(target, initialTime.getTime());
     }
 
     
-public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
-        this.asAdmin().getBytecode().addStep(Symbols.tbfs, initialTime, target, direction, edgeLabels);
-        return this.asAdmin().addStep(new TemporalBfsStep(this.asAdmin(), initialTime, target, direction, edgeLabels));
+    public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
+        if (null == target)
+            throw new IllegalArgumentException("TemporalPathTarget cannot be null");
+        if (null == direction)
+            throw new IllegalArgumentException("Direction cannot be null");
+        final String[] labels = edgeLabels == null ? new String[0] : edgeLabels;
+        this.asAdmin().getBytecode().addStep(Symbols.tbfs, initialTime, target, direction, labels);
+        return this.asAdmin().addStep(new TemporalBfsStep(this.asAdmin(), initialTime, target, direction, labels));
     }
 
     public default GraphTraversal<S, Path> temporalShortestPath() {
@@ -4160,6 +4168,7 @@ public default GraphTraversal<S, Map<Vertex, Long>> tbfs(final long initialTime,
     }
 
     public default GraphTraversal<S, Path> temporalShortestPath(final TemporalPathTarget target, final Date initialTime) {
+        if (null == initialTime) throw new IllegalArgumentException("Initial time cannot be null");
         return this.temporalShortestPath(target, initialTime.getTime());
     }
 

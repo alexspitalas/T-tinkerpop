@@ -18,6 +18,7 @@
  */
 package org.apache.tinkerpop.gremlin.process.traversal.dsl.graph;
 
+import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.traversal.DT;
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
@@ -1329,9 +1330,9 @@ public class __ {
     }
 
     /**
-     * @see GraphTraversal#lifetimeProperty(String, String, Object, Object)
+     * @see GraphTraversal#lifetimeProperty(String, Object, Object, Object)
      */
-    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final String propertyValue,
+    public static <A> GraphTraversal<A, A> lifetimeProperty(final String propertyKey, final Object propertyValue,
             final Object startTime, final Object endTime) {
         return __.<A>start().lifetimeProperty(propertyKey, propertyValue, startTime, endTime);
     }
@@ -1936,6 +1937,64 @@ public class __ {
 
     public static <A> GraphTraversal<A, A> temporalDisjoint(final Lifetime.Interval referenceInterval) {
         return __.<A>start().temporalDisjoint(referenceInterval);
+    }
+
+    /**
+     * @see GraphTraversal#temporalPageRank()
+     */
+    public static <A> GraphTraversal<A, A> temporalPageRank() {
+        return __.<A>start().temporalPageRank();
+    }
+
+    /**
+     * @see GraphTraversal#tbfs(TemporalPathTarget, long)
+     */
+    public static <A> GraphTraversal<A, Map<Vertex, Long>> tbfs(final TemporalPathTarget target, final long initialTime) {
+        return __.<A>start().tbfs(target, initialTime);
+    }
+
+    /**
+     * @see GraphTraversal#tbfs(TemporalPathTarget, Date)
+     */
+    public static <A> GraphTraversal<A, Map<Vertex, Long>> tbfs(final TemporalPathTarget target, final Date initialTime) {
+        return __.<A>start().tbfs(target, initialTime);
+    }
+
+    /**
+     * @see GraphTraversal#tbfs(long, TemporalPathTarget, Direction, String...)
+     */
+    public static <A> GraphTraversal<A, Map<Vertex, Long>> tbfs(final long initialTime, final TemporalPathTarget target,
+            final Direction direction, final String... edgeLabels) {
+        return __.<A>start().tbfs(initialTime, target, direction, edgeLabels);
+    }
+
+    /**
+     * @see GraphTraversal#tbfs(Date, TemporalPathTarget, Direction, String...)
+     */
+    public static <A> GraphTraversal<A, Map<Vertex, Long>> tbfs(final Date initialTime, final TemporalPathTarget target,
+            final Direction direction, final String... edgeLabels) {
+        return __.<A>start().tbfs(initialTime, target, direction, edgeLabels);
+    }
+
+    /**
+     * @see GraphTraversal#temporalShortestPath()
+     */
+    public static <A> GraphTraversal<A, Path> temporalShortestPath() {
+        return __.<A>start().temporalShortestPath();
+    }
+
+    /**
+     * @see GraphTraversal#temporalShortestPath(TemporalPathTarget, long)
+     */
+    public static <A> GraphTraversal<A, Path> temporalShortestPath(final TemporalPathTarget target, final long initialTime) {
+        return __.<A>start().temporalShortestPath(target, initialTime);
+    }
+
+    /**
+     * @see GraphTraversal#temporalShortestPath(TemporalPathTarget, Date)
+     */
+    public static <A> GraphTraversal<A, Path> temporalShortestPath(final TemporalPathTarget target, final Date initialTime) {
+        return __.<A>start().temporalShortestPath(target, initialTime);
     }
 
 }

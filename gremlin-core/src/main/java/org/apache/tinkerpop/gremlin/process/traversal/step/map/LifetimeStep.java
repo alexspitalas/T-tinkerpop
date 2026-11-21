@@ -27,14 +27,18 @@ import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequire
 import org.apache.tinkerpop.gremlin.process.traversal.util.TraversalUtil;
 
 import org.apache.tinkerpop.gremlin.structure.Direction;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime.DropMode;
+import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,11 +64,11 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     private Traversal.Admin<S, ?> endTimeTraversal;
     private boolean useTemporalParameters;
     private final String propertyKey;
-    private final String propertyValue;
+    private final Object propertyValue;
 
     @SuppressWarnings("unchecked")
     public LifetimeStep(final Traversal.Admin traversal, final Object lifetime,
-            final String propertyKey, final String propertyValue) {
+            final String propertyKey, final Object propertyValue) {
         super(traversal);
         this.mode = LifetimeMode.REPLACE;
         this.dropMode = DropMode.SOFT;
@@ -84,7 +88,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
 
     @SuppressWarnings("unchecked")
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
-            final String propertyKey, final String propertyValue, final LifetimeMode mode, final DropMode dropMode) {
+            final String propertyKey, final Object propertyValue, final LifetimeMode mode, final DropMode dropMode) {
         super(traversal);
         this.mode = mode != null ? mode : LifetimeMode.REPLACE;
         this.dropMode = Objects.requireNonNull(dropMode, "dropMode cannot be null");
@@ -113,12 +117,12 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     }
 
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
-            final String propertyKey, final String propertyValue, final LifetimeMode mode) {
+            final String propertyKey, final Object propertyValue, final LifetimeMode mode) {
         this(traversal, startTime, endTime, propertyKey, propertyValue, mode, DropMode.SOFT);
     }
 
     public LifetimeStep(final Traversal.Admin traversal, final Object startTime, final Object endTime,
-            final String propertyKey, final String propertyValue) {
+            final String propertyKey, final Object propertyValue) {
         this(traversal, startTime, endTime, propertyKey, propertyValue, LifetimeMode.REPLACE);
     }
 
@@ -164,6 +168,10 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
     @Override
     protected Traverser.Admin<S> processNextStart() throws NoSuchElementException {
         final Traverser.Admin<S> traverser = this.starts.next();
+        if (!(traverser.get() instanceof Element)) {
+            throw new IllegalArgumentException("lifetime() can only be applied to graph elements, got: " +
+                    (traverser.get() == null ? "null" : traverser.get().getClass().getName()));
+        }
 
         // Evaluate traversal parameters at runtime
         final Lifetime actualLifetime = resolveLifetime(traverser);
@@ -174,7 +182,11 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             throw new IllegalArgumentException("Cannot " + operationVerb() + " an empty lifetime");
         }
         final Element element = Lifetime.unwrapElement((Element) traverser.get());
+        applyLifetimeMutation(element, actualLifetime);
+        return traverser;
+    }
 
+    private void applyLifetimeMutation(final Element element, final Lifetime actualLifetime) {
         Lifetime finalLifetime = actualLifetime;
         if (mode == LifetimeMode.DROP || (mode == LifetimeMode.ADD && Lifetime.hasLifetimeProperties(element))) {
             final int count = actualLifetime.getIntervalCount();
@@ -191,7 +203,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                     currentLifetime = currentLifetime.dropInterval(actualLifetime.getStartMillis(i), actualLifetime.getEndMillis(i));
                 }
                 if (!Lifetime.hasLifetimeProperties(element) && currentLifetime.equals(initialLifetime)) {
-                    return traverser;
+                    return;
                 }
                 finalLifetime = currentLifetime;
             }
@@ -202,7 +214,7 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
                 element.remove();
             else if (dropMode == DropMode.SOFT)
                 throw new IllegalArgumentException("Cannot soft drop an interval that leaves the lifetime empty");
-            return traverser;
+            return;
         }
 
         if (element instanceof Vertex) {
@@ -211,39 +223,52 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             if (this.propertyKey != null && this.propertyValue != null) {
                 validateVertexPropertyLifetime(vertex, finalLifetime);
                 final List<VertexProperty<Object>> untimedProps = new ArrayList<>();
-                vertex.properties(this.propertyKey).forEachRemaining(vp -> {
-                    if (!Lifetime.hasLifetimeProperties(vp)) {
-                        untimedProps.add(vp);
+                final Iterator<VertexProperty<Object>> propIter = vertex.properties(this.propertyKey);
+                try {
+                    while (propIter.hasNext()) {
+                        final VertexProperty<Object> vp = propIter.next();
+                        if (!Lifetime.hasLifetimeProperties(vp)) {
+                            untimedProps.add(vp);
+                        }
                     }
-                });
+                } finally {
+                    CloseableIterator.closeIterator(propIter);
+                }
                 untimedProps.forEach(VertexProperty::remove);
                 vertex.property(VertexProperty.Cardinality.list, this.propertyKey, this.propertyValue,
                         finalLifetime.toProperties());
             } else if (this.propertyKey != null) {
                 validateVertexPropertyLifetime(vertex, finalLifetime);
 
-                // Step 1: Store Previous metaProperties
-                VertexProperty<Object> vp = vertex.property(propertyKey);
-                Object propertyValue = vp.value();
-                Map<String, Object> metaProperties = new HashMap<>();
-                vp.properties().forEachRemaining(metaProp -> {
-                    if (!isSystemLifetimeProperty(metaProp.key())) {
-                        metaProperties.put(metaProp.key(), metaProp.value());
+                // Step 1: Validate and collect existing property value and meta-properties before mutating
+                final VertexProperty<Object> vp = vertex.property(propertyKey);
+                if (!vp.isPresent()) {
+                    throw new IllegalStateException("The property does not exist as the key has no associated value for the provided element: " + vertex + ":" + this.propertyKey);
+                }
+                final Object existingValue = vp.value();
+                final Map<String, Object> metaProperties = new HashMap<>();
+                final Iterator<Property<Object>> metaIter = vp.properties();
+                try {
+                    while (metaIter.hasNext()) {
+                        final Property<Object> metaProp = metaIter.next();
+                        if (!isSystemLifetimeProperty(metaProp.key())) {
+                            metaProperties.put(metaProp.key(), metaProp.value());
+                        }
                     }
-                });
+                } finally {
+                    CloseableIterator.closeIterator(metaIter);
+                }
 
-                // Step 2: Delete the property
-                vertex.property(this.propertyKey).remove();
-
-                // Step 3: Recreate with extra meta-property
+                // Step 2: Recreate with lifetime meta-properties
                 metaProperties.putAll(finalLifetime.toPropertyMap());
-                List<Object> args = new ArrayList<>();
-                metaProperties.forEach((key, value) -> {
-                    args.add(key);
-                    args.add(value);
-                });
-                vertex.property(VertexProperty.Cardinality.single, this.propertyKey, propertyValue,
-                        args.toArray(new Object[0]));
+                final Object[] args = new Object[metaProperties.size() * 2];
+                int idx = 0;
+                for (final Map.Entry<String, Object> entry : metaProperties.entrySet()) {
+                    args[idx++] = entry.getKey();
+                    args[idx++] = entry.getValue();
+                }
+                vp.remove();
+                vertex.property(VertexProperty.Cardinality.single, this.propertyKey, existingValue, args);
             } else {
                 applyVertexLifetimeWithCascade(vertex, finalLifetime);
             }
@@ -263,8 +288,6 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
             validateVertexPropertyLifetime(vp.element(), finalLifetime);
             finalLifetime.attachTo(element);
         }
-
-        return traverser;
     }
 
     /**
@@ -276,7 +299,14 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
      */
     private void applyVertexLifetimeWithCascade(final Vertex vertex, final Lifetime finalVertexLifetime) {
         final Set<Edge> incidentEdges = new LinkedHashSet<>();
-        vertex.edges(Direction.BOTH).forEachRemaining(incidentEdges::add);
+        final Iterator<Edge> edgeIter = vertex.edges(Direction.BOTH);
+        try {
+            while (edgeIter.hasNext()) {
+                incidentEdges.add(edgeIter.next());
+            }
+        } finally {
+            CloseableIterator.closeIterator(edgeIter);
+        }
 
         final Map<Edge, Lifetime> edgesToUpdate = new LinkedHashMap<>();
         final List<Edge> edgesToRemove = new ArrayList<>();
@@ -317,24 +347,30 @@ public class LifetimeStep<S> extends AbstractStep<S, S> implements  TraversalPar
         final Map<VertexProperty<?>, Lifetime> propertiesToUpdate = new LinkedHashMap<>();
         final List<VertexProperty<?>> propertiesToRemove = new ArrayList<>();
 
-        vertex.properties().forEachRemaining(vp -> {
-            if (isSystemLifetimeProperty(vp.key()) || !Lifetime.hasLifetimeProperties(vp)) {
-                return;
-            }
-            final Lifetime vpLifetime = Lifetime.fromProperties(vp);
-            final Lifetime updatedVpLifetime = vpLifetime.intersection(finalVertexLifetime);
-            if (updatedVpLifetime.isEmpty()) {
-                if (dropMode == DropMode.SOFT) {
-                    throw new IllegalArgumentException(
-                            "Cannot " + operationVerb() + " vertex lifetime [" + finalVertexLifetime.getStartDate() + ", " +
-                                    finalVertexLifetime.getEndDate() + "] because vertex property '" + vp.key() +
-                                    "' would have an empty lifetime.");
+        final Iterator<VertexProperty<Object>> vpIter = vertex.properties();
+        try {
+            while (vpIter.hasNext()) {
+                final VertexProperty<Object> vp = vpIter.next();
+                if (isSystemLifetimeProperty(vp.key()) || !Lifetime.hasLifetimeProperties(vp)) {
+                    continue;
                 }
-                propertiesToRemove.add(vp);
-            } else if (!updatedVpLifetime.equals(vpLifetime)) {
-                propertiesToUpdate.put(vp, updatedVpLifetime);
+                final Lifetime vpLifetime = Lifetime.fromProperties(vp);
+                final Lifetime updatedVpLifetime = vpLifetime.intersection(finalVertexLifetime);
+                if (updatedVpLifetime.isEmpty()) {
+                    if (dropMode == DropMode.SOFT) {
+                        throw new IllegalArgumentException(
+                                "Cannot " + operationVerb() + " vertex lifetime [" + finalVertexLifetime.getStartDate() + ", " +
+                                        finalVertexLifetime.getEndDate() + "] because vertex property '" + vp.key() +
+                                        "' would have an empty lifetime.");
+                    }
+                    propertiesToRemove.add(vp);
+                } else if (!updatedVpLifetime.equals(vpLifetime)) {
+                    propertiesToUpdate.put(vp, updatedVpLifetime);
+                }
             }
-        });
+        } finally {
+            CloseableIterator.closeIterator(vpIter);
+        }
 
         edgesToUpdate.forEach((edge, lt) -> lt.attachTo(edge));
         edgesToRemove.forEach(Edge::remove);

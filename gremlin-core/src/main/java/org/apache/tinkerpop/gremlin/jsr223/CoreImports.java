@@ -42,6 +42,7 @@ import org.apache.tinkerpop.gremlin.process.computer.clustering.peerpressure.Clu
 import org.apache.tinkerpop.gremlin.process.computer.clustering.peerpressure.PeerPressureVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankMapReduce;
 import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.PageRankVertexProgram;
+import org.apache.tinkerpop.gremlin.process.computer.ranking.pagerank.TemporalPageRankVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.ShortestPathVertexProgram;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalShortestPathVertexProgram;
@@ -330,6 +331,7 @@ public final class CoreImports {
         CLASS_IMPORTS.add(PageRankMapReduce.class);
         CLASS_IMPORTS.add(PageRankVertexProgram.class);
         CLASS_IMPORTS.add(TemporalPageRank.class);
+        CLASS_IMPORTS.add(TemporalPageRankVertexProgram.class);
         CLASS_IMPORTS.add(ShortestPath.class);
         CLASS_IMPORTS.add(ShortestPathVertexProgram.class);
         CLASS_IMPORTS.add(TemporalShortestPathVertexProgram.class);

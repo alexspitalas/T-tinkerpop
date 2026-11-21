@@ -52,7 +52,13 @@ public final class TemporalPageRankAlgorithm {
 
     public static Map<Object, Double> execute(final Collection<TemporalEdge> temporalEdges,
                                               final double alpha, final double beta, final boolean normalize) {
-        validate(alpha, beta);
+        return execute(temporalEdges, alpha, beta, normalize, 0L);
+    }
+
+    public static Map<Object, Double> execute(final Collection<TemporalEdge> temporalEdges,
+                                              final double alpha, final double beta, final boolean normalize,
+                                              final long bucketMillis) {
+        validate(alpha, beta, bucketMillis);
         if (temporalEdges.isEmpty()) {
             return new LinkedHashMap<>();
         }
@@ -93,34 +99,54 @@ public final class TemporalPageRankAlgorithm {
         final boolean betaIsOne = Double.compare(beta, 1.0d) == 0;
         final double oneMinusBetaAlpha = (1.0d - beta) * alpha;
 
-        for (int i = 0; i < m; i++) {
-            final Transition t = transitions.get(i);
-            final VertexState u = t.u;
-            final VertexState v = t.v;
-
-            u.releaseAvailableMass(t.startMs);
-            if (!u.visited) {
-                u.visited = true;
-                encounterOrder.add(u);
-            }
-            if (!v.visited) {
-                v.visited = true;
-                encounterOrder.add(v);
+        int epochStartIdx = 0;
+        while (epochStartIdx < m) {
+            final long currentEpoch = epochOf(transitions.get(epochStartIdx).startMs, bucketMillis);
+            int epochEnd = epochStartIdx + 1;
+            while (epochEnd < m && epochOf(transitions.get(epochEnd).startMs, bucketMillis) == currentEpoch) {
+                epochEnd++;
             }
 
-            u.r += injected;
-            u.s += injected;
+            // Process all transitions in currentEpoch in chronological (startMs, edgeId) order;
+            // release mass scheduled by strictly earlier epochs (availableAt <= t.startMs) and defer
+            // scheduling newly produced mass until the end of the epoch bucket so OLTP and OLAP BSP match.
+            for (int k = epochStartIdx; k < epochEnd; k++) {
+                final Transition t = transitions.get(k);
+                final VertexState u = t.u;
+                final VertexState v = t.v;
 
-            final double activeSourceMass = u.s;
-            v.r += activeSourceMass * alpha;
+                u.releaseAvailableMass(t.startMs);
 
-            if (betaIsOne) {
-                v.scheduleMass(activeSourceMass * alpha, t.endMs);
-                u.s = 0.0d;
-            } else {
-                v.scheduleMass(activeSourceMass * oneMinusBetaAlpha, t.endMs);
-                u.s = activeSourceMass * beta;
+                if (!u.visited) {
+                    u.visited = true;
+                    encounterOrder.add(u);
+                }
+                if (!v.visited) {
+                    v.visited = true;
+                    encounterOrder.add(v);
+                }
+
+                u.r += injected;
+                u.s += injected;
+
+                final double activeSourceMass = u.s;
+                v.r += activeSourceMass * alpha;
+
+                if (betaIsOne) {
+                    t.scheduledMass = activeSourceMass * alpha;
+                    u.s = 0.0d;
+                } else {
+                    t.scheduledMass = activeSourceMass * oneMinusBetaAlpha;
+                    u.s = activeSourceMass * beta;
+                }
             }
+
+            for (int k = epochStartIdx; k < epochEnd; k++) {
+                final Transition t = transitions.get(k);
+                t.v.scheduleMass(t.scheduledMass, t.endMs);
+            }
+
+            epochStartIdx = epochEnd;
         }
 
         double normFactor = 1.0d;
@@ -156,11 +182,17 @@ public final class TemporalPageRankAlgorithm {
         return String.valueOf(id1).compareTo(String.valueOf(id2));
     }
 
-    private static void validate(final double alpha, final double beta) {
+    private static long epochOf(final long startMs, final long bucketMillis) {
+        return bucketMillis > 0L ? Math.floorDiv(startMs, bucketMillis) : startMs;
+    }
+
+    private static void validate(final double alpha, final double beta, final long bucketMillis) {
         if (!(alpha > 0.0d && alpha < 1.0d))
             throw new IllegalArgumentException("Temporal PageRank alpha must be greater than 0.0 and less than 1.0");
         if (!(beta > 0.0d && beta <= 1.0d))
             throw new IllegalArgumentException("Temporal PageRank beta must be greater than 0.0 and less than or equal to 1.0");
+        if (bucketMillis < 0L)
+            throw new IllegalArgumentException("Temporal PageRank bucketMillis must be non-negative");
     }
 
     private static final class Transition {
@@ -169,6 +201,7 @@ public final class TemporalPageRankAlgorithm {
         final Object edgeId;
         final long startMs;
         final long endMs;
+        double scheduledMass;
 
         Transition(final VertexState u, final VertexState v, final Object edgeId, final long startMs, final long endMs) {
             this.u = u;

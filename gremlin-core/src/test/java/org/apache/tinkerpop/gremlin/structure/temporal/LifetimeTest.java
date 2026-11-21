@@ -402,15 +402,23 @@ public class LifetimeTest {
                 org.apache.tinkerpop.gremlin.process.traversal.Temporal.Quantifier.ANY,
                 org.apache.tinkerpop.gremlin.process.traversal.Temporal.Quantifier.ALL,
                 org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(multi),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(multi).negate(),
                 org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(multi).any(),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(multi).any().negate(),
                 org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
                         org.apache.tinkerpop.gremlin.process.traversal.Temporal.precedes,
                         org.apache.tinkerpop.gremlin.process.traversal.Temporal.meets, multi),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
+                        org.apache.tinkerpop.gremlin.process.traversal.Temporal.precedes,
+                        org.apache.tinkerpop.gremlin.process.traversal.Temporal.meets, multi).negate(),
                 org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
                         org.apache.tinkerpop.gremlin.process.traversal.Temporal.starts,
                         org.apache.tinkerpop.gremlin.process.traversal.Temporal.finishes, multi).any(),
                 org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.of(4, 0, 2, 5, 8)),
                 org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.ALLEN_MEETS).any(),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.ALLEN_MEETS).any().negate(),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi).negate(),
+                org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi).any().negate(),
                 org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep.LifetimeMode.ADD,
                 Lifetime.DropMode.HARD,
                 org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.EARLIEST_ARRIVAL,
@@ -452,15 +460,23 @@ public class LifetimeTest {
                     org.apache.tinkerpop.gremlin.process.traversal.Temporal.Quantifier.ANY,
                     org.apache.tinkerpop.gremlin.process.traversal.Temporal.Quantifier.ALL,
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(multi),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(multi).negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(multi).any(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(multi).any().negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.precedes,
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.meets, multi),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
+                            org.apache.tinkerpop.gremlin.process.traversal.Temporal.precedes,
+                            org.apache.tinkerpop.gremlin.process.traversal.Temporal.meets, multi).negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.starts,
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.finishes, multi).any(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.of(4, 0, 2, 5, 8)),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.ALLEN_MEETS).any(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.ALLEN_MEETS).any().negate(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi).negate(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi).any().negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep.LifetimeMode.DROP,
                     Lifetime.DropMode.HARD,
                     org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget.LATEST_DEPARTURE,
@@ -502,15 +518,23 @@ public class LifetimeTest {
                     org.apache.tinkerpop.gremlin.process.traversal.Temporal.Quantifier.ANY,
                     org.apache.tinkerpop.gremlin.process.traversal.Temporal.Quantifier.ALL,
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.intersects(multi),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(multi).negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(multi).any(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.during(multi).any().negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.precedes,
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.meets, multi),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
+                            org.apache.tinkerpop.gremlin.process.traversal.Temporal.precedes,
+                            org.apache.tinkerpop.gremlin.process.traversal.Temporal.meets, multi).negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.between(
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.starts,
                             org.apache.tinkerpop.gremlin.process.traversal.Temporal.finishes, multi).any(),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.of(4, 0, 2, 5, 8)),
                     org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.ALLEN_MEETS).any(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi, GeneralizedRelation.ALLEN_MEETS).any().negate(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi).negate(),
+                    org.apache.tinkerpop.gremlin.process.traversal.TemporalP.generalized(multi).any().negate(),
                     org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphViewStrategy.instance(),
                     org.apache.tinkerpop.gremlin.process.traversal.strategy.optimization.TemporalGraphStepStrategy.instance(),
                     org.apache.tinkerpop.gremlin.process.traversal.step.map.LifetimeStep.LifetimeMode.ADD,
@@ -628,6 +652,19 @@ public class LifetimeTest {
         assertEquals(boundaryPoint, closedRight.intersection(startingAtBoundary));
         assertEquals(boundaryPoint, startingAtBoundary.intersection(closedRight));
         assertEquals(overlappingClosedRight, closedRight.intersection(overlappingClosedRight));
+    }
+
+    @Test
+    public void shouldReturnFalseForNullOrEmptyLifetimesInTemporalPAndLifetimeHelper() {
+        final Element untimed = elementWithProperties(null, null);
+        assertFalse(org.apache.tinkerpop.gremlin.util.LifetimeHelper.isAliveDuring(untimed, null));
+        assertFalse(org.apache.tinkerpop.gremlin.util.LifetimeHelper.isAliveDuring(untimed, Lifetime.EMPTY));
+
+        final Lifetime valid = Lifetime.from(100L, 200L);
+        assertFalse(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(valid).test(Lifetime.EMPTY));
+        assertFalse(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(valid).negate().test(Lifetime.EMPTY));
+        assertFalse(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(valid).negate().test(null));
+        assertFalse(org.apache.tinkerpop.gremlin.process.traversal.TemporalP.overlaps(Lifetime.EMPTY).negate().test(valid));
     }
 
     private static Element elementWithProperties(final Object startTime, final Object endTime) {

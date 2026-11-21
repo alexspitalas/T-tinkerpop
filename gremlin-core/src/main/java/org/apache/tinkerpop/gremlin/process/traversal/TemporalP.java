@@ -37,6 +37,7 @@ public class TemporalP extends P<Object> {
     private GeneralizedRelation generalizedRelation;
     private GeneralizedIntervalRelation generalizedIntervalRelation;
     private Temporal.Quantifier quantifier = Temporal.Quantifier.ALL;
+    private boolean negated = false;
 
     public TemporalP(final PBiPredicate<Object, Object> biPredicate, final Object value) {
         super(biPredicate, value);
@@ -80,6 +81,10 @@ public class TemporalP extends P<Object> {
         return quantifier;
     }
 
+    public boolean isNegated() {
+        return negated;
+    }
+
     /**
      * Configures this predicate to evaluate existential sub-interval semantics ({@link Temporal.Quantifier#ANY}):
      * returns {@code true} if at least one sub-interval of the left operand and at least one sub-interval of
@@ -99,7 +104,32 @@ public class TemporalP extends P<Object> {
     }
 
     @Override
+    public TemporalP negate() {
+        if (!this.negated && this.quantifier == Temporal.Quantifier.ALL) {
+            if (this.biPredicate == Temporal.intersects) {
+                return new TemporalP(Temporal.disjoint, this.originalValue);
+            }
+            if (this.biPredicate == Temporal.disjoint) {
+                return new TemporalP(Temporal.intersects, this.originalValue);
+            }
+        }
+        final TemporalP copy = this.clone();
+        copy.negated = !this.negated;
+        return copy;
+    }
+
+    @Override
     public boolean test(final Object testValue) {
+        final Lifetime l1 = Temporal.extractLifetime(testValue);
+        final Lifetime l2 = Temporal.extractLifetime(this.value);
+        if (l1 == null || l2 == null || l1.isEmpty() || l2.isEmpty()) {
+            return false;
+        }
+        final boolean matched = evaluatePositive(testValue);
+        return this.negated ? !matched : matched;
+    }
+
+    private boolean evaluatePositive(final Object testValue) {
         if (this.biPredicate == Temporal.generalized) {
             if (this.generalizedRelation != null) {
                 if (this.quantifier == Temporal.Quantifier.ANY
@@ -234,6 +264,46 @@ public class TemporalP extends P<Object> {
     }
 
     /**
+     * Creates a negated {@link TemporalP} for the given {@link Temporal} operator evaluated under holistic
+     * whole-lifetime semantics ({@link Temporal.Quantifier#ALL}).
+     */
+    public static TemporalP not(final Temporal op, final Object value) {
+        return new TemporalP(Objects.requireNonNull(op, "op cannot be null"), value).negate();
+    }
+
+    /**
+     * Creates a negated {@link TemporalP} for the given {@link Temporal} operator evaluated under existential
+     * sub-interval semantics ({@link Temporal.Quantifier#ANY}).
+     */
+    public static TemporalP notAny(final Temporal op, final Object value) {
+        return new TemporalP(Objects.requireNonNull(op, "op cannot be null"), value).any().negate();
+    }
+
+    public static TemporalP notGeneralized(final Object value, final GeneralizedRelation relation) {
+        return new TemporalP(value, relation).negate();
+    }
+
+    public static TemporalP notGeneralized(final Object value, final GeneralizedIntervalRelation intervalRelation) {
+        return new TemporalP(value, intervalRelation).negate();
+    }
+
+    public static TemporalP notGeneralized(final Object value) {
+        return new TemporalP(Temporal.generalized, value).negate();
+    }
+
+    public static TemporalP notAnyGeneralized(final Object value, final GeneralizedRelation relation) {
+        return new TemporalP(value, relation).any().negate();
+    }
+
+    public static TemporalP notAnyGeneralized(final Object value, final GeneralizedIntervalRelation intervalRelation) {
+        return new TemporalP(value, intervalRelation).any().negate();
+    }
+
+    public static TemporalP notAnyGeneralized(final Object value) {
+        return new TemporalP(Temporal.generalized, value).any().negate();
+    }
+
+    /**
      * Returns the algebraic transpose (converse) of this {@link TemporalP} predicate, preserving its {@link Temporal.Quantifier}.
      */
     public TemporalP transpose() {
@@ -252,6 +322,7 @@ public class TemporalP extends P<Object> {
             transposed = this.clone();
         }
         transposed.quantifier = this.quantifier;
+        transposed.negated = this.negated;
         return transposed;
     }
 
@@ -260,18 +331,20 @@ public class TemporalP extends P<Object> {
         if (!super.equals(other)) return false;
         final TemporalP that = (TemporalP) other;
         return this.quantifier == that.quantifier
+                && this.negated == that.negated
                 && Objects.equals(this.generalizedRelation, that.generalizedRelation)
                 && Objects.equals(this.generalizedIntervalRelation, that.generalizedIntervalRelation);
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode() ^ Objects.hash(this.quantifier, this.generalizedRelation, this.generalizedIntervalRelation);
+        return super.hashCode() ^ Objects.hash(this.quantifier, this.negated, this.generalizedRelation, this.generalizedIntervalRelation);
     }
 
     @Override
     public String toString() {
-        final String suffix = this.quantifier == Temporal.Quantifier.ANY ? ".any()" : "";
+        final String suffix = (this.quantifier == Temporal.Quantifier.ANY ? ".any()" : "")
+                + (this.negated ? ".negate()" : "");
         if (this.biPredicate == Temporal.generalized) {
             if (this.generalizedRelation != null) {
                 return "generalized(" + this.value + ", " + this.generalizedRelation + ")" + suffix;
@@ -289,6 +362,7 @@ public class TemporalP extends P<Object> {
         clone.generalizedRelation = this.generalizedRelation;
         clone.generalizedIntervalRelation = this.generalizedIntervalRelation;
         clone.quantifier = this.quantifier;
+        clone.negated = this.negated;
         return clone;
     }
 }

@@ -20,6 +20,7 @@ package org.apache.tinkerpop.gremlin.process.traversal.step.util;
 
 import org.apache.tinkerpop.gremlin.process.traversal.P;
 import org.apache.tinkerpop.gremlin.process.traversal.TemporalP;
+import org.apache.tinkerpop.gremlin.process.traversal.util.ConnectiveP;
 import org.apache.tinkerpop.gremlin.structure.Element;
 import org.apache.tinkerpop.gremlin.structure.Property;
 import org.apache.tinkerpop.gremlin.structure.T;
@@ -43,11 +44,13 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
     private P predicate;
 
     private final boolean testingIdString;
+    private boolean testingTemporalIntervals;
 
     public HasContainer(final String key, final P<?> predicate) {
         this.key = key;
         this.predicate = predicate;
         this.testingIdString = isStringTestable();
+        this.testingTemporalIntervals = isTemporalIntervalsTestable();
     }
 
     public final boolean test(final Element element) {
@@ -63,7 +66,7 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
             // Lifetime.getLifetimeFromProperties(element): static (untimed) elements have Lifetime.UNBOUNDED
             // ([-infinity, +infinity)) and are treated as alive forever, while elements with temporalIntervals
             // or startTime/endTime are evaluated against their configured intervals.
-            if (this.predicate instanceof TemporalP && Lifetime.TEMPORAL_INTERVALS.equals(this.key))
+            if (this.testingTemporalIntervals)
                 return this.predicate.test(element);
         }
 
@@ -136,6 +139,7 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
 
     public final void setKey(final String key) {
         this.key = key;
+        this.testingTemporalIntervals = isTemporalIntervalsTestable();
     }
 
     public final P<?> getPredicate() {
@@ -151,6 +155,29 @@ public class HasContainer implements Serializable, Cloneable, Predicate<Element>
     }
 
     ////////////
+
+    private boolean isTemporalIntervalsTestable() {
+        return Lifetime.TEMPORAL_INTERVALS.equals(this.key) && isAllTemporalPredicate(this.predicate);
+    }
+
+    private static boolean isAllTemporalPredicate(final P<?> predicate) {
+        if (predicate instanceof TemporalP) {
+            return true;
+        }
+        if (predicate instanceof ConnectiveP) {
+            final List<? extends P<?>> children = ((ConnectiveP<?>) predicate).getPredicates();
+            if (children.isEmpty()) {
+                return false;
+            }
+            for (int i = 0, size = children.size(); i < size; i++) {
+                if (!isAllTemporalPredicate(children.get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
 
     /**
      * Determines if the value of the predicate is testable via {@code toString()} representation of an element which

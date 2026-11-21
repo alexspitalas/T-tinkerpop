@@ -27,19 +27,23 @@ import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalShortes
 import org.apache.tinkerpop.gremlin.process.computer.traversal.TraversalVertexProgram;
 import org.apache.tinkerpop.gremlin.process.traversal.Traversal;
 import org.apache.tinkerpop.gremlin.process.traversal.Traverser;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.__;
 import org.apache.tinkerpop.gremlin.process.traversal.step.Configuring;
 import org.apache.tinkerpop.gremlin.process.traversal.step.TraversalParent;
 import org.apache.tinkerpop.gremlin.process.traversal.step.util.Parameters;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.TraverserRequirement;
 import org.apache.tinkerpop.gremlin.process.traversal.traverser.util.TraverserSet;
 import org.apache.tinkerpop.gremlin.process.traversal.util.PureTraversal;
+import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
 import org.apache.tinkerpop.gremlin.structure.util.StringFactory;
 import org.apache.tinkerpop.gremlin.util.Serializer;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -108,7 +112,69 @@ public final class TemporalShortestPathVertexProgramStep extends VertexProgramSt
 
     @Override
     public void configure(final Object... keyValues) {
-        this.parameters.set(this, keyValues);
+        if (null == keyValues) return;
+        final List<Object> remaining = new ArrayList<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            if (i + 1 < keyValues.length && keyValues[i] instanceof String) {
+                final String key = (String) keyValues[i];
+                final Object value = keyValues[i + 1];
+                if (ShortestPath.target.equals(key) || "target".equals(key)
+                        || TemporalShortestPathVertexProgram.TARGET_VERTEX_FILTER.equals(key)) {
+                    if (value instanceof Traversal) {
+                        setTargetVertexFilter((Traversal) value);
+                        continue;
+                    }
+                    throw new IllegalArgumentException(key + " requires a Traversal as its argument");
+                } else if (ShortestPath.edges.equals(key) || "edges".equals(key)
+                        || TemporalShortestPathVertexProgram.EDGE_TRAVERSAL.equals(key)) {
+                    if (value instanceof Traversal) {
+                        setEdgeTraversal((Traversal) value);
+                        continue;
+                    } else if (value instanceof Direction) {
+                        setEdgeTraversal(__.toE((Direction) value));
+                        continue;
+                    }
+                    throw new IllegalArgumentException(key + " requires a Traversal or a Direction as its argument");
+                } else if (ShortestPath.distance.equals(key) || "distance".equals(key)
+                        || TemporalShortestPathVertexProgram.DISTANCE_TRAVERSAL.equals(key)) {
+                    throw new IllegalArgumentException(
+                            "temporalShortestPath() optimizes temporal timestamps and does not support custom distance traversals; use maxDistance to limit hop count");
+                } else if (ShortestPath.maxDistance.equals(key) || "maxDistance".equals(key)
+                        || TemporalShortestPathVertexProgram.MAX_DISTANCE.equals(key)) {
+                    if (value instanceof Number) {
+                        setMaxDistance((Number) value);
+                        continue;
+                    }
+                    throw new IllegalArgumentException(key + " requires a Number as its argument");
+                } else if (ShortestPath.includeEdges.equals(key) || "includeEdges".equals(key)
+                        || TemporalShortestPathVertexProgram.INCLUDE_EDGES.equals(key)) {
+                    if (value instanceof Boolean) {
+                        setIncludeEdges((Boolean) value);
+                        continue;
+                    }
+                    throw new IllegalArgumentException(key + " requires a Boolean as its argument");
+                } else if (TemporalShortestPathVertexProgram.TARGET.equals(key)) {
+                    if (value instanceof TemporalPathTarget) {
+                        setTarget((TemporalPathTarget) value);
+                        continue;
+                    } else if (value instanceof String) {
+                        setTarget(TemporalPathTarget.valueOf((String) value));
+                        continue;
+                    }
+                    throw new IllegalArgumentException(key + " requires a TemporalPathTarget or String as its argument");
+                } else if (TemporalShortestPathVertexProgram.INITIAL_TIME.equals(key)) {
+                    setInitialTime(Lifetime.toTemporalMillis(value));
+                    continue;
+                }
+            }
+            remaining.add(keyValues[i]);
+            if (i + 1 < keyValues.length) {
+                remaining.add(keyValues[i + 1]);
+            }
+        }
+        if (!remaining.isEmpty()) {
+            this.parameters.set(this, remaining.toArray());
+        }
     }
 
     @Override

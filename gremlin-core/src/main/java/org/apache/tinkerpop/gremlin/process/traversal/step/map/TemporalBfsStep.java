@@ -26,7 +26,7 @@ import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.temporal.Lifetime;
-import org.apache.tinkerpop.gremlin.structure.temporal.TemporalElement;
+import org.apache.tinkerpop.gremlin.structure.util.CloseableIterator;
 import org.apache.tinkerpop.gremlin.process.computer.search.path.TemporalPathTarget;
 
 import java.util.*;
@@ -41,10 +41,14 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
 
     public TemporalBfsStep(final Traversal.Admin traversal, final long initialTime, final TemporalPathTarget target, final Direction direction, final String... edgeLabels) {
         super(traversal);
+        if (null == target)
+            throw new IllegalArgumentException("TemporalPathTarget cannot be null");
+        if (null == direction)
+            throw new IllegalArgumentException("Direction cannot be null");
         this.initialTime = initialTime;
         this.target = target;
         this.direction = direction;
-        this.edgeLabels = edgeLabels;
+        this.edgeLabels = edgeLabels == null ? new String[0] : edgeLabels;
     }
 
     @Override
@@ -59,6 +63,8 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
 
     @Override
     protected Map<Vertex, Long> map(final Traverser.Admin<Vertex> traverser) {
+        if (!(traverser.get() instanceof Vertex))
+            throw new IllegalArgumentException("tbfs() can only be applied to vertex traversers");
         final Vertex source = traverser.get();
         final Map<Object, Long> gamma = new HashMap<>();
         final Map<Object, Long> causalTime = new HashMap<>();
@@ -79,43 +85,47 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                 inQueue.remove(u.id());
                 long currentTime = causalTime.get(u.id());
                 
-                Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
-                while (edges.hasNext()) {
-                    Edge e = edges.next();
-                    Lifetime lifetime = resolveEdgeLifetime(e);
-                    if (lifetime.isEmpty()) continue;
-                    
-                    // Multi-interval sweep: find the first valid interval after currentTime
-                    final int optimalIdx = lifetime.getFirstIntervalIndexStartingAfter(currentTime);
-                    if (optimalIdx >= 0) {
-                        long bestStart = lifetime.getStartMillis(optimalIdx);
-                        long bestEnd = lifetime.getEndMillis(optimalIdx);
-                        Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
-                        Object nextId = nextVertex.id();
+                final Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
+                try {
+                    while (edges.hasNext()) {
+                        Edge e = edges.next();
+                        Lifetime lifetime = resolveEdgeLifetime(e);
+                        if (lifetime.isEmpty()) continue;
 
-                        if (target == TemporalPathTarget.EARLIEST_ARRIVAL) {
-                            if (!gamma.containsKey(nextId) || bestEnd < gamma.get(nextId)) {
-                                gamma.put(nextId, bestEnd);
-                                causalTime.put(nextId, bestEnd);
-                                if (inQueue.add(nextId)) {
-                                    queue.add(nextVertex);
+                        // Multi-interval sweep: find the first valid interval after currentTime
+                        final int optimalIdx = lifetime.getFirstIntervalIndexStartingAfter(currentTime);
+                        if (optimalIdx >= 0) {
+                            long bestStart = lifetime.getStartMillis(optimalIdx);
+                            long bestEnd = lifetime.getEndMillis(optimalIdx);
+                            Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
+                            Object nextId = nextVertex.id();
+
+                            if (target == TemporalPathTarget.EARLIEST_ARRIVAL) {
+                                if (!gamma.containsKey(nextId) || bestEnd < gamma.get(nextId)) {
+                                    gamma.put(nextId, bestEnd);
+                                    causalTime.put(nextId, bestEnd);
+                                    if (inQueue.add(nextId)) {
+                                        queue.add(nextVertex);
+                                    }
+                                    if (!nextVertex.equals(source)) reachable.add(nextVertex);
                                 }
-                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
-                            }
-                        } else if (target == TemporalPathTarget.EARLIEST_DEPARTURE) {
-                            if (!gamma.containsKey(nextId) || bestStart < gamma.get(nextId)) {
-                                gamma.put(nextId, bestStart);
-                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
-                            }
-                            if (!causalTime.containsKey(nextId) || bestEnd < causalTime.get(nextId)) {
-                                causalTime.put(nextId, bestEnd);
-                                if (inQueue.add(nextId)) {
-                                    queue.add(nextVertex);
+                            } else if (target == TemporalPathTarget.EARLIEST_DEPARTURE) {
+                                if (!gamma.containsKey(nextId) || bestStart < gamma.get(nextId)) {
+                                    gamma.put(nextId, bestStart);
+                                    if (!nextVertex.equals(source)) reachable.add(nextVertex);
                                 }
-                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
+                                if (!causalTime.containsKey(nextId) || bestEnd < causalTime.get(nextId)) {
+                                    causalTime.put(nextId, bestEnd);
+                                    if (inQueue.add(nextId)) {
+                                        queue.add(nextVertex);
+                                    }
+                                    if (!nextVertex.equals(source)) reachable.add(nextVertex);
+                                }
                             }
                         }
                     }
+                } finally {
+                    CloseableIterator.closeIterator(edges);
                 }
             }
         } else {
@@ -126,43 +136,47 @@ public class TemporalBfsStep extends ScalarMapStep<Vertex, Map<Vertex, Long>> im
                 inQueue.remove(u.id());
                 long currentTime = causalTime.get(u.id());
                 
-                Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
-                while (edges.hasNext()) {
-                    Edge e = edges.next();
-                    Lifetime lifetime = resolveEdgeLifetime(e);
-                    if (lifetime.isEmpty()) continue;
-                    
-                    // Multi-interval sweep backwards: find the last valid interval ending at or before currentTime
-                    final int optimalIdx = lifetime.getLastIntervalIndexEndingBefore(currentTime);
-                    if (optimalIdx >= 0) {
-                        long bestStart = lifetime.getStartMillis(optimalIdx);
-                        long bestEnd = lifetime.getEndMillis(optimalIdx);
-                        Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
-                        Object nextId = nextVertex.id();
+                final Iterator<Edge> edges = u.edges(this.direction, this.edgeLabels);
+                try {
+                    while (edges.hasNext()) {
+                        Edge e = edges.next();
+                        Lifetime lifetime = resolveEdgeLifetime(e);
+                        if (lifetime.isEmpty()) continue;
 
-                        if (target == TemporalPathTarget.LATEST_DEPARTURE) {
-                            if (!gamma.containsKey(nextId) || bestStart > gamma.get(nextId)) {
-                                gamma.put(nextId, bestStart);
-                                causalTime.put(nextId, bestStart);
-                                if (inQueue.add(nextId)) {
-                                    queue.add(nextVertex);
+                        // Multi-interval sweep backwards: find the last valid interval ending at or before currentTime
+                        final int optimalIdx = lifetime.getLastIntervalIndexEndingBefore(currentTime);
+                        if (optimalIdx >= 0) {
+                            long bestStart = lifetime.getStartMillis(optimalIdx);
+                            long bestEnd = lifetime.getEndMillis(optimalIdx);
+                            Vertex nextVertex = direction == Direction.OUT ? e.inVertex() : (direction == Direction.IN ? e.outVertex() : (u.equals(e.outVertex()) ? e.inVertex() : e.outVertex()));
+                            Object nextId = nextVertex.id();
+
+                            if (target == TemporalPathTarget.LATEST_DEPARTURE) {
+                                if (!gamma.containsKey(nextId) || bestStart > gamma.get(nextId)) {
+                                    gamma.put(nextId, bestStart);
+                                    causalTime.put(nextId, bestStart);
+                                    if (inQueue.add(nextId)) {
+                                        queue.add(nextVertex);
+                                    }
+                                    if (!nextVertex.equals(source)) reachable.add(nextVertex);
                                 }
-                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
-                            }
-                        } else if (target == TemporalPathTarget.LATEST_ARRIVAL) {
-                            if (!gamma.containsKey(nextId) || bestEnd > gamma.get(nextId)) {
-                                gamma.put(nextId, bestEnd);
-                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
-                            }
-                            if (!causalTime.containsKey(nextId) || bestStart > causalTime.get(nextId)) {
-                                causalTime.put(nextId, bestStart);
-                                if (inQueue.add(nextId)) {
-                                    queue.add(nextVertex);
+                            } else if (target == TemporalPathTarget.LATEST_ARRIVAL) {
+                                if (!gamma.containsKey(nextId) || bestEnd > gamma.get(nextId)) {
+                                    gamma.put(nextId, bestEnd);
+                                    if (!nextVertex.equals(source)) reachable.add(nextVertex);
                                 }
-                                if (!nextVertex.equals(source)) reachable.add(nextVertex);
+                                if (!causalTime.containsKey(nextId) || bestStart > causalTime.get(nextId)) {
+                                    causalTime.put(nextId, bestStart);
+                                    if (inQueue.add(nextId)) {
+                                        queue.add(nextVertex);
+                                    }
+                                    if (!nextVertex.equals(source)) reachable.add(nextVertex);
+                                }
                             }
                         }
                     }
+                } finally {
+                    CloseableIterator.closeIterator(edges);
                 }
             }
         }

@@ -39,12 +39,15 @@ public final class LifetimeHelper {
     }
 
     /**
-     * Returns {@code true} if the element is alive during the given window
-     * (inclusive).
+     * Returns {@code true} if the element is alive during the given window under
+     * half-open {@code [start, end)} semantics (or exact instant equality for point
+     * intervals {@code [t, t]}).
      * Edges are alive only when both incident vertices are also alive during the
      * window.
      */
     public static boolean isAliveDuring(final Element element, final Lifetime window) {
+        if (window == null || window.isEmpty())
+            return false;
         if (!isElementAlive(element, window))
             return false;
 
@@ -67,6 +70,8 @@ public final class LifetimeHelper {
     }
 
     private static boolean isElementAlive(final Element element, final Lifetime window) {
+        if (window == null || window.isEmpty())
+            return false;
         if (element instanceof TemporalElement) {
             final Lifetime lt = ((TemporalElement) element).getLifetime();
             if (lt != null) {
@@ -80,15 +85,16 @@ public final class LifetimeHelper {
     }
 
     /**
-     * Returns {@code true} if the lifetimes intersect inclusively. A single shared
-     * point is an intersection.
+     * Returns {@code true} if the lifetimes intersect under half-open {@code [start, end)}
+     * semantics (with point intervals {@code [t, t]} intersecting an interval when {@code start <= t < end}
+     * or another point when {@code t1 == t2}). Abutting half-open intervals do not intersect.
      */
     public static boolean intersects(final Lifetime left, final Lifetime right) {
         return left.intersects(right);
     }
 
     /**
-     * Returns the inclusive intersection of two lifetimes, or
+     * Returns the half-open intersection of two lifetimes, or
      * {@link Optional#empty()} when they are disjoint.
      */
     public static Optional<Lifetime> intersection(final Lifetime left, final Lifetime right) {
